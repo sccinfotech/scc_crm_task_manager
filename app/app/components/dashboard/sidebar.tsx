@@ -139,14 +139,14 @@ export function Sidebar({
       >
         {/* Curved Top Edge - Decorative Element */}
         <div className="absolute top-0 left-0 right-0 h-12 overflow-hidden pointer-events-none">
-          <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full bg-gradient-to-br from-[#06B6D4]/20 to-[#7C3AED]/20 blur-2xl"></div>
+          <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full bg-gradient-to-r from-[#06B6D4]/20 to-[#0891b2]/20 blur-2xl"></div>
           <div className="absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-[#06B6D4]/5 to-transparent"></div>
         </div>
 
         <div className="flex h-full flex-col relative">
           {/* Logo Section - Colored Box */}
           <div className={`transition-all duration-300 ${isCollapsed ? 'mx-2 mt-2' : 'mx-4 mt-4'}`}>
-            <div className="rounded-xl bg-gradient-to-br from-[#06B6D4] to-[#7C3AED] shadow-md shadow-[#06B6D4]/20 p-4">
+            <div className="rounded-xl bg-gradient-to-r from-[#06B6D4] to-[#0891b2] shadow-md shadow-[#06B6D4]/20 p-4">
               <div className={`flex items-center justify-between transition-all duration-300 ${isCollapsed ? 'justify-center' : ''}`}>
                 <div className={`flex items-center transition-all duration-300 ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20 backdrop-blur-sm flex-shrink-0">
@@ -194,14 +194,26 @@ export function Sidebar({
           <nav className={`flex-1 overflow-y-auto transition-all duration-300 ${isCollapsed ? 'px-2 py-4' : 'px-4 py-6'} scrollbar-hide`}>
             <ul className="space-y-2">
               {menuItems.map((item) => {
-                const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
+                // More precise active state: exact match or starts with the href followed by /
+                // Special handling for /dashboard to only match exactly
+                let isActive = false
+                if (item.href === '/dashboard') {
+                  isActive = pathname === '/dashboard'
+                } else {
+                  isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
+                }
                 const Icon = item.icon
 
                 return (
                   <li key={item.href}>
                     <Link
                       href={item.href}
-                      onClick={() => setIsMobileOpen(false)}
+                      onClick={() => {
+                        // Only close mobile menu on mobile devices
+                        if (window.innerWidth < 1024) {
+                          setIsMobileOpen(false)
+                        }
+                      }}
                       className={`
                         group relative flex items-center rounded-xl text-sm font-medium transition-all duration-200
                         ${isCollapsed ? 'justify-center px-2 py-3.5' : 'gap-3 px-4 py-3.5'}
@@ -296,7 +308,7 @@ export function Sidebar({
                 <button
                   type="button"
                   onClick={() => setShowLogoutConfirm(true)}
-                  className="w-full flex items-center justify-center rounded-xl bg-red-500 px-3 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-red-600 active:bg-red-700 shadow-sm"
+                  className="w-full flex items-center justify-center rounded-xl bg-red-500 px-2 py-3.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-red-600 active:bg-red-700 shadow-sm"
                   aria-label="Logout"
                 >
                   <svg
@@ -326,7 +338,7 @@ export function Sidebar({
                 <div className="relative rounded-xl bg-gray-50/80 border border-gray-100 p-2.5">
                   {/* Profile Picture & Info */}
                   <div className="flex items-center gap-2.5">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#06B6D4] to-[#7C3AED] text-sm font-semibold text-white shadow-md flex-shrink-0">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-r from-[#06B6D4] to-[#0891b2] text-sm font-semibold text-white shadow-md flex-shrink-0">
                       {getInitials()}
                     </div>
                     <div className="flex-1 min-w-0">
