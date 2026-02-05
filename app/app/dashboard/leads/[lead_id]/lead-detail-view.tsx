@@ -16,11 +16,11 @@ interface LeadDetailViewProps {
 
 function StatusPill({ status }: { status: LeadStatus }) {
   const statusStyles = {
-    new: 'bg-gradient-to-r from-cyan-100 to-cyan-200 text-cyan-800 border-cyan-300 shadow-sm',
-    contacted: 'bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 border-purple-300 shadow-sm',
-    follow_up: 'bg-gradient-to-r from-purple-200 to-purple-300 text-purple-900 border-purple-400 shadow-sm',
-    converted: 'bg-gradient-to-r from-green-100 to-green-200 text-green-800 border-green-300 shadow-sm',
-    lost: 'bg-gradient-to-r from-red-100 to-red-200 text-red-800 border-red-300 shadow-sm',
+    new: 'bg-cyan-100 text-cyan-800 border-cyan-200 hover:bg-cyan-200 hover:shadow-md',
+    contacted: 'bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-200 hover:shadow-md',
+    follow_up: 'bg-gradient-to-r from-[#06B6D4] to-[#0891b2] text-white border-[#0891b2] hover:shadow-lg',
+    converted: 'bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-200 hover:shadow-md',
+    lost: 'bg-red-100 text-red-800 border-red-200 hover:bg-red-200 hover:shadow-md',
   }
 
   const statusLabels = {
@@ -33,7 +33,7 @@ function StatusPill({ status }: { status: LeadStatus }) {
 
   return (
     <span
-      className={`inline-flex items-center rounded-full px-4 py-1.5 text-sm font-bold border ${statusStyles[status]}`}
+      className={`inline-flex items-center rounded-full px-5 py-2 text-sm font-bold border-2 transition-all duration-200 ${statusStyles[status]}`}
     >
       {statusLabels[status]}
     </span>
@@ -79,6 +79,7 @@ export function LeadDetailView({
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [mobileFollowUpsOpen, setMobileFollowUpsOpen] = useState(false)
 
   const canEdit = userRole === 'admin' || lead.created_by === currentUserId
   const canDelete = canEdit
@@ -139,239 +140,289 @@ export function LeadDetailView({
 
   return (
     <>
-      <div className="flex h-full flex-col">
-        {/* Page Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={handleBack}
-              className="rounded-lg p-2 text-gray-600 transition-all hover:bg-gray-100 hover:text-[#06B6D4]"
-              aria-label="Back to leads list"
-            >
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                />
-              </svg>
-            </button>
-            <h1 className="text-2xl font-bold text-[#1E1B4B]">Lead Details</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            {canEdit && (
-              <button
-                onClick={handleEdit}
-                className="rounded-lg px-4 py-2 text-sm font-semibold text-[#7C3AED] transition-all hover:bg-purple-50 hover:shadow-md"
-                aria-label="Edit lead"
-              >
-                <div className="flex items-center gap-2">
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                    />
-                  </svg>
-                  <span>Edit</span>
-                </div>
-              </button>
-            )}
-            {canDelete && (
-              <button
-                onClick={handleDelete}
-                className="rounded-lg px-4 py-2 text-sm font-semibold text-red-600 transition-all hover:bg-red-50 hover:shadow-md"
-                aria-label="Delete lead"
-              >
-                <div className="flex items-center gap-2">
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
-                  </svg>
-                  <span>Delete</span>
-                </div>
-              </button>
-            )}
-          </div>
-        </div>
+      <div className="flex h-full flex-col lg:flex-row gap-6">
 
-        {/* Content - Two Column Layout */}
-        <div className="flex-1 overflow-hidden">
-          <div className="flex h-full flex-col gap-6 lg:flex-row">
-            {/* Left Section - Lead Information */}
-            <div className="flex-1 overflow-y-auto lg:pr-6">
-              <div className="space-y-6">
-                {/* Lead Basic Info Card */}
-                <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-100">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className="h-12 w-12 rounded-full bg-gradient-to-r from-[#06B6D4] to-[#0891b2] flex items-center justify-center shadow-md flex-shrink-0">
-                          <span className="text-xl font-bold text-white">
-                            {getInitials(lead.name)}
-                          </span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h2 className="text-2xl font-bold text-[#1E1B4B]">{lead.name}</h2>
-                          {lead.company_name && (
-                            <p className="mt-1 text-base text-gray-600 font-medium">{lead.company_name}</p>
-                          )}
-                          <div className="mt-3 flex items-center gap-2 flex-wrap">
-                            <span className="text-base font-semibold text-[#1E1B4B]">{lead.phone}</span>
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={() => {
-                                  navigator.clipboard.writeText(lead.phone)
-                                }}
-                                className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-[#06B6D4] transition-all"
-                                aria-label="Copy phone number"
-                                title="Copy"
-                              >
-                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                </svg>
-                              </button>
-                              <a
-                                href={`tel:${lead.phone}`}
-                                className="rounded-lg p-1.5 text-gray-500 hover:bg-green-100 hover:text-green-600 transition-all"
-                                aria-label="Call phone number"
-                                title="Call"
-                              >
-                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                                </svg>
-                              </a>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex-shrink-0">
+        {/* LEFT COLUMN: Lead Details (Full width on mobile, 50% on desktop) */}
+        <div className="w-full lg:w-1/2 flex flex-col gap-5 overflow-y-auto pb-24 lg:pb-0 scrollbar-hide">
+
+          {/* Main Card */}
+          <div className="rounded-2xl bg-white shadow-xl border border-gray-100 overflow-hidden relative">
+
+            {/* 1. Header Section */}
+            <div className="relative bg-gradient-to-r from-[#06B6D4] to-[#0891b2] p-6">
+              <div className="flex justify-between items-start">
+                <div className="flex items-start gap-4">
+                  {/* Avatar */}
+                  <div className="relative h-16 w-16 rounded-2xl bg-white/10 backdrop-blur-sm border-2 border-white/20 flex items-center justify-center shadow-lg transform rotate-3">
+                    <span className="text-2xl font-bold text-white drop-shadow-md">
+                      {getInitials(lead.name)}
+                    </span>
+                  </div>
+
+                  {/* Name & Status */}
+                  <div className="flex flex-col gap-2">
+                    <h1 className="font-['Poppins',sans-serif] text-2xl font-bold text-white tracking-tight">
+                      {lead.name}
+                    </h1>
+                    <div className="flex items-center gap-2 flex-wrap">
                       <StatusPill status={lead.status} />
+                      {lead.company_name && (
+                        <span className="hidden sm:inline-flex items-center text-cyan-50 font-medium text-sm px-2 py-0.5 rounded-md bg-white/10">
+                          {lead.company_name}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                {/* Additional Information Grid */}
-                <div className="grid gap-6 grid-cols-1 sm:grid-cols-2">
-                  {lead.source && (
-                    <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="h-6 w-6 rounded bg-purple-100 flex items-center justify-center">
-                          <svg className="h-4 w-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                          </svg>
-                        </div>
-                        <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                          Source
-                        </p>
-                      </div>
-                      <p className="text-base font-semibold text-[#1E1B4B] mt-1">{lead.source}</p>
-                    </div>
+                {/* Desktop Actions (Hidden on Mobile) */}
+                <div className="hidden lg:flex items-start gap-1 p-1 bg-white/10 rounded-xl backdrop-blur-md border border-white/10">
+                  {canEdit && (
+                    <button
+                      onClick={handleEdit}
+                      className="p-2.5 text-white hover:bg-white/20 rounded-lg transition-all active:scale-95"
+                      title="Edit Lead"
+                    >
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
                   )}
-                  {lead.follow_up_date && (
-                    <div className="rounded-xl bg-gradient-to-br from-orange-50 to-red-50 p-5 shadow-sm border border-orange-100 hover:shadow-md transition-shadow">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="h-6 w-6 rounded bg-orange-100 flex items-center justify-center">
-                          <svg className="h-4 w-4 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                        </div>
-                        <p className="text-xs font-semibold uppercase tracking-wider text-orange-700">
-                          Next Follow-Up Date
-                        </p>
-                      </div>
-                      <p className="text-base font-bold text-orange-600 mt-1">
-                        {formatDateOnly(lead.follow_up_date)}
-                      </p>
-                    </div>
+                  <button
+                    onClick={() => navigator.clipboard.writeText(lead.phone)}
+                    className="p-2.5 text-white hover:bg-white/20 rounded-lg transition-all active:scale-95"
+                    title="Copy Phone"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                    </svg>
+                  </button>
+                  <a
+                    href={`tel:${lead.phone}`}
+                    className="p-2.5 text-white hover:bg-white/20 rounded-lg transition-all active:scale-95"
+                    title="Call Lead"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    </svg>
+                  </a>
+                  {canDelete && (
+                    <button
+                      onClick={handleDelete}
+                      className="p-2.5 text-red-50 hover:bg-red-500/20 rounded-lg transition-all active:scale-95 hover:text-white"
+                      title="Delete Lead"
+                    >
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
                   )}
-                  <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="h-6 w-6 rounded bg-green-100 flex items-center justify-center">
-                        <svg className="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                        Created
-                      </p>
-                    </div>
-                    <p className="text-base font-semibold text-[#1E1B4B] mt-1">
-                      {formatDate(lead.created_at)}
-                    </p>
-                  </div>
-                  <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="h-6 w-6 rounded bg-blue-100 flex items-center justify-center">
-                        <svg className="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                      </div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                        Last Updated
-                      </p>
-                    </div>
-                    <p className="text-base font-semibold text-[#1E1B4B] mt-1">
-                      {formatDate(lead.updated_at)}
-                    </p>
-                  </div>
                 </div>
-
-                {/* Notes Card */}
-                {lead.notes && (
-                  <div className="rounded-xl bg-gradient-to-br from-purple-50 to-pink-50 p-6 shadow-sm border border-purple-100">
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="h-8 w-8 rounded-lg bg-[#7C3AED] flex items-center justify-center">
-                        <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </div>
-                      <h4 className="text-base font-bold text-[#1E1B4B]">Notes</h4>
-                    </div>
-                    <div className="rounded-lg bg-white p-4 shadow-sm border border-purple-100">
-                      <p className="whitespace-pre-wrap text-base text-[#1E1B4B] leading-relaxed">
-                        {lead.notes}
-                      </p>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
 
-            {/* Right Section - Follow-Ups */}
-            <div className="w-full lg:w-1/2 overflow-hidden flex flex-col">
+            {/* 2. Contact Details (Line-wise Layout) */}
+            <div className="p-6 flex flex-col gap-4">
+              {/* Phone */}
+              <div className="flex items-center gap-4 group">
+                <div className="h-10 w-10 rounded-xl bg-cyan-50 flex items-center justify-center text-[#06B6D4] group-hover:bg-[#06B6D4] group-hover:text-white transition-colors shadow-sm">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Phone Number</p>
+                  <p className="text-base font-bold text-[#0C4A6E] font-['Poppins',sans-serif]">{lead.phone}</p>
+                </div>
+              </div>
+
+              {/* Company */}
+              {lead.company_name && (
+                <div className="flex items-center gap-4 group">
+                  <div className="h-10 w-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-colors shadow-sm">
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Company</p>
+                    <p className="text-base font-bold text-[#0C4A6E] font-['Poppins',sans-serif]">{lead.company_name}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Source */}
+              {lead.source && (
+                <div className="flex items-center gap-4 group">
+                  <div className="h-10 w-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500 group-hover:bg-orange-500 group-hover:text-white transition-colors shadow-sm">
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Source</p>
+                    <p className="text-base font-bold text-[#0C4A6E] font-['Poppins',sans-serif]">{lead.source}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+          </div>
+
+          {/* 3. Timeline Section Card */}
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+            <h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Timeline
+            </h3>
+            <div className="space-y-4">
+              {/* Next Follow Up - Highlighted */}
+              {lead.follow_up_date && (
+                <div className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-100 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center">
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <span className="text-sm font-semibold text-gray-600">Next Follow-Up</span>
+                  </div>
+                  <span className="text-sm font-bold text-orange-600 bg-white px-3 py-1 rounded-lg border border-orange-100 shadow-sm">
+                    {formatDateOnly(lead.follow_up_date)}
+                  </span>
+                </div>
+              )}
+
+              {/* Created & Updated - Simple Rows */}
+              <div className="flex justify-between items-center px-2">
+                <span className="text-sm text-gray-500">Created</span>
+                <span className="text-sm font-medium text-gray-800">{formatDate(lead.created_at)}</span>
+              </div>
+              <div className="flex justify-between items-center px-2">
+                <span className="text-sm text-gray-500">Last Updated</span>
+                <span className="text-sm font-medium text-gray-800">{formatDate(lead.updated_at)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 4. Notes Section */}
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Notes
+              </h3>
+              {canEdit && (
+                <button onClick={handleEdit} className="text-xs text-[#06B6D4] font-medium hover:underline">
+                  Edit Note
+                </button>
+              )}
+            </div>
+            <div className="p-4 bg-gray-50 rounded-xl border border-gray-100/50 min-h-[80px]">
+              {lead.notes ? (
+                <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed">{lead.notes}</p>
+              ) : (
+                <p className="text-sm text-gray-400 italic">No notes added yet.</p>
+              )}
+            </div>
+          </div>
+
+        </div>
+
+        {/* RIGHT COLUMN: Follow-Ups (Desktop Only) */}
+        <div className="hidden lg:flex w-1/2 h-full flex-col overflow-hidden">
+          <LeadFollowUps
+            leadId={lead.id}
+            currentUserId={currentUserId}
+            userRole={userRole}
+            leadFollowUpDate={lead.follow_up_date}
+          />
+        </div>
+
+      </div>
+
+      {/* MOBILE ACTION BAR (Sticky Bottom) */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 p-3 lg:hidden shadow-[0_-4px_12px_rgba(0,0,0,0.05)] safe-area-bottom">
+        <div className="grid grid-cols-3 gap-3">
+          <a
+            href={`tel:${lead.phone}`}
+            className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl text-gray-600 hover:bg-gray-50 active:bg-gray-100"
+          >
+            <div className="h-6 w-6 text-[#06B6D4]">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              </svg>
+            </div>
+            <span className="text-[10px] font-bold">Call</span>
+          </a>
+
+          {canEdit && (
+            <button
+              onClick={handleEdit}
+              className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl text-gray-600 hover:bg-gray-50 active:bg-gray-100"
+            >
+              <div className="h-6 w-6 text-[#06B6D4]">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </div>
+              <span className="text-[10px] font-bold">Edit</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => setMobileFollowUpsOpen(true)}
+            className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl bg-[#06B6D4] text-white shadow-lg active:scale-95 transition-transform"
+          >
+            <div className="h-6 w-6">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <span className="text-[10px] font-bold">Follow-Ups</span>
+          </button>
+        </div>
+      </div>
+
+      {/* MOBILE FOLLOW-UPS SHEET (Overlay) */}
+      {mobileFollowUpsOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden flex flex-col bg-gray-900/50 backdrop-blur-sm animate-fade-in">
+          <div
+            className="absolute inset-0"
+            onClick={() => setMobileFollowUpsOpen(false)}
+          />
+          <div className="absolute bottom-0 left-0 right-0 h-[85vh] bg-[#F8FAFC] rounded-t-3xl shadow-2xl flex flex-col overflow-hidden animate-slide-up">
+            {/* Sheet Handle & Header */}
+            <div className="p-4 bg-white border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+              <h3 className="font-['Poppins',sans-serif] text-lg font-bold text-[#0C4A6E]">Follow-Ups</h3>
+              <button
+                onClick={() => setMobileFollowUpsOpen(false)}
+                className="p-2 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Follow Ups Component (Reused) */}
+            <div className="flex-1 overflow-hidden">
               <LeadFollowUps
                 leadId={lead.id}
                 currentUserId={currentUserId}
                 userRole={userRole}
                 leadFollowUpDate={lead.follow_up_date}
+                hideHeader={true}
+                className="!bg-transparent !shadow-none !border-none !p-0 !rounded-none h-full"
               />
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Edit Modal */}
       {editModalOpen && (

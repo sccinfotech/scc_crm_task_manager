@@ -7,6 +7,7 @@ import { Header } from './header'
 interface DashboardLayoutProps {
   children: React.ReactNode
   pageTitle?: string
+  breadcrumb?: React.ReactNode
   userEmail?: string
   userFullName?: string
   userRole?: string
@@ -31,6 +32,7 @@ function getInitialSidebarState(): boolean {
 export function DashboardLayout({
   children,
   pageTitle,
+  breadcrumb,
   userEmail,
   userFullName,
   userRole,
@@ -82,6 +84,7 @@ export function DashboardLayout({
         {!hideHeader && (
           <Header
             pageTitle={pageTitle}
+            breadcrumb={breadcrumb}
             isMobileMenuOpen={isMobileMenuOpen}
             onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             isSidebarCollapsed={isSidebarCollapsed}

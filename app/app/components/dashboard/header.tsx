@@ -2,6 +2,7 @@
 
 interface HeaderProps {
   pageTitle?: string
+  breadcrumb?: React.ReactNode
   isMobileMenuOpen?: boolean
   onMobileMenuToggle?: () => void
   isSidebarCollapsed?: boolean
@@ -10,6 +11,7 @@ interface HeaderProps {
 
 export function Header({
   pageTitle = 'Dashboard',
+  breadcrumb,
   isMobileMenuOpen = false,
   onMobileMenuToggle,
   isSidebarCollapsed = false,
@@ -41,7 +43,7 @@ export function Header({
               </svg>
             </button>
           )}
-          
+
           {/* Collapse Arrow in Header - Only show when sidebar is expanded */}
           {onSidebarToggle && !isSidebarCollapsed && (
             <button
@@ -60,8 +62,12 @@ export function Header({
               </svg>
             </button>
           )}
-          
-          <h2 className="text-lg font-semibold text-[#1E1B4B]">{pageTitle}</h2>
+
+          {breadcrumb ? (
+            <div className="flex items-center">{breadcrumb}</div>
+          ) : (
+            <h2 className="text-lg font-semibold text-[#1E1B4B]">{pageTitle}</h2>
+          )}
         </div>
       </div>
     </header>
