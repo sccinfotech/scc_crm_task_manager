@@ -18,9 +18,11 @@ type SortDirection = 'asc' | 'desc' | null
 interface ClientsTableProps {
   clients: Client[]
   canWrite: boolean
+  canManageInternalNotes?: boolean
   onView: (clientId: string) => void
   onEdit: (clientId: string) => void
   onDelete: (clientId: string, clientName: string) => void
+  onOpenInternalNotes?: (clientId: string, clientName: string) => void
   sortField?: SortField
   sortDirection?: SortDirection
   onSort?: (field: SortField) => void
@@ -81,9 +83,11 @@ function SortIcon({ direction }: { direction: 'asc' | 'desc' | null }) {
 export function ClientsTable({
   clients,
   canWrite,
+  canManageInternalNotes = false,
   onView,
   onEdit,
   onDelete,
+  onOpenInternalNotes,
   sortField = null,
   sortDirection = null,
   onSort,
@@ -180,7 +184,7 @@ export function ClientsTable({
               </div>
             </th>
             <th className="w-[15%] sm:w-[12%] px-4 sm:px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 transition-all duration-200">
-              {canWrite ? 'Actions' : 'View'}
+              {canWrite || canManageInternalNotes ? 'Actions' : 'View'}
             </th>
           </tr>
         </thead>
@@ -230,6 +234,18 @@ export function ClientsTable({
                 </td>
                 <td className="px-4 sm:px-6 py-3 text-right text-sm" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-end gap-2">
+                    {canManageInternalNotes && onOpenInternalNotes && (
+                      <Tooltip content="Internal notes" position="left">
+                        <button
+                          onClick={() => onOpenInternalNotes(client.id, client.name)}
+                          className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-cyan-50 hover:text-cyan-600"
+                        >
+                          <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h8m-8 4h8m-8 4h6M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H9l-4 4V7a2 2 0 012-2z" />
+                          </svg>
+                        </button>
+                      </Tooltip>
+                    )}
                     {canEdit && (
                       <Tooltip content="Edit client details" position="left">
                         <button

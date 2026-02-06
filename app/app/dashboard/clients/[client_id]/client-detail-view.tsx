@@ -7,10 +7,12 @@ import { Client, ClientStatus, getClient, updateClient, deleteClient, ClientForm
 import { ClientFollowUps } from '../client-followups'
 import { ClientModal } from '../client-modal'
 import { DeleteConfirmModal } from '../delete-confirm-modal'
+import { InternalNotesPanel } from '../internal-notes-panel'
 
 interface ClientDetailViewProps {
   client: Client
   canWrite: boolean
+  canManageInternalNotes: boolean
 }
 
 function StatusPill({ status }: { status: ClientStatus }) {
@@ -64,6 +66,7 @@ function getInitials(name: string | null | undefined): string {
 export function ClientDetailView({
   client: initialClient,
   canWrite,
+  canManageInternalNotes,
 }: ClientDetailViewProps) {
   const router = useRouter()
   const [client, setClient] = useState<Client>(initialClient)
@@ -72,9 +75,13 @@ export function ClientDetailView({
   const [loading, setLoading] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [mobileFollowUpsOpen, setMobileFollowUpsOpen] = useState(false)
+  const [internalNotesOpen, setInternalNotesOpen] = useState(false)
 
   const canEdit = canWrite
   const canDelete = canWrite
+  const mobileActionCount = 2 + (canEdit ? 1 : 0) + (canManageInternalNotes ? 1 : 0)
+  const mobileGridClass =
+    mobileActionCount === 4 ? 'grid-cols-4' : mobileActionCount === 3 ? 'grid-cols-3' : 'grid-cols-2'
 
   const handleBack = () => {
     router.push('/dashboard/clients')
@@ -180,6 +187,18 @@ export function ClientDetailView({
 
                 {/* Desktop Actions */}
                 <div className="hidden lg:flex items-center gap-2">
+                  {canManageInternalNotes && (
+                    <Tooltip content="Internal notes">
+                      <button
+                        onClick={() => setInternalNotesOpen(true)}
+                        className="p-2.5 text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 rounded-xl transition-all duration-200 active:scale-95 border border-transparent hover:border-cyan-100"
+                      >
+                        <svg className="h-5.5 w-5.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h8m-8 4h8m-8 4h6M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H9l-4 4V7a2 2 0 012-2z" />
+                        </svg>
+                      </button>
+                    </Tooltip>
+                  )}
                   {canEdit && (
                     <Tooltip content="Edit client details">
                       <button
@@ -293,7 +312,7 @@ export function ClientDetailView({
 
       {/* MOBILE ACTION BAR (Sticky Bottom) */}
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 p-3 lg:hidden shadow-[0_-4px_12px_rgba(0,0,0,0.05)] safe-area-bottom">
-        <div className="grid grid-cols-3 gap-3">
+        <div className={`grid gap-3 ${mobileGridClass}`}>
           <a
             href={`tel:${client.phone}`}
             className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl text-gray-600 hover:bg-gray-50 active:bg-gray-100"
@@ -317,6 +336,20 @@ export function ClientDetailView({
                 </svg>
               </div>
               <span className="text-[10px] font-bold">Edit</span>
+            </button>
+          )}
+
+          {canManageInternalNotes && (
+            <button
+              onClick={() => setInternalNotesOpen(true)}
+              className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl text-gray-600 hover:bg-gray-50 active:bg-gray-100"
+            >
+              <div className="h-6 w-6 text-[#06B6D4]">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h8m-8 4h8m-8 4h6M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H9l-4 4V7a2 2 0 012-2z" />
+                </svg>
+              </div>
+              <span className="text-[10px] font-bold">Notes</span>
             </button>
           )}
 
@@ -394,6 +427,15 @@ export function ClientDetailView({
           onConfirm={handleConfirmDelete}
           clientName={client.name}
           isLoading={deleting}
+        />
+      )}
+
+      {canManageInternalNotes && (
+        <InternalNotesPanel
+          clientId={client.id}
+          clientName={client.name}
+          isOpen={internalNotesOpen}
+          onClose={() => setInternalNotesOpen(false)}
         />
       )}
     </>

@@ -26,11 +26,14 @@ npm install @supabase/supabase-js @supabase/ssr
    - This is the same directory where `package.json` is located
    - Path: `/Users/himanidudhat/Documents/Sarika/GitHub/scc_crm_task_manager/app/.env.local`
 
-2. **File format**: The file should contain exactly these two lines (no quotes needed around values):
+2. **File format**: The file should contain these lines (no quotes needed around values):
 
    ```env
    NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
+   NEXT_PUBLIC_CLOUDINARY_API_KEY=your_cloudinary_api_key
+   CLOUDINARY_API_SECRET=your_cloudinary_api_secret
    ```
 
 ### 2.2: Get your Supabase credentials
@@ -57,6 +60,9 @@ npm install @supabase/supabase-js @supabase/ssr
    ```env
    NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxxxxxxx.supabase.co
    NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_xxxxxxxxxxxxx
+   NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
+   NEXT_PUBLIC_CLOUDINARY_API_KEY=your_cloudinary_api_key
+   CLOUDINARY_API_SECRET=your_cloudinary_api_secret
    ```
    
    **Note**: The key format should start with `sb_publishable_` (new format). If you see a legacy format starting with `eyJ...`, make sure you're using the "Publishable key" from the "Publishable and secret API keys" tab, not the legacy "anon" key.
@@ -271,4 +277,3 @@ After authentication is working:
 3. Add user management (for admins)
 4. Create additional protected routes
 5. Add business logic and features
-

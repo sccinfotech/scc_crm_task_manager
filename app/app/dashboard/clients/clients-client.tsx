@@ -6,6 +6,7 @@ import { ClientsTable } from './clients-table'
 import { ClientModal } from './client-modal'
 import { DeleteConfirmModal } from './delete-confirm-modal'
 import { ClientsFilters } from './clients-filters'
+import { InternalNotesPanel } from './internal-notes-panel'
 import { createClient, updateClient, getClient, deleteClient, ClientFormData, Client, ClientStatus } from '@/lib/clients/actions'
 import { useToast } from '@/app/components/ui/toast-context'
 
@@ -23,9 +24,10 @@ type ClientListItem = {
 interface ClientsClientProps {
   clients: ClientListItem[]
   canWrite: boolean
+  canManageInternalNotes: boolean
 }
 
-export function ClientsClient({ clients, canWrite }: ClientsClientProps) {
+export function ClientsClient({ clients, canWrite, canManageInternalNotes }: ClientsClientProps) {
   const router = useRouter()
   const { success: showSuccess, error: showError } = useToast()
   const [createModalOpen, setCreateModalOpen] = useState(false)
@@ -40,6 +42,9 @@ export function ClientsClient({ clients, canWrite }: ClientsClientProps) {
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [sortField, setSortField] = useState<'name' | 'company_name' | 'phone' | 'status' | 'created_at' | null>(null)
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+  const [internalNotesOpen, setInternalNotesOpen] = useState(false)
+  const [internalNotesClientId, setInternalNotesClientId] = useState<string | null>(null)
+  const [internalNotesClientName, setInternalNotesClientName] = useState<string>('')
 
   // Filter and sort clients
   const filteredAndSortedClients = useMemo(() => {
@@ -235,6 +240,16 @@ export function ClientsClient({ clients, canWrite }: ClientsClientProps) {
     setSearchQuery('')
   }
 
+  const handleOpenInternalNotes = (clientId: string, clientName: string) => {
+    if (!canManageInternalNotes) {
+      showError('Permission Denied', 'You do not have permission to view internal notes.')
+      return
+    }
+    setInternalNotesClientId(clientId)
+    setInternalNotesClientName(clientName)
+    setInternalNotesOpen(true)
+  }
+
   return (
     <>
       <div className="flex h-full flex-col p-4 lg:p-6">
@@ -271,9 +286,11 @@ export function ClientsClient({ clients, canWrite }: ClientsClientProps) {
             <ClientsTable
               clients={filteredAndSortedClients}
               canWrite={canWrite}
+              canManageInternalNotes={canManageInternalNotes}
               onView={handleView}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              onOpenInternalNotes={handleOpenInternalNotes}
               sortField={sortField}
               sortDirection={sortField ? sortDirection : undefined}
               onSort={handleSort}
@@ -312,6 +329,15 @@ export function ClientsClient({ clients, canWrite }: ClientsClientProps) {
         clientName={deleteClientName}
         isLoading={deleting}
       />
+
+      {canManageInternalNotes && (
+        <InternalNotesPanel
+          clientId={internalNotesClientId}
+          clientName={internalNotesClientName}
+          isOpen={internalNotesOpen}
+          onClose={() => setInternalNotesOpen(false)}
+        />
+      )}
     </>
   )
 }

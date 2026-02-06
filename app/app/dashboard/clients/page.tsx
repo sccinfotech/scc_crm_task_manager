@@ -29,12 +29,14 @@ export default async function ClientsPage() {
   }
 
   const canWrite = await hasPermission(user, MODULE_PERMISSION_IDS.clients, 'write')
+  const canManageInternalNotes = user.role === 'admin' || user.role === 'manager'
   const clients = await getClients()
 
   return (
     <ClientsClient
       clients={clients}
       canWrite={canWrite}
+      canManageInternalNotes={canManageInternalNotes}
     />
   )
 }

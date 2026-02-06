@@ -28,6 +28,23 @@ Updates lead and follow-up RLS policies to respect `module_permissions`:
 - Write access: `leads` / `follow_ups` set to `write`
 - Admins and managers retain full access (except module-specific UI gates)
 
+### 004_client_management.sql
+Consolidates all client-related setup:
+- `clients` table and status constraints
+- `client_followups` table
+- All indexes for both tables
+- RLS policies for both tables
+- Timestamps update triggers
+
+### 005_make_followup_date_optional.sql
+Makes `note` and `follow_up_date` optional in lead/client follow-ups so either can be used independently.
+
+### 006_client_internal_notes.sql
+Creates internal notes and attachments:
+- `client_internal_notes` table
+- `client_note_attachments` table
+- Admin/manager-only RLS policies
+
 ## How to Apply Migrations
 
 ### Option 1: Using Supabase Dashboard

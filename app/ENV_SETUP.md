@@ -8,6 +8,9 @@ Create a `.env.local` file in the project root with these variables:
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your-cloud-name
+NEXT_PUBLIC_CLOUDINARY_API_KEY=your-cloudinary-api-key
+CLOUDINARY_API_SECRET=your-cloudinary-api-secret
 ```
 
 ## Where to Find Values
@@ -20,6 +23,15 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
    - **Publishable key** (from "Publishable key" section) → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - **Service Role key** (from "Secret key" section) → `SUPABASE_SERVICE_ROLE_KEY`
      - **Important**: This is a secret key. Never share it or prefix it with `NEXT_PUBLIC_`.
+
+## Cloudinary (Internal Notes Attachments)
+
+1. Go to https://cloudinary.com/console
+2. Open your Cloudinary dashboard
+3. Copy:
+   - **Cloud name** → `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME`
+   - **API Key** → `NEXT_PUBLIC_CLOUDINARY_API_KEY`
+   - **API Secret** → `CLOUDINARY_API_SECRET` (server-only, never prefix with `NEXT_PUBLIC_`)
 
 ## Important Notes
 
@@ -52,4 +64,3 @@ The app validates environment variables at runtime. If missing, you'll see a cle
 → Make sure you restarted the dev server
 
 For detailed setup instructions, see [SETUP.md](./SETUP.md).
-

@@ -28,6 +28,7 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
 
   const client = result.data
   const canWrite = await hasPermission(user, MODULE_PERMISSION_IDS.clients, 'write')
+  const canManageInternalNotes = user.role === 'admin' || user.role === 'manager'
 
   const breadcrumb = (
     <div className="flex items-center gap-2 text-sm">
@@ -54,6 +55,7 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
         <ClientDetailView
           client={client}
           canWrite={canWrite}
+          canManageInternalNotes={canManageInternalNotes}
         />
       </div>
     </div>
