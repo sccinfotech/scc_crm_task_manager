@@ -303,7 +303,6 @@ export function ClientDetailView({
         <div className="hidden lg:flex w-1/2 h-full flex-col">
           <ClientFollowUps
             clientId={client.id}
-            leadId={client.lead_id}
             canWrite={canWrite}
           />
         </div>
@@ -392,7 +391,6 @@ export function ClientDetailView({
             <div className="flex-1 overflow-hidden">
               <ClientFollowUps
                 clientId={client.id}
-                leadId={client.lead_id}
                 canWrite={canWrite}
                 hideHeader={true}
                 className="!bg-transparent !shadow-none !border-none !p-0 !rounded-none h-full"

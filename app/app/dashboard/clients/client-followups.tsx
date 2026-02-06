@@ -20,7 +20,6 @@ import { FollowUpDeleteModal } from '@/app/dashboard/leads/follow-up-delete-moda
 
 interface ClientFollowUpsProps {
   clientId: string
-  leadId: string | null
   canWrite: boolean
   className?: string
   hideHeader?: boolean
@@ -94,7 +93,6 @@ function getInitials(name: string | null | undefined): string {
 
 export function ClientFollowUps({
   clientId,
-  leadId,
   canWrite,
   className = '',
   hideHeader = false,
@@ -134,12 +132,10 @@ export function ClientFollowUps({
       setClientFollowUps(clientResult.data)
     }
 
-    // Fetch lead follow-ups if client was converted from a lead
-    if (leadId) {
-      const leadResult = await getLeadFollowUpsForClient(leadId)
-      if (leadResult.data) {
-        setLeadFollowUps(leadResult.data)
-      }
+    // Fetch lead-stage follow-ups linked to this client (from pre-conversion)
+    const leadResult = await getLeadFollowUpsForClient(clientId)
+    if (leadResult.data) {
+      setLeadFollowUps(leadResult.data)
     }
 
     setLoading(false)
@@ -147,7 +143,7 @@ export function ClientFollowUps({
 
   useEffect(() => {
     fetchFollowUps()
-  }, [clientId, leadId])
+  }, [clientId])
 
   useEffect(() => {
     if (loading || error) return

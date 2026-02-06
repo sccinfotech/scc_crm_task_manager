@@ -44,6 +44,14 @@ export async function createClient(formData: ClientFormData) {
       error: 'You do not have permission to create a client',
     }
   }
+  if (formData.lead_id) {
+    const canWriteLeads = await hasPermission(currentUser, MODULE_PERMISSION_IDS.leads, 'write')
+    if (!canWriteLeads) {
+      return {
+        error: 'You do not have permission to convert leads',
+      }
+    }
+  }
 
   const supabase = await createSupabaseClient()
 
@@ -74,6 +82,34 @@ export async function createClient(formData: ClientFormData) {
     return {
       error: error.message || 'Failed to create client',
     }
+  }
+
+  if (formData.lead_id) {
+    const { error: followUpError } = await supabase
+      .from('lead_client_followups')
+      .update({
+        client_id: data.id,
+        lead_id: null,
+      })
+      .eq('lead_id', formData.lead_id)
+      .eq('entity_type', 'lead')
+
+    if (followUpError) {
+      console.error('Error updating follow-ups during conversion:', followUpError)
+      return { error: followUpError.message || 'Client created, but follow-ups failed to transfer' }
+    }
+
+    const { error: deleteLeadError } = await supabase
+      .from('leads')
+      .delete()
+      .eq('id', formData.lead_id)
+
+    if (deleteLeadError) {
+      console.error('Error deleting lead after conversion:', deleteLeadError)
+      return { error: deleteLeadError.message || 'Client created, but lead deletion failed' }
+    }
+
+    revalidatePath('/dashboard/leads')
   }
 
   revalidatePath('/dashboard/clients')
@@ -249,9 +285,10 @@ export async function getClientFollowUps(clientId: string) {
 
   // Fetch follow-ups for the client, ordered by created_at ASC (oldest first, newest last)
   const { data: followUps, error } = await supabase
-    .from('client_followups')
+    .from('lead_client_followups')
     .select('*')
     .eq('client_id', clientId)
+    .eq('entity_type', 'client')
     .order('created_at', { ascending: true })
 
   if (error) {
@@ -329,9 +366,10 @@ export async function createClientFollowUp(
   }
 
   const { data, error } = await supabase
-    .from('client_followups')
+    .from('lead_client_followups')
     .insert({
       client_id: clientId,
+      entity_type: 'client',
       note: formData.note?.trim() || null,
       follow_up_date: formData.follow_up_date || null, // Optional reminder date
       created_by: currentUser.id,
@@ -374,9 +412,10 @@ export async function updateClientFollowUp(
 
   // Check if follow-up exists
   const { data: existingFollowUp, error: fetchError } = await supabase
-    .from('client_followups')
+    .from('lead_client_followups')
     .select('client_id')
     .eq('id', followUpId)
+    .eq('entity_type', 'client')
     .single()
 
   if (fetchError || !existingFollowUp) {
@@ -395,12 +434,13 @@ export async function updateClientFollowUp(
   }
 
   const { data, error } = await supabase
-    .from('client_followups')
+    .from('lead_client_followups')
     .update({
       note: formData.note?.trim() || null,
       follow_up_date: formData.follow_up_date || null, // Optional reminder date
     })
     .eq('id', followUpId)
+    .eq('entity_type', 'client')
     .select()
     .single()
 
@@ -434,9 +474,10 @@ export async function deleteClientFollowUp(followUpId: string) {
 
   // Check if follow-up exists
   const { data: existingFollowUp, error: fetchError } = await supabase
-    .from('client_followups')
+    .from('lead_client_followups')
     .select('client_id')
     .eq('id', followUpId)
+    .eq('entity_type', 'client')
     .single()
 
   if (fetchError || !existingFollowUp) {
@@ -446,9 +487,10 @@ export async function deleteClientFollowUp(followUpId: string) {
   }
 
   const { error } = await supabase
-    .from('client_followups')
+    .from('lead_client_followups')
     .delete()
     .eq('id', followUpId)
+    .eq('entity_type', 'client')
 
   if (error) {
     console.error('Error deleting follow-up:', error)
@@ -461,8 +503,8 @@ export async function deleteClientFollowUp(followUpId: string) {
   return { error: null }
 }
 
-// Get lead follow-ups for a client (if client was converted from a lead)
-export async function getLeadFollowUpsForClient(leadId: string) {
+// Get lead-stage follow-ups for a client (from pre-conversion history)
+export async function getLeadFollowUpsForClient(clientId: string) {
   const currentUser = await getCurrentUser()
   if (!currentUser) {
     return {
@@ -482,9 +524,10 @@ export async function getLeadFollowUpsForClient(leadId: string) {
 
   // Fetch follow-ups for the lead, ordered by created_at ASC (oldest first, newest last)
   const { data: followUps, error } = await supabase
-    .from('lead_followups')
+    .from('lead_client_followups')
     .select('*')
-    .eq('lead_id', leadId)
+    .eq('client_id', clientId)
+    .eq('entity_type', 'lead')
     .order('created_at', { ascending: true })
 
   if (error) {
@@ -515,7 +558,7 @@ export async function getLeadFollowUpsForClient(leadId: string) {
   // Transform the data to include created_by_name
   const transformedData = followUps.map((item) => ({
     id: item.id,
-    lead_id: item.lead_id,
+    client_id: item.client_id,
     note: item.note,
     follow_up_date: item.follow_up_date,
     created_by: item.created_by,

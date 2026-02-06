@@ -45,6 +45,13 @@ Creates internal notes and attachments:
 - `client_note_attachments` table
 - Admin/manager-only RLS policies
 
+### 007_lead_client_followups.sql
+Unifies lead and client follow-ups:
+- Creates `lead_client_followups` with `entity_type` and a single parent reference
+- Migrates data from legacy `lead_followups` and `client_followups`
+- Attaches legacy lead follow-ups to clients when `clients.lead_id` matches
+- Drops the legacy follow-up tables
+
 ## How to Apply Migrations
 
 ### Option 1: Using Supabase Dashboard
@@ -53,6 +60,10 @@ Creates internal notes and attachments:
 3. Copy and paste the contents of `001_auth_user_management.sql` and run it.
 4. Copy and paste the contents of `002_lead_management.sql` and run it.
 5. Copy and paste the contents of `003_module_permissions_rls.sql` and run it.
+6. Copy and paste the contents of `004_client_management.sql` and run it.
+7. Copy and paste the contents of `005_make_followup_date_optional.sql` and run it.
+8. Copy and paste the contents of `006_client_internal_notes.sql` and run it.
+9. Copy and paste the contents of `007_lead_client_followups.sql` and run it.
 
 ### Option 2: Using Supabase CLI
 ```bash

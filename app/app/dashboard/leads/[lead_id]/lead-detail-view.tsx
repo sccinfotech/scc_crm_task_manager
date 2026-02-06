@@ -89,6 +89,7 @@ export function LeadDetailView({
 
   const canEdit = canWrite
   const canDelete = canWrite
+  const canConvert = canCreateClient && canWrite
 
   useEffect(() => {
     setLead(initialLead)
@@ -153,7 +154,7 @@ export function LeadDetailView({
   }
 
   const handleConvert = () => {
-    if (!canCreateClient) {
+    if (!canConvert) {
       showError('Permission Denied', 'You do not have permission to create clients.')
       return
     }
@@ -161,7 +162,7 @@ export function LeadDetailView({
   }
 
   const handleConvertSubmit = async (formData: ClientFormData) => {
-    if (!canCreateClient) {
+    if (!canConvert) {
       showError('Permission Denied', 'You do not have permission to create clients.')
       return { error: 'Permission denied' }
     }
@@ -174,12 +175,12 @@ export function LeadDetailView({
     if (!result.error) {
       showSuccess('Client Created', `Lead ${lead.name} has been converted to a client.`)
       setConvertModalOpen(false)
-      // Update lead status to 'converted'
-      await updateLead(lead.id, {
-        ...lead,
-        status: 'converted',
-      })
-      router.refresh()
+      if (result.data?.id) {
+        router.push(`/dashboard/clients/${result.data.id}`)
+        router.refresh()
+      } else {
+        router.push('/dashboard/clients')
+      }
     } else {
       showError('Conversion Failed', result.error)
     }
@@ -247,7 +248,7 @@ export function LeadDetailView({
 
                 {/* Desktop Actions */}
                 <div className="hidden lg:flex items-center gap-2">
-                  {canCreateClient && lead.status !== 'converted' && (
+                  {canConvert && lead.status !== 'converted' && (
                     <Tooltip content="Convert to client">
                       <button
                         onClick={handleConvert}

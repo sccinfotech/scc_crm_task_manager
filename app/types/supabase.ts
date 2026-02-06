@@ -82,10 +82,12 @@ export interface Database {
           updated_at?: string
         }
       }
-      lead_followups: {
+      lead_client_followups: {
         Row: {
           id: string
-          lead_id: string
+          entity_type: string
+          lead_id: string | null
+          client_id: string | null
           note: string | null
           follow_up_date: string | null
           created_by: string
@@ -94,7 +96,9 @@ export interface Database {
         }
         Insert: {
           id?: string
-          lead_id: string
+          entity_type: string
+          lead_id?: string | null
+          client_id?: string | null
           note?: string | null
           follow_up_date?: string | null
           created_by: string
@@ -103,7 +107,9 @@ export interface Database {
         }
         Update: {
           id?: string
-          lead_id?: string
+          entity_type?: string
+          lead_id?: string | null
+          client_id?: string | null
           note?: string | null
           follow_up_date?: string | null
           created_by?: string
@@ -147,35 +153,6 @@ export interface Database {
           status?: string
           remark?: string | null
           lead_id?: string | null
-          created_by?: string
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      client_followups: {
-        Row: {
-          id: string
-          client_id: string
-          note: string | null
-          follow_up_date: string | null
-          created_by: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          client_id: string
-          note?: string | null
-          follow_up_date?: string | null
-          created_by: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          client_id?: string
-          note?: string | null
-          follow_up_date?: string | null
           created_by?: string
           created_at?: string
           updated_at?: string
@@ -265,4 +242,3 @@ export type ModulePermission = {
   moduleId: string
   accessLevel: 'read' | 'write' | 'none'
 }
-

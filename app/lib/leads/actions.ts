@@ -262,9 +262,10 @@ export async function getLeadFollowUps(leadId: string) {
   // Fetch follow-ups for the lead, ordered by created_at ASC (oldest first, newest last)
   // RLS will automatically filter based on user permissions
   const { data: followUps, error } = await supabase
-    .from('lead_followups')
+    .from('lead_client_followups')
     .select('*')
     .eq('lead_id', leadId)
+    .eq('entity_type', 'lead')
     .order('created_at', { ascending: true })
 
   if (error) {
@@ -325,9 +326,10 @@ async function updateLeadFollowUpDate(leadId: string) {
 
   // Get the latest created follow-up for this lead
   const { data: followUps, error: fetchError } = await supabase
-    .from('lead_followups')
+    .from('lead_client_followups')
     .select('follow_up_date, created_at')
     .eq('lead_id', leadId)
+    .eq('entity_type', 'lead')
     .order('created_at', { ascending: false })
     .limit(1)
 
@@ -396,9 +398,10 @@ export async function createLeadFollowUp(
   // Note: follow_up_date here is the NEXT follow-up date (not when the note was written)
   // Both note and follow_up_date are optional, but at least one must be provided
   const { data, error } = await supabase
-    .from('lead_followups')
+    .from('lead_client_followups')
     .insert({
       lead_id: leadId,
+      entity_type: 'lead',
       note: formData.note?.trim() || null,
       follow_up_date: formData.follow_up_date || null, // Optional: This is the NEXT follow-up date
       created_by: currentUser.id,
@@ -444,9 +447,10 @@ export async function updateLeadFollowUp(
 
   // Check if follow-up exists (RLS will handle access, but we check for better error messages)
   const { data: existingFollowUp, error: fetchError } = await supabase
-    .from('lead_followups')
+    .from('lead_client_followups')
     .select('lead_id')
     .eq('id', followUpId)
+    .eq('entity_type', 'lead')
     .single()
 
   if (fetchError || !existingFollowUp) {
@@ -466,12 +470,13 @@ export async function updateLeadFollowUp(
 
   // Update follow-up
   const { data, error } = await supabase
-    .from('lead_followups')
+    .from('lead_client_followups')
     .update({
       note: formData.note?.trim() || null,
       follow_up_date: formData.follow_up_date || null,
     })
     .eq('id', followUpId)
+    .eq('entity_type', 'lead')
     .select()
     .single()
 
@@ -515,9 +520,10 @@ export async function deleteLeadFollowUp(followUpId: string) {
 
   // Check if follow-up exists (RLS will handle access, but we check for better error messages)
   const { data: existingFollowUp, error: fetchError } = await supabase
-    .from('lead_followups')
+    .from('lead_client_followups')
     .select('lead_id')
     .eq('id', followUpId)
+    .eq('entity_type', 'lead')
     .single()
 
   if (fetchError || !existingFollowUp) {
@@ -528,9 +534,10 @@ export async function deleteLeadFollowUp(followUpId: string) {
 
   // Delete follow-up
   const { error } = await supabase
-    .from('lead_followups')
+    .from('lead_client_followups')
     .delete()
     .eq('id', followUpId)
+    .eq('entity_type', 'lead')
 
   if (error) {
     console.error('Error deleting follow-up:', error)

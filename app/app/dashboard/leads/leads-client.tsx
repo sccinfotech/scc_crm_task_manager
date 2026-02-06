@@ -300,6 +300,7 @@ export function LeadsClient({ leads, canWrite, canCreateClient = false }: LeadsC
   }
 
   const canEditLead = () => canWrite
+  const canConvert = canCreateClient && canWrite
 
   const getInitialEditData = (): Partial<LeadFormData> | undefined => {
     if (!selectedLead) return undefined
@@ -321,7 +322,7 @@ export function LeadsClient({ leads, canWrite, canCreateClient = false }: LeadsC
   }
 
   const handleConvert = async (leadId: string) => {
-    if (!canCreateClient) {
+    if (!canConvert) {
       showError('Permission Denied', 'You do not have permission to create clients.')
       return
     }
@@ -338,7 +339,7 @@ export function LeadsClient({ leads, canWrite, canCreateClient = false }: LeadsC
 
   const handleConvertSubmit = async (formData: ClientFormData) => {
     if (!leadToConvert) return { error: 'No lead selected' }
-    if (!canCreateClient) {
+    if (!canConvert) {
       showError('Permission Denied', 'You do not have permission to create clients.')
       return { error: 'Permission denied' }
     }
@@ -353,11 +354,6 @@ export function LeadsClient({ leads, canWrite, canCreateClient = false }: LeadsC
       setConvertModalOpen(false)
       setLeadToConvert(null)
       router.refresh()
-      // Optionally update lead status to 'converted'
-      await updateLead(leadToConvert.id, {
-        ...leadToConvert,
-        status: 'converted',
-      })
     } else {
       showError('Conversion Failed', result.error)
     }
@@ -417,7 +413,7 @@ export function LeadsClient({ leads, canWrite, canCreateClient = false }: LeadsC
               onEdit={handleEdit}
               onDelete={handleDelete}
               onConvert={handleConvert}
-              canConvert={canCreateClient}
+              canConvert={canConvert}
               sortField={sortField}
               sortDirection={sortField ? sortDirection : undefined}
               onSort={handleSort}
