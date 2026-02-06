@@ -313,52 +313,35 @@ export type LeadFollowUpFormData = {
 }
 
 /**
- * Helper function to update lead's next_follow_up_date based on follow-up records
- * 
+ * Helper function to update lead's follow_up_date based on follow-up records
+ *
  * Business Rule:
- * - The lead's follow_up_date must always reflect the latest upcoming follow-up date
- * - It is calculated from all follow-up records' follow_up_date fields
- * - Each follow-up record's follow_up_date represents the NEXT follow-up date
- *   decided during that follow-up (not when the note was written)
- * - If no upcoming follow-ups exist, set to null
+ * - The lead's follow_up_date always reflects the latest added follow-up record
+ * - Specifically, we use the most recently created follow-up's follow_up_date
+ * - If no follow-ups exist, set to null
  */
 async function updateLeadFollowUpDate(leadId: string) {
   const supabase = await createClient()
 
-  // Get the earliest upcoming follow-up date (today or future)
-  // follow_up_date in lead_followups is DATE type, so we compare as date strings
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const todayDateString = today.toISOString().split('T')[0]
-
-  // Query all follow-ups with reminder dates (including past dates for completeness)
-  // Then filter for upcoming dates (today or future) to find the next one
-  const { data: allFollowUps, error: fetchError } = await supabase
+  // Get the latest created follow-up for this lead
+  const { data: followUps, error: fetchError } = await supabase
     .from('lead_followups')
-    .select('follow_up_date')
+    .select('follow_up_date, created_at')
     .eq('lead_id', leadId)
-    .not('follow_up_date', 'is', null)
-    .order('follow_up_date', { ascending: true })
+    .order('created_at', { ascending: false })
+    .limit(1)
 
   if (fetchError) {
     console.error('Error fetching follow-ups for date sync:', fetchError)
     return
   }
 
-  // Filter for upcoming dates (today or future) and get the earliest one
-  const upcomingFollowUps = (allFollowUps || []).filter((fu) => {
-    if (!fu.follow_up_date) return false
-    const followUpDate = new Date(fu.follow_up_date)
-    followUpDate.setHours(0, 0, 0, 0)
-    return followUpDate >= today
-  })
-
   // Convert DATE to TIMESTAMP WITH TIME ZONE for leads table
-  // Set to the earliest upcoming date, or null if none exist
-  const nextFollowUpDate =
-    upcomingFollowUps && upcomingFollowUps.length > 0
-      ? new Date(upcomingFollowUps[0].follow_up_date + 'T00:00:00Z').toISOString()
-      : null
+  // Set to the latest created follow-up's date, or null if none exist
+  const latestFollowUpDate = followUps?.[0]?.follow_up_date
+  const nextFollowUpDate = latestFollowUpDate
+    ? new Date(latestFollowUpDate + 'T00:00:00Z').toISOString()
+    : null
 
   // Update the lead's follow_up_date to keep it synchronized
   const { error: updateError } = await supabase
@@ -378,7 +361,7 @@ async function updateLeadFollowUpDate(leadId: string) {
  * - A follow-up record represents a follow-up that has already been taken
  * - The note field describes what discussion/action happened in that follow-up
  * - The follow_up_date field represents the NEXT follow-up date decided during that follow-up
- * - After creation, the lead's next_follow_up_date is recalculated to stay in sync
+ * - After creation, the lead's follow_up_date is set to the latest added follow-up
  */
 export async function createLeadFollowUp(
   leadId: string,
@@ -431,7 +414,7 @@ export async function createLeadFollowUp(
     }
   }
 
-  // Recalculate and update lead's next_follow_up_date to stay synchronized
+  // Update lead's follow_up_date to match the latest added follow-up
   await updateLeadFollowUpDate(leadId)
 
   revalidatePath('/dashboard/leads')
@@ -509,11 +492,10 @@ export async function updateLeadFollowUp(
 
 /**
  * Delete a follow-up record
- * 
+ *
  * Business Rules:
  * - Only creator or admin can delete
- * - After deletion, recalculates lead's next_follow_up_date
- * - Uses latest remaining follow-up date, or null if none exist
+ * - After deletion, lead.follow_up_date is set to the latest remaining follow-up date, or null if none exist
  */
 export async function deleteLeadFollowUp(followUpId: string) {
   const currentUser = await getCurrentUser()
@@ -557,8 +539,7 @@ export async function deleteLeadFollowUp(followUpId: string) {
     }
   }
 
-  // Recalculate lead's next_follow_up_date after deletion
-  // This ensures it reflects the latest remaining follow-up date, or null if none exist
+  // Update lead.follow_up_date after deletion (latest remaining, or null)
   await updateLeadFollowUpDate(existingFollowUp.lead_id)
 
   revalidatePath('/dashboard/leads')

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   getLeadFollowUps,
@@ -23,6 +23,7 @@ interface LeadFollowUpsProps {
   canWrite: boolean
   className?: string
   hideHeader?: boolean
+  onLatestFollowUpDateChange?: (date: string | null) => void
 }
 
 function formatDate(dateString: string) {
@@ -106,9 +107,11 @@ export function LeadFollowUps({
   canWrite,
   className = '',
   hideHeader = false,
+  onLatestFollowUpDateChange,
 }: LeadFollowUpsProps) {
   const router = useRouter()
   const { success: showSuccess, error: showError } = useToast()
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const [followUps, setFollowUps] = useState<LeadFollowUp[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -118,15 +121,22 @@ export function LeadFollowUps({
   const [submitting, setSubmitting] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
-  const fetchFollowUps = async () => {
-    setLoading(true)
-    setError(null)
+  const fetchFollowUps = async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false
+    if (!silent) {
+      setLoading(true)
+      setError(null)
+    }
 
     const result = await getLeadFollowUps(leadId)
 
     if (result.error) {
-      setError(result.error)
-      setLoading(false)
+      if (!silent) {
+        setError(result.error)
+        setLoading(false)
+      } else {
+        showError('Refresh Failed', result.error)
+      }
       return
     }
 
@@ -141,6 +151,19 @@ export function LeadFollowUps({
     fetchFollowUps()
   }, [leadId])
 
+  useEffect(() => {
+    if (loading || error) return
+    if (followUps.length === 0) return
+
+    const el = scrollContainerRef.current
+    if (!el) return
+
+    requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight
+    })
+  }, [loading, error, followUps.length])
+
+
   const handleCreate = async (formData: LeadFollowUpFormData) => {
     if (!canWrite) {
       showError('Read-only Access', 'You do not have permission to add follow-ups.')
@@ -152,7 +175,22 @@ export function LeadFollowUps({
 
     if (!result.error) {
       showSuccess('Follow-up Added', 'The interaction has been recorded.')
-      await fetchFollowUps()
+      if (result.data) {
+        const optimisticFollowUp: LeadFollowUp = {
+          id: result.data.id,
+          lead_id: result.data.lead_id,
+          note: result.data.note,
+          follow_up_date: result.data.follow_up_date,
+          created_by: result.data.created_by,
+          created_by_name: 'You',
+          created_at: result.data.created_at || new Date().toISOString(),
+          updated_at: result.data.updated_at || new Date().toISOString(),
+        }
+        const nextFollowUps = [...followUps, optimisticFollowUp]
+        setFollowUps(nextFollowUps)
+        onLatestFollowUpDateChange?.(optimisticFollowUp.follow_up_date || null)
+      }
+      await fetchFollowUps({ silent: true })
       router.refresh()
       // Reset form by clearing the form fields
       const form = document.getElementById('add-followup-form') as HTMLFormElement
@@ -183,7 +221,20 @@ export function LeadFollowUps({
 
     if (!result.error) {
       showSuccess('Follow-up Updated', 'The changes have been saved.')
-      await fetchFollowUps()
+      const nextFollowUps = followUps.map((item) =>
+        item.id === selectedFollowUp.id
+          ? {
+            ...item,
+            note: formData.note?.trim() || null,
+            follow_up_date: formData.follow_up_date || null,
+            updated_at: new Date().toISOString(),
+          }
+          : item
+      )
+      setFollowUps(nextFollowUps)
+      const latestDate = nextFollowUps.length > 0 ? nextFollowUps[nextFollowUps.length - 1].follow_up_date || null : null
+      onLatestFollowUpDateChange?.(latestDate)
+      await fetchFollowUps({ silent: true })
       router.refresh()
       setEditModalOpen(false)
       setSelectedFollowUp(null)
@@ -215,7 +266,11 @@ export function LeadFollowUps({
 
     if (!result.error) {
       showSuccess('Follow-up Deleted', 'The record has been removed.')
-      await fetchFollowUps()
+      const nextFollowUps = followUps.filter((item) => item.id !== selectedFollowUp.id)
+      setFollowUps(nextFollowUps)
+      const latestDate = nextFollowUps.length > 0 ? nextFollowUps[nextFollowUps.length - 1].follow_up_date || null : null
+      onLatestFollowUpDateChange?.(latestDate)
+      await fetchFollowUps({ silent: true })
       router.refresh()
       setDeleteModalOpen(false)
       setSelectedFollowUp(null)
@@ -322,7 +377,7 @@ export function LeadFollowUps({
         )}
 
         {/* Scrollable Timeline */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 scrollbar-hide">
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden p-3 scrollbar-hide">
           {followUps.length === 0 ? (
             <div className="flex h-full items-center justify-center">
               <div className="w-full max-w-[280px]">
@@ -390,13 +445,13 @@ export function LeadFollowUps({
                       {/* Content */}
                       {followUp.note ? (
                         <div className="relative">
-                          <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap font-medium">
+                          <p className="text-[13px] text-slate-600 leading-relaxed whitespace-pre-wrap font-medium">
                             {followUp.note}
                           </p>
                         </div>
                       ) : followUp.follow_up_date ? (
                         <div className="relative">
-                          <p className="text-xs text-slate-500 italic">
+                          <p className="text-[13px] text-slate-500 italic">
                             Reminder set (no interaction note)
                           </p>
                         </div>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Tooltip } from '@/app/components/ui/tooltip'
 import { Lead, LeadStatus, getLead, updateLead, deleteLead, LeadFormData } from '@/lib/leads/actions'
 import { createClient, ClientFormData } from '@/lib/clients/actions'
@@ -89,6 +89,14 @@ export function LeadDetailView({
 
   const canEdit = canWrite
   const canDelete = canWrite
+
+  useEffect(() => {
+    setLead(initialLead)
+  }, [initialLead])
+
+  const handleLatestFollowUpDateChange = (date: string | null) => {
+    setLead((prev) => (prev.follow_up_date === date ? prev : { ...prev, follow_up_date: date }))
+  }
 
   const handleBack = () => {
     router.push('/dashboard/leads')
@@ -388,6 +396,7 @@ export function LeadDetailView({
             leadId={lead.id}
             leadFollowUpDate={lead.follow_up_date}
             canWrite={canWrite}
+            onLatestFollowUpDateChange={handleLatestFollowUpDateChange}
           />
         </div>
 
@@ -465,6 +474,7 @@ export function LeadDetailView({
                 canWrite={canWrite}
                 hideHeader={true}
                 className="!bg-transparent !shadow-none !border-none !p-0 !rounded-none h-full"
+                onLatestFollowUpDateChange={handleLatestFollowUpDateChange}
               />
             </div>
           </div>
