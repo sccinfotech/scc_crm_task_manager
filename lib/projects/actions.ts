@@ -421,6 +421,27 @@ export async function getProject(projectId: string): Promise<{ data: Project | n
     return { data: null, error: error?.message || 'Failed to fetch project' }
   }
 
+  type ProjectRow = {
+    id: string
+    name: string
+    logo_url: string | null
+    client_id: string
+    project_amount: string | null
+    status: string
+    staff_status?: string | null
+    priority?: string | null
+    start_date: string
+    developer_deadline_date?: string | null
+    client_deadline_date?: string | null
+    website_links?: string | null
+    reference_links?: string | null
+    created_by: string
+    created_at: string
+    updated_at: string
+    clients?: unknown
+  }
+  const row = data as ProjectRow
+
   const { data: toolRows } = await supabase
     .from('project_technology_tools')
     .select('technology_tools(id, name)')
@@ -474,25 +495,25 @@ export async function getProject(projectId: string): Promise<{ data: Project | n
     }
   })
 
-  const client = normalizeClient((data as any).clients)
+  const client = normalizeClient(row.clients)
   const canViewAmount = canViewProjectAmount(currentUser.role)
   const project: Project = {
-    id: data.id,
-    name: data.name,
-    logo_url: data.logo_url,
-    client_id: data.client_id,
-    project_amount: canViewAmount ? decryptAmount((data as any).project_amount) : null,
-    status: data.status,
-    staff_status: data.staff_status ?? null,
-    priority: data.priority ?? 'medium',
-    start_date: data.start_date,
-    developer_deadline_date: data.developer_deadline_date ?? null,
-    client_deadline_date: data.client_deadline_date ?? null,
-    website_links: data.website_links ?? null,
-    reference_links: data.reference_links ?? null,
-    created_by: data.created_by,
-    created_at: data.created_at,
-    updated_at: data.updated_at,
+    id: row.id,
+    name: row.name,
+    logo_url: row.logo_url,
+    client_id: row.client_id,
+    project_amount: canViewAmount ? decryptAmount(row.project_amount) : null,
+    status: row.status,
+    staff_status: row.staff_status ?? null,
+    priority: row.priority ?? 'medium',
+    start_date: row.start_date,
+    developer_deadline_date: row.developer_deadline_date ?? null,
+    client_deadline_date: row.client_deadline_date ?? null,
+    website_links: row.website_links ?? null,
+    reference_links: row.reference_links ?? null,
+    created_by: row.created_by,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
     client: client
       ? {
           id: client.id,
