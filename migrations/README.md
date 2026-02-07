@@ -1,79 +1,52 @@
 # Database Migrations
 
-This folder contains SQL migration files for setting up the database schema. The migrations have been consolidated module-wise for clarity and maintainability.
+This folder contains SQL migration files for the database schema, merged by **module** for clarity and maintainability. Run in numerical order on a fresh database.
 
 ## Migration Files
 
 ### 001_auth_user_management.sql
-Consolidates all user-related setup:
-- Shared helper function `update_updated_at_column()`
+**Module: Auth & Users**
+- Shared helper `update_updated_at_column()`
 - `user_role` ENUM (admin, manager, staff, client)
-- `users` table (extending Supabase auth.users)
-- All user-specific indexes, including soft delete and permissions
-- RLS policies for user data
-- Failsafe `handle_new_user()` function and its trigger on `auth.users`
-- Sarika Admin seed data
+- `users` table (id, email, full_name, role, is_active, module_permissions, deleted_at, timestamps)
+- Indexes and RLS for `users`
+- `handle_new_user()` trigger on `auth.users`
+- Admin seed for `sarika@crm.com`
 
 ### 002_lead_management.sql
-Consolidates all lead-related setup:
-- `leads` table and its status constraints
-- `lead_followups` table
-- All indexes for both tables
-- Comprehensive RLS policies for both tables
-- Timestamps update triggers
+**Module: Leads**
+- `leads` table and status constraint
+- Indexes and RLS for `leads` (module_permissions: `leads` read/write)
+- updated_at trigger
 
-### 003_module_permissions_rls.sql
-Updates lead and follow-up RLS policies to respect `module_permissions`:
-- Read access: `leads` / `follow_ups` set to `read` or `write`
-- Write access: `leads` / `follow_ups` set to `write`
-- Admins and managers retain full access (except module-specific UI gates)
+### 003_client_management.sql
+**Module: Clients**
+- `clients` table and status constraint
+- Indexes and RLS for `clients` (module_permissions: `customers` read/write)
+- `client_internal_notes` table and RLS (admin/manager only)
+- `client_note_attachments` table and RLS (admin/manager only)
+- updated_at triggers
 
-### 004_client_management.sql
-Consolidates all client-related setup:
-- `clients` table and status constraints
-- `client_followups` table
-- All indexes for both tables
-- RLS policies for both tables
-- Timestamps update triggers
-
-### 005_make_followup_date_optional.sql
-Makes `note` and `follow_up_date` optional in lead/client follow-ups so either can be used independently.
-
-### 006_client_internal_notes.sql
-Creates internal notes and attachments:
-- `client_internal_notes` table
-- `client_note_attachments` table
-- Admin/manager-only RLS policies
-
-### 007_lead_client_followups.sql
-Unifies lead and client follow-ups:
-- Creates `lead_client_followups` with `entity_type` and a single parent reference
-- Migrates data from legacy `lead_followups` and `client_followups`
-- Attaches legacy lead follow-ups to clients when `clients.lead_id` matches
-- Drops the legacy follow-up tables
+### 004_lead_client_followups.sql
+**Module: Follow-ups (unified)**
+- `lead_client_followups` table (`entity_type`: lead | client, optional `note` and `follow_up_date`)
+- Indexes and RLS (leads module for lead follow-ups, customers module for client follow-ups)
+- updated_at trigger
 
 ## How to Apply Migrations
 
-### Option 1: Using Supabase Dashboard
-1. Go to your Supabase project dashboard.
-2. Navigate to **SQL Editor**.
-3. Copy and paste the contents of `001_auth_user_management.sql` and run it.
-4. Copy and paste the contents of `002_lead_management.sql` and run it.
-5. Copy and paste the contents of `003_module_permissions_rls.sql` and run it.
-6. Copy and paste the contents of `004_client_management.sql` and run it.
-7. Copy and paste the contents of `005_make_followup_date_optional.sql` and run it.
-8. Copy and paste the contents of `006_client_internal_notes.sql` and run it.
-9. Copy and paste the contents of `007_lead_client_followups.sql` and run it.
+### Option 1: Supabase Dashboard
+1. Open your Supabase project → **SQL Editor**.
+2. Run each file in order: `001` → `002` → `003` → `004`.
 
-### Option 2: Using Supabase CLI
+### Option 2: Supabase CLI
 ```bash
-# To push all migrations to your remote database
 supabase db push
 ```
 
-## Important Notes
+## Notes
 
-1. **Email Confirmation**: Disable email confirmation in Supabase Auth settings if you want immediate access after creation.
-2. **User Creation**: Since signup is restricted in the UI, users must be created manually in the Supabase Dashboard. The trigger will automatically create the corresponding record in the `public.users` table.
-3. **Admin User**: The `001` migration includes a seed for `sarika@crm.com`. Ensure this auth user exists in Supabase before running, or run the seed part manually after creating the user.
-4. **RLS**: Row Level Security is active on all tables. Policies ensure that users can only see their own data, while admins have full access.
+1. **Order**: Run 001 → 002 → 003 → 004. Later migrations depend on earlier ones.
+2. **Admin user**: 001 seeds `sarika@crm.com`. Ensure this auth user exists in Supabase first, or run the seed block manually after creating the user.
+3. **RLS**: All tables use Row Level Security; access follows roles (admin/manager) and `module_permissions` (leads, customers, follow_ups where applicable).
+4. **Existing DBs**: If you already applied the previous 7 migrations, your schema is up to date; these 4 files are for new installs and a single consolidated reference.

@@ -1,6 +1,6 @@
--- Migration 007: Unified Lead/Client Follow-ups
--- Creates a single follow-up table with a required entity_type flag,
--- migrates data from legacy tables, and drops old tables.
+-- Migration 004: Unified Lead/Client Follow-ups
+-- Single follow-up table for both leads and clients (entity_type), optional note and follow_up_date.
+-- Depends on: 001_auth_user_management, 002_lead_management, 003_client_management.
 
 -- 1. Unified Follow-ups Table
 CREATE TABLE IF NOT EXISTS public.lead_client_followups (
@@ -27,14 +27,14 @@ CREATE INDEX IF NOT EXISTS idx_lead_client_followups_created_by ON public.lead_c
 CREATE INDEX IF NOT EXISTS idx_lead_client_followups_follow_up_date ON public.lead_client_followups(follow_up_date);
 CREATE INDEX IF NOT EXISTS idx_lead_client_followups_client_entity_date ON public.lead_client_followups(client_id, entity_type, created_at);
 
--- 3. Updated_at Trigger
+-- 3. updated_at Trigger
 DROP TRIGGER IF EXISTS update_lead_client_followups_updated_at ON public.lead_client_followups;
 CREATE TRIGGER update_lead_client_followups_updated_at
   BEFORE UPDATE ON public.lead_client_followups
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
--- 4. Row Level Security (module-permission based)
+-- 4. Row Level Security (module: leads for lead follow-ups, customers for client follow-ups)
 ALTER TABLE public.lead_client_followups ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can read lead-client follow-ups" ON public.lead_client_followups;
@@ -55,18 +55,7 @@ CREATE POLICY "Users can read lead-client follow-ups"
           u.role IN ('admin', 'manager')
           OR (
             entity_type = 'lead'
-            AND lead_id IS NOT NULL
             AND COALESCE(u.module_permissions->>'leads', 'none') IN ('read', 'write')
-          )
-          OR (
-            entity_type = 'lead'
-            AND lead_id IS NULL
-            AND COALESCE(u.module_permissions->>'leads', 'none') IN ('read', 'write')
-          )
-          OR (
-            entity_type = 'lead'
-            AND lead_id IS NULL
-            AND COALESCE(u.module_permissions->>'customers', 'none') IN ('read', 'write')
           )
           OR (
             entity_type = 'client'
@@ -163,63 +152,3 @@ CREATE POLICY "Users can delete lead-client follow-ups"
         )
     )
   );
-
--- 5. Data Migration (legacy tables -> unified table)
-INSERT INTO public.lead_client_followups (
-  id,
-  entity_type,
-  lead_id,
-  client_id,
-  note,
-  follow_up_date,
-  created_by,
-  created_at,
-  updated_at
-)
-SELECT
-  lf.id,
-  'lead'::text,
-  lf.lead_id,
-  NULL::uuid,
-  lf.note,
-  lf.follow_up_date,
-  lf.created_by,
-  lf.created_at,
-  lf.updated_at
-FROM public.lead_followups lf;
-
-INSERT INTO public.lead_client_followups (
-  id,
-  entity_type,
-  lead_id,
-  client_id,
-  note,
-  follow_up_date,
-  created_by,
-  created_at,
-  updated_at
-)
-SELECT
-  cf.id,
-  'client'::text,
-  NULL::uuid,
-  cf.client_id,
-  cf.note,
-  cf.follow_up_date,
-  cf.created_by,
-  cf.created_at,
-  cf.updated_at
-FROM public.client_followups cf;
-
--- 5.1 Attach legacy lead follow-ups to converted clients (if any exist)
-UPDATE public.lead_client_followups lcf
-SET
-  client_id = c.id,
-  lead_id = NULL
-FROM public.clients c
-WHERE lcf.entity_type = 'lead'
-  AND lcf.lead_id = c.lead_id;
-
--- 6. Drop legacy tables
-DROP TABLE IF EXISTS public.lead_followups;
-DROP TABLE IF EXISTS public.client_followups;

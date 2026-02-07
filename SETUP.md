@@ -118,21 +118,18 @@ If you see this error:
 
 1. Go to your Supabase project dashboard
 2. Navigate to SQL Editor
-3. Run the migrations in order:
+3. Run the migrations in order (see `migrations/README.md` for details):
 
-   **Migration 001**: Create users table
-   - Open `migrations/001_create_users_table.sql`
-   - Copy and paste the entire content
-   - Click "Run"
+   - **001_auth_user_management.sql** – Auth, users table, roles, triggers, admin seed
+   - **002_lead_management.sql** – Leads table and RLS
+   - **003_client_management.sql** – Clients, internal notes, note attachments and RLS
+   - **004_lead_client_followups.sql** – Unified follow-ups table and RLS
 
-   **Migration 002**: Create auth trigger
-   - Open `migrations/002_create_auth_trigger.sql`
-   - Copy and paste the entire content
-   - Click "Run"
+   For each file: open it, copy the entire content, paste in SQL Editor, and click "Run".
 
 4. Verify the migrations:
    - Go to Table Editor
-   - You should see a `users` table
+   - You should see `users`, `leads`, `clients`, `client_internal_notes`, `client_note_attachments`, and `lead_client_followups` tables
    - Check that the `user_role` enum exists
 
 ## Step 5: Create Test Users

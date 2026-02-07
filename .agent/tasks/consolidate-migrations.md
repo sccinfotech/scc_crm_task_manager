@@ -1,37 +1,24 @@
 # Task: Consolidate Database Migrations
 
-Consolidate the existing 10 migration files into 2 clean, module-wise files to improve maintainability and clarity.
+Consolidate migration files into 4 module-wise files matching the current database schema.
 
 ## Objectives
-- [ ] Merge User-related migrations into `001_auth_user_management.sql`.
-- [ ] Merge Lead-related migrations into `002_lead_management.sql`.
-- [ ] Ensure all latest fixes (e.g., FAILSAFE trigger, role enums, soft delete) are included.
-- [ ] Maintain idempotency (use `IF NOT EXISTS`, `DROP TRIGGER IF EXISTS`, etc.).
-- [ ] Cleanup old migration files.
-- [ ] Update documentation.
+- [x] Keep `001_auth_user_management.sql` as-is (auth, users, roles, admin seed).
+- [x] Merge leads + module RLS into `002_lead_management.sql` (no legacy lead_followups).
+- [x] Merge clients + internal notes + attachments into `003_client_management.sql`.
+- [x] Merge unified follow-ups into `004_lead_client_followups.sql`.
+- [x] Remove old files 003–007 (module_permissions_rls, client_management, optional followup, internal_notes, lead_client_followups).
+- [x] Update README and keep idempotency (IF NOT EXISTS, DROP IF EXISTS).
 
-## Proposed Structure
+## Final Structure (4 files)
 
-### File 1: `001_auth_user_management.sql`
-- `update_updated_at_column` helper function.
-- `user_role` ENUM.
-- `users` table including `module_permissions` and `deleted_at`.
-- All indexes for `users`.
-- RLS policies for `users`.
-- Trigger for `updated_at`.
-- `handle_new_user` FAILSAFE function.
-- `on_auth_user_created` trigger on `auth.users`.
-- Admin Seed (Sarika Admin).
-
-### File 2: `002_lead_management.sql`
-- `leads` table (the one without `email` and with `follow_up_date`).
-- `lead_followups` table.
-- Indexes for both.
-- RLS policies for both.
-- Triggers for both.
+1. **001_auth_user_management.sql** – Auth, users, roles, triggers, admin seed.
+2. **002_lead_management.sql** – Leads table + module_permissions RLS (leads).
+3. **003_client_management.sql** – Clients, client_internal_notes, client_note_attachments + RLS.
+4. **004_lead_client_followups.sql** – Unified lead_client_followups table + RLS.
 
 ## Progress
 - [x] Initial research and plan.
-- [x] Create consolidated files.
-- [x] Remove old files.
+- [x] Create consolidated files (002 updated, 003 and 004 merged).
+- [x] Remove old migration files.
 - [x] Update README.
