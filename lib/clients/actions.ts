@@ -336,10 +336,15 @@ export type ClientFollowUpFormData = {
   note?: string
 }
 
+/** Result type for create/update so callers can narrow on !result.error and use result.data */
+export type ClientFollowUpActionResult =
+  | { data: ClientFollowUp; error: null }
+  | { data: null; error: string }
+
 export async function createClientFollowUp(
   clientId: string,
   formData: ClientFollowUpFormData
-) {
+): Promise<ClientFollowUpActionResult> {
   const currentUser = await getCurrentUser()
   if (!currentUser) {
     return {
@@ -386,13 +391,13 @@ export async function createClientFollowUp(
   }
 
   revalidatePath('/dashboard/clients')
-  return { data, error: null }
+  return { data: data as unknown as ClientFollowUp, error: null }
 }
 
 export async function updateClientFollowUp(
   followUpId: string,
   formData: ClientFollowUpFormData
-) {
+): Promise<ClientFollowUpActionResult> {
   const currentUser = await getCurrentUser()
   if (!currentUser) {
     return {
@@ -453,7 +458,7 @@ export async function updateClientFollowUp(
   }
 
   revalidatePath('/dashboard/clients')
-  return { data, error: null }
+  return { data: data as unknown as ClientFollowUp, error: null }
 }
 
 export async function deleteClientFollowUp(followUpId: string) {
