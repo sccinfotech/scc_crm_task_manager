@@ -284,7 +284,8 @@ async function isUserAssignedToProject(
     return false
   }
 
-  return Boolean(data?.user_id)
+  const row = data as { user_id?: string } | null
+  return Boolean(row?.user_id)
 }
 
 function validateSingleDate(value: string | undefined, label: string) {
