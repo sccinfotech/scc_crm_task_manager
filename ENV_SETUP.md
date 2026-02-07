@@ -13,6 +13,18 @@ NEXT_PUBLIC_CLOUDINARY_API_KEY=your-cloudinary-api-key
 CLOUDINARY_API_SECRET=your-cloudinary-api-secret
 ```
 
+## Optional: Project Amount Encryption
+
+To store project amounts encrypted in the database, set:
+
+```env
+PROJECT_AMOUNT_ENCRYPTION_KEY=your-32-byte-key-as-hex-or-base64
+```
+
+- **Format:** 32-byte key as **64-character hex** or **44-character base64**
+- **Generate a key (hex):** `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+- If not set, amounts are stored as plain text (app works normally; add the key when you want encryption)
+
 ## Where to Find Values
 
 1. Go to https://supabase.com/dashboard

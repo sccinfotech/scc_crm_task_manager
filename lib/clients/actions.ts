@@ -53,6 +53,12 @@ export type ClientListItem = {
   created_by?: string
 }
 
+export type ClientSelectOption = {
+  id: string
+  name: string
+  company_name: string | null
+}
+
 export async function getClientsPage(options: GetClientsPageOptions = {}) {
   const currentUser = await getCurrentUser()
   if (!currentUser) {
@@ -100,6 +106,30 @@ export async function getClientsPage(options: GetClientsPageOptions = {}) {
     totalCount: count ?? 0,
     error: null,
   }
+}
+
+export async function getClientsForSelect(): Promise<{ data: ClientSelectOption[]; error: string | null }> {
+  const currentUser = await getCurrentUser()
+  if (!currentUser) {
+    return { data: [], error: 'You must be logged in to view clients' }
+  }
+  const canRead = await hasPermission(currentUser, MODULE_PERMISSION_IDS.clients, 'read')
+  if (!canRead) {
+    return { data: [], error: 'You do not have permission to view clients' }
+  }
+
+  const supabase = await createSupabaseClient()
+  const { data, error } = await supabase
+    .from('clients')
+    .select('id, name, company_name')
+    .order('name', { ascending: true })
+
+  if (error) {
+    console.error('Error fetching clients for select:', error)
+    return { data: [], error: error.message || 'Failed to fetch clients' }
+  }
+
+  return { data: (data || []) as ClientSelectOption[], error: null }
 }
 
 /** Result type for create/update client so callers can narrow on !result.error and use result.data */

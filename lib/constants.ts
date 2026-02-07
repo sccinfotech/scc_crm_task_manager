@@ -1,7 +1,6 @@
 export const MODULES = [
     { id: 'leads', label: 'Leads' },
     { id: 'customers', label: 'Clients' },
-    { id: 'projects', label: 'Projects' },
     { id: 'payments', label: 'Payments' },
     { id: 'follow_ups', label: 'Follow-ups' },
     { id: 'reports', label: 'Reports' },

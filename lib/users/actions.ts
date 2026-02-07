@@ -21,6 +21,12 @@ export type UserData = {
     deleted_at?: string | null
 }
 
+export type StaffSelectOption = {
+    id: string
+    full_name: string | null
+    email: string | null
+}
+
 export type CreateUserFormData = {
     email: string
     password: string
@@ -91,6 +97,37 @@ export async function getUsers(filters?: GetUsersOptions) {
     }
 
     return { data: users as UserData[], totalCount: count ?? 0 }
+}
+
+export async function getStaffForSelect(): Promise<{ data: StaffSelectOption[]; error: string | null }> {
+    const currentUser = await getCurrentUser()
+
+    if (!currentUser) {
+        return { data: [], error: 'You must be logged in to view staff' }
+    }
+
+    const isAdminManager = currentUser.role === 'admin' || currentUser.role === 'manager'
+    const canWriteProjects = await hasPermission(currentUser, MODULE_PERMISSION_IDS.projects, 'write')
+
+    if (!isAdminManager && !canWriteProjects) {
+        return { data: [], error: 'You do not have permission to view staff' }
+    }
+
+    const supabase = await createClient()
+    const { data, error } = await (supabase
+        .from('users')
+        .select('id, full_name, email')
+        .eq('role', 'staff')
+        .eq('is_active', true)
+        .is('deleted_at', null)
+        .order('full_name', { ascending: true }) as any)
+
+    if (error) {
+        console.error('Error fetching staff list:', error)
+        return { data: [], error: error.message || 'Failed to fetch staff list' }
+    }
+
+    return { data: (data || []) as StaffSelectOption[], error: null }
 }
 
 export async function getUser(id: string) {

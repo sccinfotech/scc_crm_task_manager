@@ -17,6 +17,8 @@ interface SidebarProps {
   modulePermissions?: ModulePermissions
 }
 
+const SETTINGS_HREF = '/dashboard/settings'
+
 const menuItems = [
   { name: 'Dashboard', href: '/dashboard', icon: DashboardIcon },
   { name: 'Leads', href: '/dashboard/leads', icon: LeadsIcon, moduleId: MODULE_PERMISSION_IDS.leads },
@@ -24,7 +26,13 @@ const menuItems = [
   { name: 'Projects', href: '/dashboard/projects', icon: ProjectsIcon, moduleId: MODULE_PERMISSION_IDS.projects },
   { name: 'Users', href: '/dashboard/users', icon: UsersIcon, moduleId: MODULE_PERMISSION_IDS.users },
   { name: 'Logs', href: '/dashboard/logs', icon: LogsIcon, moduleId: MODULE_PERMISSION_IDS.logs },
-  { name: 'Settings', href: '/dashboard/settings', icon: SettingsIcon, moduleId: MODULE_PERMISSION_IDS.settings },
+  {
+    name: 'Settings',
+    href: SETTINGS_HREF,
+    icon: SettingsIcon,
+    moduleId: MODULE_PERMISSION_IDS.settings,
+    children: [{ name: 'Technology & Tools', href: SETTINGS_HREF }],
+  },
 ]
 
 function DashboardIcon() {
@@ -97,11 +105,20 @@ export function Sidebar({
   const pathname = usePathname()
   const [isProfileExpanded, setIsProfileExpanded] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+  const [isSettingsExpanded, setIsSettingsExpanded] = useState(false)
 
-  // Close profile when sidebar collapses
+  // Keep Settings expanded when on a settings route
+  useEffect(() => {
+    if (pathname?.startsWith(SETTINGS_HREF)) {
+      setIsSettingsExpanded(true)
+    }
+  }, [pathname])
+
+  // Close profile and settings when sidebar collapses
   useEffect(() => {
     if (isCollapsed) {
       setIsProfileExpanded(false)
+      setIsSettingsExpanded(false)
     }
   }, [isCollapsed])
 
@@ -199,27 +216,130 @@ export function Sidebar({
             <ul className="space-y-2">
               {menuItems.filter(item => {
                 if (!item.moduleId) return true
+                if (item.moduleId === MODULE_PERMISSION_IDS.projects) {
+                  return (
+                    userRole === 'admin' ||
+                    userRole === 'manager' ||
+                    userRole === 'staff' ||
+                    canReadModule({ role: userRole, modulePermissions }, item.moduleId)
+                  )
+                }
                 return canReadModule({ role: userRole, modulePermissions }, item.moduleId)
               }).map((item) => {
-                // More precise active state: exact match or starts with the href followed by /
-                // Special handling for /dashboard to only match exactly
+                const hasChildren = 'children' in item && item.children && item.children.length > 0
+                const Icon = item.icon
+
+                // Expandable item (Settings): show toggle + sub-items when expanded. Only highlight parent when no child is active.
+                if (hasChildren && !isCollapsed) {
+                  const isAnyChildActive = item.children?.some(
+                    (c) => pathname === c.href || pathname?.startsWith(c.href + '/')
+                  )
+                  const isParentActive =
+                    (pathname === item.href || pathname?.startsWith(item.href + '/')) && !isAnyChildActive
+                  return (
+                    <li key={item.href}>
+                      <button
+                        type="button"
+                        onClick={() => setIsSettingsExpanded((prev) => !prev)}
+                        className={`
+                          group relative flex w-full items-center rounded-xl text-sm font-medium transition-all duration-200
+                          gap-3 px-4 py-3.5 text-left
+                          ${isParentActive
+                            ? 'bg-[#06B6D4]/10 text-[#06B6D4] shadow-sm'
+                            : 'text-[#1E1B4B] hover:bg-[#06B6D4]/5'
+                          }
+                        `}
+                      >
+                        {isParentActive && (
+                          <span className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-[#06B6D4]"></span>
+                        )}
+                        <span
+                          className={`flex-shrink-0 ${isParentActive ? 'text-[#06B6D4]' : 'text-gray-500 group-hover:text-[#06B6D4]'}`}
+                        >
+                          <Icon />
+                        </span>
+                        <span className="whitespace-nowrap font-medium flex-1">{item.name}</span>
+                        <svg
+                          className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${isSettingsExpanded ? 'rotate-180' : ''}`}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      {isSettingsExpanded && item.children && (
+                        <ul className="mt-1 ml-4 space-y-1 border-l-2 border-slate-100 pl-3">
+                          {item.children.map((child) => {
+                            const isChildActive = pathname === child.href || pathname?.startsWith(child.href + '/')
+                            return (
+                              <li key={child.href}>
+                                <Link
+                                  href={child.href}
+                                  onClick={() => {
+                                    if (window.innerWidth < 1024) setIsMobileOpen(false)
+                                  }}
+                                  className={`
+                                    group flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200
+                                    ${isChildActive
+                                      ? 'bg-[#06B6D4]/10 text-[#06B6D4]'
+                                      : 'text-slate-600 hover:bg-[#06B6D4]/5 hover:text-[#06B6D4]'
+                                    }
+                                  `}
+                                >
+                                  <span className="whitespace-nowrap">{child.name}</span>
+                                </Link>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      )}
+                    </li>
+                  )
+                }
+
+                // Collapsed sidebar: Settings as single link (no sub-menu)
+                if (hasChildren && isCollapsed) {
+                  const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        onClick={() => {
+                          if (window.innerWidth < 1024) setIsMobileOpen(false)
+                        }}
+                        className={`
+                          group relative flex items-center rounded-xl text-sm font-medium transition-all duration-200
+                          justify-center px-2 py-3.5
+                          ${isActive ? 'bg-[#06B6D4]/10 text-[#06B6D4] shadow-sm' : 'text-[#1E1B4B] hover:bg-[#06B6D4]/5'}
+                        `}
+                      >
+                        <span className={`flex-shrink-0 ${isActive ? 'text-[#06B6D4]' : 'text-gray-500 group-hover:text-[#06B6D4]'}`}>
+                          <Icon />
+                        </span>
+                        <span className="absolute left-full ml-3 px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-900 text-white opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none whitespace-nowrap z-50 shadow-xl before:content-[''] before:absolute before:right-full before:top-1/2 before:-translate-y-1/2 before:border-4 before:border-transparent before:border-r-gray-900">
+                          {item.name}
+                        </span>
+                      </Link>
+                    </li>
+                  )
+                }
+
+                // Regular item (no children)
                 let isActive = false
                 if (item.href === '/dashboard') {
                   isActive = pathname === '/dashboard'
                 } else {
                   isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
                 }
-                const Icon = item.icon
 
                 return (
                   <li key={item.href}>
                     <Link
                       href={item.href}
                       onClick={() => {
-                        // Only close mobile menu on mobile devices
-                        if (window.innerWidth < 1024) {
-                          setIsMobileOpen(false)
-                        }
+                        if (window.innerWidth < 1024) setIsMobileOpen(false)
                       }}
                       className={`
                         group relative flex items-center rounded-xl text-sm font-medium transition-all duration-200
@@ -230,7 +350,6 @@ export function Sidebar({
                         }
                       `}
                     >
-                      {/* Left border indicator for active item */}
                       {isActive && !isCollapsed && (
                         <span className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-[#06B6D4]"></span>
                       )}
@@ -245,26 +364,8 @@ export function Sidebar({
                       {!isCollapsed && (
                         <span className="whitespace-nowrap font-medium">{item.name}</span>
                       )}
-                      {/* Tooltip for collapsed state */}
                       {isCollapsed && (
-                        <span
-                          className="
-                            absolute left-full ml-3
-                            px-3 py-1.5
-                            text-xs font-medium
-                            rounded-lg
-                            bg-gray-900 text-white
-                            opacity-0 group-hover:opacity-100
-                            transition-all duration-200
-                            pointer-events-none
-                            whitespace-nowrap
-                            z-50
-                            shadow-xl
-                            before:content-['']
-                            before:absolute before:right-full before:top-1/2 before:-translate-y-1/2
-                            before:border-4 before:border-transparent before:border-r-gray-900
-                          "
-                        >
+                        <span className="absolute left-full ml-3 px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-900 text-white opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none whitespace-nowrap z-50 shadow-xl before:content-[''] before:absolute before:right-full before:top-1/2 before:-translate-y-1/2 before:border-4 before:border-transparent before:border-r-gray-900">
                           {item.name}
                         </span>
                       )}

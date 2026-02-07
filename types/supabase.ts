@@ -225,6 +225,163 @@ export interface Database {
           created_at?: string
         }
       }
+      projects: {
+        Row: {
+          id: string
+          name: string
+          logo_url: string | null
+          client_id: string
+          project_amount: string | null
+          status: 'pending' | 'in_progress' | 'hold' | 'completed'
+          staff_status: 'start' | 'hold' | 'end'
+          priority: 'urgent' | 'high' | 'medium' | 'low'
+          start_date: string
+          developer_deadline_date: string | null
+          client_deadline_date: string | null
+          website_links: string | null
+          reference_links: string | null
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          logo_url?: string | null
+          client_id: string
+          project_amount?: string | null
+          status?: 'pending' | 'in_progress' | 'hold' | 'completed'
+          staff_status?: 'start' | 'hold' | 'end'
+          priority?: 'urgent' | 'high' | 'medium' | 'low'
+          start_date: string
+          developer_deadline_date?: string | null
+          client_deadline_date?: string | null
+          website_links?: string | null
+          reference_links?: string | null
+          created_by: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          logo_url?: string | null
+          client_id?: string
+          project_amount?: string | null
+          status?: 'pending' | 'in_progress' | 'hold' | 'completed'
+          staff_status?: 'start' | 'hold' | 'end'
+          priority?: 'urgent' | 'high' | 'medium' | 'low'
+          start_date?: string
+          developer_deadline_date?: string | null
+          client_deadline_date?: string | null
+          website_links?: string | null
+          reference_links?: string | null
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      project_team_members: {
+        Row: {
+          project_id: string
+          user_id: string
+          created_by: string
+          created_at: string
+        }
+        Insert: {
+          project_id: string
+          user_id: string
+          created_by: string
+          created_at?: string
+        }
+        Update: {
+          project_id?: string
+          user_id?: string
+          created_by?: string
+          created_at?: string
+        }
+      }
+      technology_tools: {
+        Row: {
+          id: string
+          name: string
+          is_active: boolean
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          is_active?: boolean
+          created_by: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          is_active?: boolean
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      project_technology_tools: {
+        Row: {
+          id: string
+          project_id: string
+          technology_tool_id: string
+          created_by: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          technology_tool_id: string
+          created_by: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          technology_tool_id?: string
+          created_by?: string
+          created_at?: string
+        }
+      }
+      project_followups: {
+        Row: {
+          id: string
+          project_id: string
+          follow_up_date: string | null
+          next_follow_up_date: string | null
+          note: string | null
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          follow_up_date?: string | null
+          next_follow_up_date?: string | null
+          note?: string | null
+          created_by: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          follow_up_date?: string | null
+          next_follow_up_date?: string | null
+          note?: string | null
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never

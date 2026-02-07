@@ -33,6 +33,11 @@ This folder contains SQL migration files for the database schema, merged by **mo
 - Indexes and RLS (leads module for lead follow-ups, customers module for client follow-ups)
 - updated_at trigger
 
+### 009_project_amount_encrypted.sql
+**Project amount at rest**
+- `project_amount` column type changed from NUMERIC to TEXT; application stores AES-256-GCM encrypted value (base64).
+- **Required env**: Set `PROJECT_AMOUNT_ENCRYPTION_KEY` (32-byte key as 64-char hex or 44-char base64) for create/update to work.
+
 ## How to Apply Migrations
 
 ### Option 1: Supabase Dashboard
