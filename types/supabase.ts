@@ -382,6 +382,32 @@ export interface Database {
           updated_at?: string
         }
       }
+      project_user_notes: {
+        Row: {
+          id: string
+          project_id: string
+          user_id: string
+          note_text: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          user_id: string
+          note_text: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          user_id?: string
+          note_text?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
