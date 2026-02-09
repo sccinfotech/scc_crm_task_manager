@@ -31,6 +31,7 @@ export default async function ProjectsPage({
   const canWriteModule = await hasPermission(user, MODULE_PERMISSION_IDS.projects, 'write')
   const canWrite = user.role === 'admin' || user.role === 'manager' || canWriteModule
   const canViewAmount = user.role === 'admin' || user.role === 'manager'
+  const canCreateClient = user.role === 'admin' || user.role === 'manager' || (await hasPermission(user, MODULE_PERMISSION_IDS.clients, 'write'))
 
   const params = await searchParams
   const page = Math.max(1, parseInt(params.page ?? '1', 10) || 1)
@@ -69,6 +70,8 @@ export default async function ProjectsPage({
       initialSortDirection={params.sortDir ?? 'desc'}
       canWrite={canWrite}
       canViewAmount={canViewAmount}
+      canCreateClient={canCreateClient}
+      userRole={user.role}
       showClientColumn={user.role !== 'staff'}
       clients={clientsResult.data}
       clientsError={clientsResult.error}

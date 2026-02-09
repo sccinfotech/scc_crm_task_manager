@@ -1,7 +1,11 @@
 import Link from 'next/link'
+import { useState } from 'react'
 import { EmptyState } from '@/app/components/empty-state'
 import { Tooltip } from '@/app/components/ui/tooltip'
-import type { ProjectStatus } from '@/lib/projects/actions'
+import { useToast } from '@/app/components/ui/toast-context'
+import { updateMyProjectWorkStatus } from '@/lib/projects/actions'
+import type { ProjectStatus, ProjectTeamMemberWorkStatus } from '@/lib/projects/actions'
+import { EndWorkModal } from './end-work-modal'
 
 type Project = {
   id: string
@@ -15,6 +19,9 @@ type Project = {
   project_amount: number | null
   website_links: string | null
   created_at: string
+  follow_up_date: string | null
+  my_work_status?: ProjectTeamMemberWorkStatus | null
+  my_work_started_at?: string | null
 }
 
 type SortField =
@@ -22,7 +29,7 @@ type SortField =
   | 'status'
   | 'start_date'
   | 'created_at'
-  | 'project_amount'
+  | 'project_amount' // kept for URL/API compatibility; column not shown
   | null
 
 type SortDirection = 'asc' | 'desc' | null
@@ -30,11 +37,13 @@ type SortDirection = 'asc' | 'desc' | null
 interface ProjectsTableProps {
   projects: Project[]
   canWrite: boolean
-  canViewAmount: boolean
   showClientColumn?: boolean
+  /** When true, show Work column with Start / Hold / End for staff. */
+  showWorkActions?: boolean
   onView: (projectId: string) => void
   onEdit: (projectId: string) => void
   onDelete: (projectId: string, projectName: string) => void
+  onWorkUpdated?: () => void
   sortField?: SortField
   sortDirection?: SortDirection
   onSort?: (field: SortField) => void
@@ -77,13 +86,28 @@ function formatDate(dateString: string) {
   })
 }
 
-function formatCurrency(amount: number | null) {
-  if (amount === null || amount === undefined) return '--'
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-  }).format(amount)
+function formatFollowUpDate(dateString: string | null) {
+  if (!dateString) return null
+  const date = new Date(dateString)
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
+function getFollowUpDateColor(dateString: string | null): string {
+  if (!dateString) return 'text-gray-500'
+  const followUpDate = new Date(dateString)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const followUpDateOnly = new Date(followUpDate)
+  followUpDateOnly.setHours(0, 0, 0, 0)
+  const diffTime = followUpDateOnly.getTime() - today.getTime()
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  if (diffDays <= 0) return 'text-red-600 font-semibold'
+  if (diffDays <= 7) return 'text-amber-600 font-semibold'
+  return 'text-gray-700'
 }
 
 function SortIcon({ direction }: { direction: 'asc' | 'desc' | null }) {
@@ -128,16 +152,21 @@ function normalizeLink(url: string) {
 export function ProjectsTable({
   projects,
   canWrite,
-  canViewAmount,
   showClientColumn = true,
+  showWorkActions = false,
   onView,
   onEdit,
   onDelete,
+  onWorkUpdated,
   sortField = null,
   sortDirection = null,
   onSort,
   isFiltered = false,
 }: ProjectsTableProps) {
+  const [endWorkProject, setEndWorkProject] = useState<{ id: string; name: string } | null>(null)
+  const [workActionProjectId, setWorkActionProjectId] = useState<string | null>(null)
+  const { success: showToastSuccess, error: showToastError } = useToast()
+
   const handleSort = (field: SortField) => {
     if (!onSort) return
     if (sortField === field) {
@@ -145,6 +174,31 @@ export function ProjectsTable({
     } else {
       onSort(field)
     }
+  }
+
+  const handleWorkAction = async (projectId: string, eventType: 'start' | 'hold' | 'resume' | 'end', note?: string) => {
+    if (workActionProjectId) return
+    setWorkActionProjectId(projectId)
+    const result = await updateMyProjectWorkStatus(projectId, eventType, note ?? undefined)
+    setWorkActionProjectId(null)
+    setEndWorkProject(null)
+    if (!result.error) {
+      const messages: Record<string, string> = {
+        start: 'Work started.',
+        hold: 'Work paused.',
+        resume: 'Work resumed.',
+        end: 'Work ended and notes saved.',
+      }
+      showToastSuccess('Work updated', messages[eventType] ?? 'Done.')
+      onWorkUpdated?.()
+    } else {
+      showToastError('Work action failed', result.error)
+    }
+    return result
+  }
+
+  const handleEndWorkSubmit = async (projectId: string, _projectName: string, doneNotes: string) => {
+    await handleWorkAction(projectId, 'end', doneNotes)
   }
 
   if (projects.length === 0) {
@@ -205,17 +259,9 @@ export function ProjectsTable({
             <th className="hidden md:table-cell md:w-[12%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
               Deadline
             </th>
-            {canViewAmount && (
-              <th
-                className="group hidden xl:table-cell xl:w-[12%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
-                onClick={() => handleSort('project_amount')}
-              >
-                <div className="flex items-center">
-                  Amount
-                  <SortIcon direction={sortField === 'project_amount' ? sortDirection : null} />
-                </div>
-              </th>
-            )}
+            <th className="hidden lg:table-cell lg:w-[12%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+              Follow-up
+            </th>
             <th
               className="group hidden xl:table-cell xl:w-[12%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
               onClick={() => handleSort('created_at')}
@@ -225,6 +271,11 @@ export function ProjectsTable({
                 <SortIcon direction={sortField === 'created_at' ? sortDirection : null} />
               </div>
             </th>
+            {showWorkActions && (
+              <th className="w-[140px] px-4 sm:px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                Work
+              </th>
+            )}
             <th className="w-[14%] sm:w-[12%] px-4 sm:px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 transition-all duration-200">
               {canWrite ? 'Actions' : 'View'}
             </th>
@@ -288,18 +339,122 @@ export function ProjectsTable({
                     {project.developer_deadline_date ? formatDate(project.developer_deadline_date) : '--'}
                   </Link>
                 </td>
-                {canViewAmount && (
-                  <td className="hidden px-6 py-3 text-sm text-gray-500 xl:table-cell">
-                    <Link href={`/dashboard/projects/${project.id}`} prefetch className="block no-underline text-inherit">
-                      <span className="font-semibold text-gray-900">{formatCurrency(project.project_amount)}</span>
-                    </Link>
-                  </td>
-                )}
+                <td className="hidden px-6 py-3 text-sm lg:table-cell">
+                  <Link href={`/dashboard/projects/${project.id}`} prefetch className="block no-underline text-inherit">
+                    {project.follow_up_date ? (
+                      <span className={getFollowUpDateColor(project.follow_up_date)}>
+                        {formatFollowUpDate(project.follow_up_date)}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </Link>
+                </td>
                 <td className="hidden px-6 py-3 text-sm text-gray-500 xl:table-cell">
                   <Link href={`/dashboard/projects/${project.id}`} prefetch className="block no-underline text-inherit">
                     {formatDate(project.created_at)}
                   </Link>
                 </td>
+                {showWorkActions && (
+                  <td className="px-4 sm:px-6 py-3 text-sm">
+                    {project.my_work_status != null ? (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {project.my_work_status === 'not_started' && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              handleWorkAction(project.id, 'start')
+                            }}
+                            disabled={workActionProjectId === project.id}
+                            className="rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-200 transition-colors cursor-pointer disabled:opacity-50"
+                          >
+                            {workActionProjectId === project.id ? '…' : 'Start'}
+                          </button>
+                        )}
+                        {project.my_work_status === 'start' && (
+                          <>
+                            <Tooltip content="Pause work">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  handleWorkAction(project.id, 'hold')
+                                }}
+                                disabled={workActionProjectId === project.id}
+                                className="rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200 hover:bg-amber-200 transition-colors cursor-pointer disabled:opacity-50"
+                              >
+                                {workActionProjectId === project.id ? '…' : 'Hold'}
+                              </button>
+                            </Tooltip>
+                            <Tooltip content="End work and add done tasks">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  setEndWorkProject({ id: project.id, name: project.name })
+                                }}
+                                disabled={workActionProjectId === project.id}
+                                className="rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-slate-200 text-slate-800 border border-slate-300 hover:bg-slate-300 transition-colors cursor-pointer disabled:opacity-50"
+                              >
+                                End
+                              </button>
+                            </Tooltip>
+                          </>
+                        )}
+                        {project.my_work_status === 'hold' && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                handleWorkAction(project.id, 'resume')
+                              }}
+                              disabled={workActionProjectId === project.id}
+                              className="rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-cyan-100 text-cyan-800 border border-cyan-200 hover:bg-cyan-200 transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                              {workActionProjectId === project.id ? '…' : 'Resume'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                setEndWorkProject({ id: project.id, name: project.name })
+                              }}
+                              disabled={workActionProjectId === project.id}
+                              className="rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-slate-200 text-slate-800 border border-slate-300 hover:bg-slate-300 transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                              End
+                            </button>
+                          </>
+                        )}
+                        {project.my_work_status === 'end' && (
+                          <Tooltip content="Start a new work session">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                handleWorkAction(project.id, 'start')
+                              }}
+                              disabled={workActionProjectId === project.id}
+                              className="rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-200 transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                              {workActionProjectId === project.id ? '…' : 'Start again'}
+                            </button>
+                          </Tooltip>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-slate-400">—</span>
+                    )}
+                  </td>
+                )}
                 <td className="px-4 sm:px-6 py-3 text-right text-sm">
                   <div className="flex items-center justify-end gap-2">
                     {websiteLinks.length > 0 &&
@@ -349,6 +504,18 @@ export function ProjectsTable({
           })}
         </tbody>
       </table>
+
+      <EndWorkModal
+        isOpen={endWorkProject != null}
+        onClose={() => setEndWorkProject(null)}
+        projectName={endWorkProject?.name ?? ''}
+        onSubmit={(doneNotes) =>
+          endWorkProject
+            ? handleEndWorkSubmit(endWorkProject.id, endWorkProject.name, doneNotes)
+            : Promise.resolve()
+        }
+        isLoading={endWorkProject != null && workActionProjectId === endWorkProject.id}
+      />
     </div>
   )
 }

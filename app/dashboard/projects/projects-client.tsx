@@ -34,6 +34,8 @@ interface ProjectsClientProps {
   initialSortDirection: 'asc' | 'desc'
   canWrite: boolean
   canViewAmount: boolean
+  canCreateClient?: boolean
+  userRole?: string
   showClientColumn?: boolean
   clients: ClientSelectOption[]
   clientsError: string | null
@@ -54,6 +56,8 @@ export function ProjectsClient({
   initialSortDirection,
   canWrite,
   canViewAmount,
+  canCreateClient = false,
+  userRole,
   showClientColumn = true,
   clients,
   clientsError,
@@ -74,6 +78,7 @@ export function ProjectsClient({
   const [deleteProjectName, setDeleteProjectName] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [selectedClientIdForNewProject, setSelectedClientIdForNewProject] = useState('')
 
   const canCreate = canWrite
 
@@ -314,8 +319,9 @@ export function ProjectsClient({
             <ProjectsTable
               projects={projects}
               canWrite={canWrite}
-              canViewAmount={canViewAmount}
               showClientColumn={showClientColumn}
+              showWorkActions={userRole === 'staff'}
+              onWorkUpdated={() => router.refresh()}
               onView={handleView}
               onEdit={handleEdit}
               onDelete={handleDelete}
@@ -337,7 +343,10 @@ export function ProjectsClient({
       {/* Create Modal */}
       <ProjectModal
         isOpen={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
+        onClose={() => {
+          setCreateModalOpen(false)
+          setSelectedClientIdForNewProject('')
+        }}
         mode="create"
         onSubmit={handleCreate}
         clients={clients}
@@ -347,6 +356,13 @@ export function ProjectsClient({
         technologyToolsError={technologyToolsError}
         teamMembers={teamMembers}
         teamMembersError={teamMembersError}
+        canCreateClient={canCreateClient}
+        selectedClientId={selectedClientIdForNewProject}
+        onSelectedClientIdChange={setSelectedClientIdForNewProject}
+        onClientCreated={(newClientId) => {
+          router.refresh()
+          setSelectedClientIdForNewProject(newClientId)
+        }}
       />
 
       {/* Edit Modal */}

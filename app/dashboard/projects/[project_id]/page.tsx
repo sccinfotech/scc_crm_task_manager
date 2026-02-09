@@ -63,7 +63,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
         pageTitle="Project Details"
         breadcrumb={breadcrumb}
       />
-      <div className="flex-1 overflow-hidden px-4 lg:px-6 pt-2 lg:pt-3 pb-2">
+      <div className="flex-1 overflow-hidden px-3 lg:px-4 pt-2 pb-2">
         <ProjectDetailView
           project={project}
           initialFollowUps={initialFollowUps}

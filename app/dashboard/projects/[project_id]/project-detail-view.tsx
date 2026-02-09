@@ -41,18 +41,116 @@ interface ProjectDetailViewProps {
   teamMembersError: string | null
 }
 
+const STATUS_STYLES: Record<ProjectStatus, string> = {
+  pending: 'bg-slate-200 text-slate-800 border-slate-300 ring-1 ring-slate-300/50',
+  in_progress: 'bg-sky-200 text-sky-900 border-sky-400 ring-1 ring-sky-400/50',
+  hold: 'bg-amber-200 text-amber-900 border-amber-400 ring-1 ring-amber-400/50',
+  completed: 'bg-emerald-200 text-emerald-900 border-emerald-500 ring-1 ring-emerald-500/50',
+}
+const STATUS_LABELS: Record<ProjectStatus, string> = {
+  pending: 'Pending',
+  in_progress: 'In Progress',
+  hold: 'Hold',
+  completed: 'Completed',
+}
+
 function StatusPill({ status }: { status: ProjectStatus }) {
-  const statusStyles = {
-    pending: 'bg-slate-200 text-slate-800 border-slate-300 ring-1 ring-slate-300/50',
-    in_progress: 'bg-sky-200 text-sky-900 border-sky-400 ring-1 ring-sky-400/50',
-    hold: 'bg-amber-200 text-amber-900 border-amber-400 ring-1 ring-amber-400/50',
-    completed: 'bg-emerald-200 text-emerald-900 border-emerald-500 ring-1 ring-emerald-500/50',
-  }
-  const statusLabels = { pending: 'Pending', in_progress: 'In Progress', hold: 'Hold', completed: 'Completed' }
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold border ${statusStyles[status]}`}>
-      {statusLabels[status]}
+    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold border ${STATUS_STYLES[status]}`}>
+      {STATUS_LABELS[status]}
     </span>
+  )
+}
+
+function StatusSegment({
+  status,
+  onStatusChange,
+  disabled,
+}: {
+  status: ProjectStatus
+  onStatusChange: (next: ProjectStatus) => void
+  disabled?: boolean
+}) {
+  const handleSelect = (next: ProjectStatus) => {
+    if (next !== status && !disabled) {
+      onStatusChange(next)
+    }
+  }
+
+  const segmentButtons: { status: ProjectStatus; label: string; icon: React.ReactNode }[] = [
+    {
+      status: 'pending',
+      label: 'Pending',
+      icon: (
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+    },
+    {
+      status: 'in_progress',
+      label: 'In Progress',
+      icon: (
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+    },
+    {
+      status: 'hold',
+      label: 'Hold',
+      icon: (
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+    },
+    {
+      status: 'completed',
+      label: 'Completed',
+      icon: (
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+    },
+  ]
+
+  return (
+    <div
+      className="inline-flex gap-1 rounded-xl border border-slate-200 bg-slate-50/50 p-1 shadow-sm"
+      role="group"
+      aria-label="Project status"
+    >
+      {segmentButtons.map(({ status: s, label, icon }) => {
+        const isSelected = s === status
+        const button = (
+          <button
+            type="button"
+            onClick={() => handleSelect(s)}
+            disabled={disabled}
+            aria-pressed={isSelected}
+            aria-label={label}
+            className={`
+              flex items-center justify-center w-10 h-10 rounded-lg
+              transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-1
+              ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}
+              ${isSelected
+                ? `${STATUS_STYLES[s]} border shadow-sm ring-1 ring-black/5`
+                : 'text-slate-500 hover:bg-white hover:text-slate-700 hover:border-slate-200 border border-transparent'}
+            `}
+          >
+            {icon}
+          </button>
+        )
+        return (
+          <Tooltip key={s} content={label}>
+            {button}
+          </Tooltip>
+        )
+      })}
+    </div>
   )
 }
 
@@ -130,13 +228,6 @@ function normalizeLink(url: string) {
   return `https://${url}`
 }
 
-const CLIENT_STATUS_OPTIONS: { value: ProjectStatus; label: string }[] = [
-  { value: 'pending', label: 'Pending' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'hold', label: 'Hold' },
-  { value: 'completed', label: 'Completed' },
-]
-
 export function ProjectDetailView({
   project: initialProject,
   initialFollowUps = [],
@@ -164,14 +255,6 @@ export function ProjectDetailView({
   const [myWorkStatusUpdating, setMyWorkStatusUpdating] = useState(false)
   const [endWorkModalOpen, setEndWorkModalOpen] = useState(false)
   const [endWorkNotes, setEndWorkNotes] = useState('')
-  const [now, setNow] = useState(() => Date.now())
-
-  const hasRunningMember = project.team_members?.some((m) => m.work_status === 'start' && m.work_running_since)
-  useEffect(() => {
-    if (!hasRunningMember) return
-    const t = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(t)
-  }, [hasRunningMember])
 
   const canUpdateOwnWork = Boolean(
     currentUserId &&
@@ -282,14 +365,14 @@ export function ProjectDetailView({
 
   return (
     <>
-      <div className="flex h-full flex-col lg:flex-row gap-4">
+      <div className="flex h-full flex-col lg:flex-row gap-3">
         {/* LEFT COLUMN: Project Details */}
-        <div className="w-full lg:w-1/2 flex flex-col gap-4 overflow-y-auto pb-24 lg:pb-0 scrollbar-hide">
+        <div className="w-full lg:w-2/5 flex flex-col gap-3 overflow-y-auto pb-24 lg:pb-0 scrollbar-hide">
           <div className="rounded-2xl bg-white shadow-sm border border-slate-200 relative">
-            <div className="px-6 pt-5 pb-2 border-b border-slate-100">
+            <div className="px-4 pt-4 pb-2 border-b border-slate-100">
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">Project Details</h2>
             </div>
-            <div className="relative bg-white border-b border-gray-100 p-6 rounded-t-2xl">
+            <div className="relative bg-white border-b border-gray-100 p-4 rounded-t-2xl">
               <div className="flex justify-between items-start">
                 <div className="flex items-start gap-5">
                   {project.logo_url ? (
@@ -311,22 +394,14 @@ export function ProjectDetailView({
                     <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Status</span>
-                        <StatusPill status={project.status} />
-                        {canEditClientStatus && (
-                          <select
-                            id="project-status-select"
-                            value={project.status}
-                            onChange={(e) => handleClientStatusChange(e.target.value as ProjectStatus)}
+                        {canEditClientStatus ? (
+                          <StatusSegment
+                            status={project.status}
+                            onStatusChange={handleClientStatusChange}
                             disabled={statusUpdating}
-                            className="rounded-lg border border-slate-200 bg-white pl-2.5 pr-7 py-1.5 text-xs font-semibold text-slate-700 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20 disabled:opacity-60 cursor-pointer"
-                            aria-label="Change project status"
-                          >
-                            {CLIENT_STATUS_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
+                          />
+                        ) : (
+                          <StatusPill status={project.status} />
                         )}
                       </div>
                       <div className="flex items-center gap-2">
@@ -337,12 +412,14 @@ export function ProjectDetailView({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
                   {canEdit && (
                     <Tooltip content="Edit project">
                       <button
+                        type="button"
                         onClick={handleEdit}
-                        className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+                        className="rounded-lg p-2 text-slate-400 transition-colors duration-200 hover:bg-indigo-50 hover:text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:ring-offset-1 cursor-pointer"
+                        aria-label="Edit project"
                       >
                         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -353,8 +430,10 @@ export function ProjectDetailView({
                   {canDelete && (
                     <Tooltip content="Delete project">
                       <button
+                        type="button"
                         onClick={handleDelete}
-                        className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                        className="rounded-lg p-2 text-slate-400 transition-colors duration-200 hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:ring-offset-1 cursor-pointer"
+                        aria-label="Delete project"
                       >
                         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -366,27 +445,26 @@ export function ProjectDetailView({
               </div>
             </div>
 
-            <div className="p-6 bg-slate-50/30">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 bg-slate-50/30">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {userRole !== 'staff' && (
                   project.client?.id ? (
                     <Link
                       href={`/dashboard/clients/${project.client.id}`}
-                      className="flex items-center gap-4 p-4 rounded-xl bg-white border border-slate-200 hover:border-cyan-300 hover:bg-cyan-50/30 transition-colors cursor-pointer group"
+                      className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200 hover:border-cyan-300 hover:bg-cyan-50/30 transition-colors cursor-pointer group"
                     >
-                      <div className="h-12 w-12 rounded-xl bg-cyan-50 flex items-center justify-center group-hover:bg-cyan-100 transition-colors">
-                        <svg className="h-6 w-6 text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <div className="h-12 w-12 rounded-xl bg-cyan-50 flex items-center justify-center group-hover:bg-cyan-200 group-hover:scale-105 transition-all duration-200">
+                        <svg className="h-6 w-6 text-cyan-600 group-hover:text-cyan-700 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Client</p>
-                        <p className="text-sm font-semibold text-slate-700 group-hover:text-cyan-700 truncate">{clientLabel}</p>
-                        <p className="text-xs font-medium text-cyan-600 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">View client →</p>
+                        <p className="text-sm font-semibold text-slate-700 group-hover:text-cyan-700 line-clamp-2">{clientLabel}</p>
                       </div>
                     </Link>
                   ) : (
-                    <div className="flex items-center gap-4 p-4 rounded-xl bg-white border border-slate-200">
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200">
                       <div className="h-12 w-12 rounded-xl bg-cyan-50 flex items-center justify-center">
                         <svg className="h-6 w-6 text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -394,13 +472,13 @@ export function ProjectDetailView({
                       </div>
                       <div>
                         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Client</p>
-                        <p className="text-sm font-semibold text-slate-700">{clientLabel}</p>
+                        <p className="text-sm font-semibold text-slate-700 line-clamp-2">{clientLabel}</p>
                       </div>
                     </div>
                   )
                 )}
 
-                <div className="flex items-center gap-4 p-4 rounded-xl bg-white border border-slate-200">
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200">
                   <div className="h-12 w-12 rounded-xl bg-amber-50 flex items-center justify-center">
                     <svg className="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -412,22 +490,8 @@ export function ProjectDetailView({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 p-4 rounded-xl bg-white border border-slate-200">
-                  <div className="h-12 w-12 rounded-xl bg-slate-100 flex items-center justify-center">
-                    <svg className="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Priority</p>
-                    <div className="mt-0.5">
-                      <PriorityPill priority={project.priority} />
-                    </div>
-                  </div>
-                </div>
-
                 {canViewAmount && (
-                  <div className="flex items-center gap-4 p-4 rounded-xl bg-white border border-slate-200">
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200">
                     <div className="h-12 w-12 rounded-xl bg-emerald-50 flex items-center justify-center">
                       <svg className="h-6 w-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -440,7 +504,7 @@ export function ProjectDetailView({
                   </div>
                 )}
 
-                <div className="flex items-center gap-4 p-4 rounded-xl bg-white border border-slate-200">
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200">
                   <div className="h-12 w-12 rounded-xl bg-cyan-50 flex items-center justify-center">
                     <svg className="h-6 w-6 text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -455,7 +519,7 @@ export function ProjectDetailView({
                 </div>
 
                 {userRole !== 'staff' && (
-                  <div className="flex items-center gap-4 p-4 rounded-xl bg-white border border-slate-200">
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200">
                     <div className="h-12 w-12 rounded-xl bg-amber-50 flex items-center justify-center">
                       <svg className="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -470,7 +534,7 @@ export function ProjectDetailView({
                   </div>
                 )}
 
-                <div className="flex items-center gap-4 p-4 rounded-xl bg-white border border-slate-200">
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200">
                   <div className="h-12 w-12 rounded-xl bg-slate-50 flex items-center justify-center">
                     <svg className="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -486,7 +550,7 @@ export function ProjectDetailView({
           </div>
 
           {userRole !== 'staff' && (
-            <div className="rounded-2xl bg-white shadow-sm border border-slate-200 p-6">
+            <div className="rounded-2xl bg-white shadow-sm border border-slate-200 p-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-[#1E1B4B]">Payment Summary</h3>
               </div>
@@ -516,118 +580,229 @@ export function ProjectDetailView({
             </div>
           )}
 
-          <div className="rounded-2xl bg-white shadow-sm border border-slate-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-[#1E1B4B]">Team Members</h3>
-            </div>
-            {project.team_members && project.team_members.length > 0 ? (
-              <div className="space-y-4">
-                {project.team_members.map((member: ProjectTeamMember) => {
-                  const status = member.work_status ?? 'not_started'
-                  const isMe = currentUserId === member.id
-                  const totalSec = member.total_work_seconds ?? 0
-                  const runningSince = member.work_running_since
-                  const isRunning = status === 'start' && runningSince
-                  const elapsedSec = isRunning ? (now - new Date(runningSince).getTime()) / 1000 + totalSec : totalSec
-                  const statusStyles: Record<string, string> = {
-                    not_started: 'bg-slate-100 text-slate-600 border-slate-200',
-                    start: 'bg-cyan-100 text-cyan-800 border-cyan-200',
-                    hold: 'bg-amber-100 text-amber-800 border-amber-200',
-                    end: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-                  }
-                  const statusStyle = statusStyles[status] || statusStyles.not_started
+          {/* Staff: "Your work" only (no other members). Admin/Manager: full "Team Members" list. */}
+          {userRole === 'staff' ? (
+            <div className="rounded-2xl bg-white shadow-sm border border-slate-200 p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-[#1E1B4B]">Your work</h3>
+              </div>
+              {(() => {
+                const member = project.team_members?.find((m) => m.id === currentUserId)
+                if (!member) {
                   return (
-                    <div
-                      key={member.id}
-                      className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50/50 p-4"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-slate-800">
-                            {member.full_name || member.email || 'Staff Member'}
-                          </span>
-                          <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${statusStyle}`}>
-                            {formatWorkStatus(status)}
-                          </span>
-                        </div>
-                        <div className="text-sm font-medium text-slate-700 tabular-nums">
-                          {status === 'not_started'
-                            ? '--'
-                            : formatWorkSeconds(elapsedSec) + (isRunning ? ' (running)' : '')}
-                        </div>
-                      </div>
-                      {status === 'end' && member.work_done_notes && (
-                        <div className="rounded-lg bg-white border border-slate-100 p-2 text-xs text-slate-600">
-                          <span className="font-semibold text-slate-500">Done points: </span>
-                          {member.work_done_notes}
-                        </div>
-                      )}
-                      {canUpdateOwnWork && isMe && status !== 'end' && (
-                        <div className="flex flex-wrap gap-2 pt-1">
-                          {status === 'not_started' && (
-                            <button
-                              type="button"
-                              onClick={() => handleMyWorkStatus('start')}
-                              disabled={myWorkStatusUpdating}
-                              className="rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-cyan-700 disabled:opacity-50"
-                            >
-                              Start
-                            </button>
-                          )}
-                          {status === 'start' && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => handleMyWorkStatus('hold')}
-                                disabled={myWorkStatusUpdating}
-                                className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
-                              >
-                                Hold
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setEndWorkModalOpen(true)}
-                                disabled={myWorkStatusUpdating}
-                                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
-                              >
-                                End
-                              </button>
-                            </>
-                          )}
-                          {status === 'hold' && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => handleMyWorkStatus('resume')}
-                                disabled={myWorkStatusUpdating}
-                                className="rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-cyan-700 disabled:opacity-50"
-                              >
-                                Resume
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setEndWorkModalOpen(true)}
-                                disabled={myWorkStatusUpdating}
-                                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
-                              >
-                                End
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      )}
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+                      You are not assigned to this project.
                     </div>
                   )
-                })}
+                }
+                const status = member.work_status ?? 'not_started'
+                const totalSec = member.total_work_seconds ?? 0
+                const runningSince = member.work_running_since
+                const isRunning = status === 'start' && runningSince
+                const currentMs = Date.now()
+                const elapsedSec = isRunning && runningSince
+                  ? (currentMs - new Date(runningSince).getTime()) / 1000 + totalSec
+                  : totalSec
+                const statusStyles: Record<string, string> = {
+                  not_started: 'bg-slate-100 text-slate-600 border-slate-200',
+                  start: 'bg-cyan-100 text-cyan-800 border-cyan-200',
+                  hold: 'bg-amber-100 text-amber-800 border-amber-200',
+                  end: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+                }
+                const statusStyle = statusStyles[status] || statusStyles.not_started
+                return (
+                  <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${statusStyle}`}>
+                        {formatWorkStatus(status)}
+                      </span>
+                      <div className="text-sm font-medium text-slate-700 tabular-nums">
+                        {status === 'not_started'
+                          ? '--'
+                          : formatWorkSeconds(elapsedSec) + (isRunning ? ' (in progress)' : '')}
+                      </div>
+                    </div>
+                    {status === 'end' && member.work_done_notes && (
+                      <div className="rounded-lg bg-white border border-slate-100 p-2 text-xs text-slate-600">
+                        <span className="font-semibold text-slate-500">Done points: </span>
+                        {member.work_done_notes}
+                      </div>
+                    )}
+                    {canUpdateOwnWork && (
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {(status === 'not_started' || status === 'end') && (
+                          <button
+                            type="button"
+                            onClick={() => handleMyWorkStatus('start')}
+                            disabled={myWorkStatusUpdating}
+                            className="rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-cyan-700 disabled:opacity-50 cursor-pointer transition-colors"
+                          >
+                            {status === 'end' ? 'Start again' : 'Start'}
+                          </button>
+                        )}
+                        {status === 'start' && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleMyWorkStatus('hold')}
+                              disabled={myWorkStatusUpdating}
+                              className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50 cursor-pointer transition-colors"
+                            >
+                              Hold
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEndWorkModalOpen(true)}
+                              disabled={myWorkStatusUpdating}
+                              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 cursor-pointer transition-colors"
+                            >
+                              End
+                            </button>
+                          </>
+                        )}
+                        {status === 'hold' && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleMyWorkStatus('resume')}
+                              disabled={myWorkStatusUpdating}
+                              className="rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-cyan-700 disabled:opacity-50 cursor-pointer transition-colors"
+                            >
+                              Resume
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEndWorkModalOpen(true)}
+                              disabled={myWorkStatusUpdating}
+                              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 cursor-pointer transition-colors"
+                            >
+                              End
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+            </div>
+          ) : (
+            <div className="rounded-2xl bg-white shadow-sm border border-slate-200 p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-[#1E1B4B]">Team Members</h3>
               </div>
-            ) : (
-              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
-                No team members assigned.
-              </div>
-            )}
-          </div>
+              {project.team_members && project.team_members.length > 0 ? (
+                <div className="space-y-4">
+                  {project.team_members.map((member: ProjectTeamMember) => {
+                    const status = member.work_status ?? 'not_started'
+                    const isMe = currentUserId === member.id
+                    const totalSec = member.total_work_seconds ?? 0
+                    const runningSince = member.work_running_since
+                    const isRunning = status === 'start' && runningSince
+                    const currentMs = Date.now()
+                    const elapsedSec = isRunning && runningSince
+                      ? (currentMs - new Date(runningSince).getTime()) / 1000 + totalSec
+                      : totalSec
+                    const statusStyles: Record<string, string> = {
+                      not_started: 'bg-slate-100 text-slate-600 border-slate-200',
+                      start: 'bg-cyan-100 text-cyan-800 border-cyan-200',
+                      hold: 'bg-amber-100 text-amber-800 border-amber-200',
+                      end: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+                    }
+                    const statusStyle = statusStyles[status] || statusStyles.not_started
+                    return (
+                      <div
+                        key={member.id}
+                        className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50/50 p-4"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-slate-800">
+                              {member.full_name || member.email || 'Staff Member'}
+                            </span>
+                            <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${statusStyle}`}>
+                              {formatWorkStatus(status)}
+                            </span>
+                          </div>
+                          <div className="text-sm font-medium text-slate-700 tabular-nums">
+                            {status === 'not_started'
+                              ? '--'
+                              : formatWorkSeconds(elapsedSec) + (isRunning ? ' (in progress)' : '')}
+                          </div>
+                        </div>
+                        {status === 'end' && member.work_done_notes && (
+                          <div className="rounded-lg bg-white border border-slate-100 p-2 text-xs text-slate-600">
+                            <span className="font-semibold text-slate-500">Done points: </span>
+                            {member.work_done_notes}
+                          </div>
+                        )}
+                        {canUpdateOwnWork && isMe && (
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            {(status === 'not_started' || status === 'end') && (
+                              <button
+                                type="button"
+                                onClick={() => handleMyWorkStatus('start')}
+                                disabled={myWorkStatusUpdating}
+                                className="rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-cyan-700 disabled:opacity-50 cursor-pointer transition-colors"
+                              >
+                                {status === 'end' ? 'Start again' : 'Start'}
+                              </button>
+                            )}
+                            {status === 'start' && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleMyWorkStatus('hold')}
+                                  disabled={myWorkStatusUpdating}
+                                  className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50 cursor-pointer transition-colors"
+                                >
+                                  Hold
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEndWorkModalOpen(true)}
+                                  disabled={myWorkStatusUpdating}
+                                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 cursor-pointer transition-colors"
+                                >
+                                  End
+                                </button>
+                              </>
+                            )}
+                            {status === 'hold' && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleMyWorkStatus('resume')}
+                                  disabled={myWorkStatusUpdating}
+                                  className="rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-cyan-700 disabled:opacity-50 cursor-pointer transition-colors"
+                                >
+                                  Resume
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEndWorkModalOpen(true)}
+                                  disabled={myWorkStatusUpdating}
+                                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 cursor-pointer transition-colors"
+                                >
+                                  End
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+                  No team members assigned.
+                </div>
+              )}
+            </div>
+          )}
 
-          <div className="rounded-2xl bg-white shadow-sm border border-slate-200 p-6">
+          <div className="rounded-2xl bg-white shadow-sm border border-slate-200 p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-[#1E1B4B]">Technology & Tools</h3>
             </div>
@@ -647,7 +822,7 @@ export function ProjectDetailView({
             )}
           </div>
 
-          <div className="rounded-2xl bg-white shadow-sm border border-slate-200 p-6">
+          <div className="rounded-2xl bg-white shadow-sm border border-slate-200 p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-[#1E1B4B]">Website Links</h3>
             </div>
@@ -670,7 +845,7 @@ export function ProjectDetailView({
             )}
           </div>
 
-          <div className="rounded-2xl bg-white shadow-sm border border-slate-200 p-6">
+          <div className="rounded-2xl bg-white shadow-sm border border-slate-200 p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-[#1E1B4B]">Reference Site Links</h3>
             </div>
@@ -695,7 +870,7 @@ export function ProjectDetailView({
         </div>
 
         {/* RIGHT COLUMN: Follow-Ups */}
-        <div className="w-full lg:w-1/2 flex flex-col gap-4 overflow-y-auto pb-24 lg:pb-0 scrollbar-hide">
+        <div className="w-full lg:w-3/5 flex flex-col gap-3 overflow-y-auto pb-24 lg:pb-0 scrollbar-hide">
           <ProjectFollowUps
             projectId={project.id}
             initialFollowUps={initialFollowUps}
@@ -791,36 +966,43 @@ export function ProjectDetailView({
         />
       )}
 
-      {/* End Work (Done notes) modal */}
+      {/* End Work (Done points) modal – required to fill before ending */}
       {endWorkModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-bold text-[#1E1B4B] mb-2">End Work – Done Points</h3>
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 sm:p-8 shadow-xl">
+            <h3 className="text-xl font-bold text-[#1E1B4B] mb-2">End work – Done points</h3>
             <p className="text-sm text-slate-600 mb-4">
-              Add a short note of what was completed (optional but recommended for records).
+              Add a note of what was completed in this session. Required to end work.
             </p>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              Done points <span className="text-rose-500">*</span>
+            </label>
             <textarea
               value={endWorkNotes}
               onChange={(e) => setEndWorkNotes(e.target.value)}
               placeholder="e.g. Homepage layout, API integration, testing"
-              className="mb-4 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm min-h-[80px] resize-y focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/20"
-              rows={3}
+              className="mb-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm min-h-[140px] resize-y focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/20"
+              rows={5}
+              required
             />
+            <p className="text-xs text-slate-500 mb-4">
+              Required. Describe what you completed in this work session before ending.
+            </p>
             <div className="flex gap-3 justify-end">
               <button
                 type="button"
                 onClick={() => { setEndWorkModalOpen(false); setEndWorkNotes('') }}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={() => handleMyWorkStatus('end', endWorkNotes)}
-                disabled={myWorkStatusUpdating}
-                className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                onClick={() => handleMyWorkStatus('end', endWorkNotes.trim() || undefined)}
+                disabled={myWorkStatusUpdating || !endWorkNotes.trim()}
+                className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
               >
-                {myWorkStatusUpdating ? 'Saving...' : 'End & Save'}
+                {myWorkStatusUpdating ? 'Saving...' : 'End & save'}
               </button>
             </div>
           </div>

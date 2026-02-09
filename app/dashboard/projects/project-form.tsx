@@ -7,8 +7,13 @@ import {
   getProjectLogoUploadSignature,
 } from '@/lib/projects/actions'
 import type { ClientSelectOption } from '@/lib/clients/actions'
-import type { TechnologyTool } from '@/lib/settings/technology-tools-actions'
+import {
+  getTechnologyTools,
+  createTechnologyTool,
+  type TechnologyTool,
+} from '@/lib/settings/technology-tools-actions'
 import type { StaffSelectOption } from '@/lib/users/actions'
+import { useToast } from '@/app/components/ui/toast-context'
 
 interface ProjectFormProps {
   initialData?: Partial<ProjectFormData>
@@ -19,10 +24,14 @@ interface ProjectFormProps {
   clients: ClientSelectOption[]
   clientsError: string | null
   canViewAmount: boolean
-  technologyTools: TechnologyTool[]
+  technologyTools: TechnologyTool[] // initial list; form may append after create
   technologyToolsError: string | null
   teamMembers: StaffSelectOption[]
   teamMembersError: string | null
+  canCreateClient?: boolean
+  clientIdValue?: string
+  onClientIdChange?: (id: string) => void
+  onCreateClientClick?: () => void
 }
 
 const PRIORITY_OPTIONS: { value: ProjectPriority; label: string }[] = [
@@ -51,6 +60,10 @@ export function ProjectForm({
   technologyToolsError,
   teamMembers,
   teamMembersError,
+  canCreateClient = false,
+  clientIdValue,
+  onClientIdChange,
+  onCreateClientClick,
 }: ProjectFormProps) {
   const [logoUrl, setLogoUrl] = useState(initialData?.logo_url || '')
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string>('')
@@ -61,14 +74,34 @@ export function ProjectForm({
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>(
     initialData?.team_member_ids ?? []
   )
+  const [toolsList, setToolsList] = useState<TechnologyTool[]>(technologyTools)
+  const [toolSearchQuery, setToolSearchQuery] = useState('')
+  const [toolDropdownOpen, setToolDropdownOpen] = useState(false)
+  const toolComboRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const pendingLogoFileRef = useRef<File | null>(null)
+  const { success: showToastSuccess, error: showToastError } = useToast()
+
+  useEffect(() => {
+    setToolsList(technologyTools)
+  }, [technologyTools])
 
   useEffect(() => {
     return () => {
       if (logoPreviewUrl) URL.revokeObjectURL(logoPreviewUrl)
     }
   }, [logoPreviewUrl])
+
+  useEffect(() => {
+    if (!toolDropdownOpen) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (toolComboRef.current && !toolComboRef.current.contains(e.target as Node)) {
+        setToolDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [toolDropdownOpen])
 
   const uploadLogoFile = async (file: File): Promise<string | null> => {
     const signatureResult = await getProjectLogoUploadSignature()
@@ -334,18 +367,34 @@ export function ProjectForm({
 
         <div className="grid gap-5 md:grid-cols-2">
           <div>
-            <label htmlFor="client_id" className={labelClasses}>
-              Client <span className="text-rose-500">*</span>
-            </label>
+            <div className="flex items-center justify-between gap-2 mb-1.5">
+              <label htmlFor="client_id" className={labelClasses}>
+                Client <span className="text-rose-500">*</span>
+              </label>
+              {canCreateClient && onCreateClientClick && (
+                <button
+                  type="button"
+                  onClick={onCreateClientClick}
+                  className="shrink-0 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-cyan-600 bg-cyan-50 border border-cyan-200 transition-colors duration-200 hover:bg-cyan-100 hover:border-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-1 cursor-pointer"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
+                  Create customer
+                </button>
+              )}
+            </div>
             <div className="relative">
               <select
                 id="client_id"
                 name="client_id"
                 required
-                defaultValue={initialData?.client_id || ''}
+                {...(onClientIdChange && clientIdValue !== undefined
+                  ? { value: clientIdValue, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => onClientIdChange(e.target.value) }
+                  : { defaultValue: initialData?.client_id || '' })}
                 className={`${inputClasses} appearance-none cursor-pointer`}
               >
-                <option value="" disabled>
+                <option value="">
                   Select a client
                 </option>
                 {clients.map((client) => (
@@ -361,7 +410,7 @@ export function ProjectForm({
               </div>
             </div>
             {clients.length === 0 && !clientsError && (
-              <p className="mt-2 text-xs text-slate-500">No clients found. Add a client first.</p>
+              <p className="mt-2 text-xs text-slate-500">No clients found. Add a client first or create one.</p>
             )}
           </div>
 
@@ -458,73 +507,126 @@ export function ProjectForm({
           </div>
         )}
 
-        {technologyTools.length === 0 ? (
-          <p className="text-sm text-slate-500">
-            No tools found. Add items in Settings to populate this list.
-          </p>
-        ) : (
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="technology_tool_select" className={labelClasses}>
-                Add technology or tool
-              </label>
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="technology_tool_search" className={labelClasses}>
+              Add technology or tool
+            </label>
+            <p className="text-xs text-slate-500 mb-2">
+              Search and select, or type a new name to create it
+            </p>
+            <div className="relative" ref={toolComboRef}>
               <div className="relative">
-                <select
-                  id="technology_tool_select"
-                  value=""
+                <input
+                  id="technology_tool_search"
+                  type="text"
+                  value={toolSearchQuery}
                   onChange={(e) => {
-                    const id = e.target.value
-                    if (id) {
-                      setSelectedToolIds((prev) => (prev.includes(id) ? prev : [...prev, id]))
-                      e.target.value = ''
-                    }
+                    setToolSearchQuery(e.target.value)
+                    setToolDropdownOpen(true)
                   }}
-                  className={`${inputClasses} appearance-none cursor-pointer`}
-                >
-                  <option value="">Select a technology or tool</option>
-                  {technologyTools
-                    .filter((t) => !selectedToolIds.includes(t.id))
-                    .map((tool) => (
-                      <option key={tool.id} value={tool.id}>
-                        {tool.name}
-                      </option>
-                    ))}
-                </select>
+                  onFocus={() => setToolDropdownOpen(true)}
+                  placeholder="Search or type new..."
+                  className={`${inputClasses} pr-10`}
+                  autoComplete="off"
+                />
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
               </div>
+              {toolDropdownOpen && (
+                <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg ring-1 ring-black/5">
+                  {(() => {
+                    const q = toolSearchQuery.trim().toLowerCase()
+                    const available = toolsList.filter(
+                      (t) => !selectedToolIds.includes(t.id) && (!q || t.name.toLowerCase().includes(q))
+                    )
+                    const exactMatch = q && toolsList.some((t) => t.name.toLowerCase() === q)
+                    const showCreate = q && !exactMatch
+                    if (available.length === 0 && !showCreate) {
+                      return (
+                        <div className="px-4 py-3 text-sm text-slate-500">
+                          {q ? (showCreate ? '' : 'No matches') : 'Type to search or add new'}
+                        </div>
+                      )
+                    }
+                    return (
+                      <>
+                        {available.map((tool) => (
+                          <button
+                            key={tool.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedToolIds((prev) => (prev.includes(tool.id) ? prev : [...prev, tool.id]))
+                              setToolSearchQuery('')
+                              setToolDropdownOpen(false)
+                            }}
+                            className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors duration-200 cursor-pointer"
+                          >
+                            {tool.name}
+                          </button>
+                        ))}
+                        {showCreate && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const name = toolSearchQuery.trim()
+                              if (!name) return
+                              setToolDropdownOpen(false)
+                              const result = await createTechnologyTool({ name })
+                              if (!result.error && result.data) {
+                                setToolsList((prev) => [...prev, result.data!])
+                                setSelectedToolIds((prev) => [...prev, result.data!.id])
+                                setToolSearchQuery('')
+                                showToastSuccess('Added', `"${name}" added as a new technology/tool.`)
+                              } else {
+                                showToastError('Could not add', result.error ?? 'You may not have permission to add tools.')
+                              }
+                            }}
+                            className="w-full text-left px-4 py-2.5 text-sm text-cyan-600 font-medium hover:bg-cyan-50 transition-colors duration-200 cursor-pointer flex items-center gap-2 border-t border-slate-100 mt-1 pt-2"
+                          >
+                            <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                            </svg>
+                            Create &quot;{toolSearchQuery.trim()}&quot;
+                          </button>
+                        )}
+                      </>
+                    )
+                  })()}
+                </div>
+              )}
             </div>
-            {selectedToolIds.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {selectedToolIds.map((id) => {
-                  const tool = technologyTools.find((t) => t.id === id)
-                  const label = tool ? tool.name : id
-                  return (
-                    <span
-                      key={id}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-sm font-medium text-cyan-800"
-                    >
-                      <span className="truncate max-w-[160px]">{label}</span>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedToolIds((prev) => prev.filter((tid) => tid !== id))}
-                        className="rounded p-0.5 text-cyan-600 transition-colors hover:bg-cyan-200/80 hover:text-cyan-900 focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                        aria-label={`Remove ${label}`}
-                      >
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </span>
-                  )
-                })}
-              </div>
-            )}
           </div>
-        )}
+          {selectedToolIds.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {selectedToolIds.map((id) => {
+                const tool = toolsList.find((t) => t.id === id)
+                const label = tool ? tool.name : id
+                return (
+                  <span
+                    key={id}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-sm font-medium text-cyan-800"
+                  >
+                    <span className="truncate max-w-[160px]">{label}</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedToolIds((prev) => prev.filter((tid) => tid !== id))}
+                      className="rounded p-0.5 text-cyan-600 transition-colors duration-200 hover:bg-cyan-200/80 hover:text-cyan-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 cursor-pointer"
+                      aria-label={`Remove ${label}`}
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </span>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Team Members */}

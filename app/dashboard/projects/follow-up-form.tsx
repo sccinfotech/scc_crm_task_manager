@@ -20,7 +20,6 @@ export function FollowUpForm({
     async (_prevState: { error: string | null } | null, formData: FormData) => {
       const followUpData: ProjectFollowUpFormData = {
         follow_up_date: (formData.get('follow_up_date') as string) || undefined,
-        next_follow_up_date: (formData.get('next_follow_up_date') as string) || undefined,
         note: (formData.get('note') as string) || undefined,
       }
 
@@ -41,48 +40,13 @@ export function FollowUpForm({
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label htmlFor="follow_up_date" className="block text-sm font-semibold text-[#1E1B4B] mb-2">
-            Follow-Up Date (Optional)
-          </label>
-          <input
-            type="date"
-            id="follow_up_date"
-            name="follow_up_date"
-            defaultValue={
-              initialData?.follow_up_date
-                ? new Date(initialData.follow_up_date).toISOString().slice(0, 10)
-                : ''
-            }
-            className="block w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-[#1E1B4B] placeholder-gray-400 shadow-sm transition-all duration-200 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-opacity-20 sm:text-sm"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="next_follow_up_date" className="block text-sm font-semibold text-[#1E1B4B] mb-2">
-            Next Follow-Up Date (Optional)
-          </label>
-          <input
-            type="date"
-            id="next_follow_up_date"
-            name="next_follow_up_date"
-            defaultValue={
-              initialData?.next_follow_up_date
-                ? new Date(initialData.next_follow_up_date).toISOString().slice(0, 10)
-                : ''
-            }
-            className="block w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-[#1E1B4B] placeholder-gray-400 shadow-sm transition-all duration-200 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-opacity-20 sm:text-sm"
-          />
-        </div>
-      </div>
-
+      {/* Note - What happened in this follow-up */}
       <div>
         <label htmlFor="note" className="block text-sm font-semibold text-[#1E1B4B] mb-2">
           Follow-Up Note (Optional)
         </label>
         <p className="text-xs text-gray-500 mb-2">
-          Describe what was discussed or what action was taken. Add a note or set at least one date.
+          Describe what was discussed or what action was taken during this follow-up. You can add a note or set a reminder date (at least one is required).
         </p>
         <textarea
           id="note"
@@ -91,6 +55,30 @@ export function FollowUpForm({
           defaultValue={initialData?.note || ''}
           className="block w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-[#1E1B4B] placeholder-gray-400 shadow-sm transition-all duration-200 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-opacity-20 sm:text-sm resize-none"
           placeholder="Enter what was discussed or what action was taken..."
+        />
+      </div>
+
+      {/* Set Reminder - Optional next follow-up date (same as client) */}
+      <div>
+        <label
+          htmlFor="follow_up_date"
+          className="block text-sm font-semibold text-[#1E1B4B] mb-2"
+        >
+          Set Reminder (Optional)
+        </label>
+        <p className="text-xs text-gray-500 mb-2">
+          Optionally set a date for the next follow-up reminder
+        </p>
+        <input
+          type="date"
+          id="follow_up_date"
+          name="follow_up_date"
+          defaultValue={
+            initialData?.follow_up_date
+              ? new Date(initialData.follow_up_date).toISOString().slice(0, 10)
+              : ''
+          }
+          className="block w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-[#1E1B4B] placeholder-gray-400 shadow-sm transition-all duration-200 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-opacity-20 sm:text-sm"
         />
       </div>
 

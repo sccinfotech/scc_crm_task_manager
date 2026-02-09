@@ -117,6 +117,12 @@ export type ProjectListItem = {
   website_links: string | null
   created_at: string
   created_by?: string
+  /** Next follow-up date from the latest follow-up record (single reminder, same as detail view). */
+  follow_up_date: string | null
+  /** For staff: current user's work status on this project (only when assigned). */
+  my_work_status?: ProjectTeamMemberWorkStatus | null
+  /** For staff: when current user started this work session (only when work_status is start). */
+  my_work_started_at?: string | null
 }
 
 export type ProjectActionResult =
@@ -145,7 +151,6 @@ export type ProjectFollowUpActionResult =
 
 export type ProjectFollowUpFormData = {
   follow_up_date?: string
-  next_follow_up_date?: string
   note?: string
 }
 
@@ -324,7 +329,7 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
     query = supabase
       .from('projects')
       .select(
-        'id, name, logo_url, client_id, project_amount, status, priority, start_date, developer_deadline_date, website_links, created_at, created_by, clients(id, name, company_name), project_team_members!inner(user_id)',
+        'id, name, logo_url, client_id, project_amount, status, priority, start_date, developer_deadline_date, website_links, created_at, created_by, clients(id, name, company_name), project_team_members!inner(user_id, work_status, work_started_at)',
         { count: 'exact' }
       )
       .eq('project_team_members.user_id', currentUser.id)
@@ -364,8 +369,30 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
   }
 
   const canViewAmount = canViewProjectAmount(currentUser.role)
+  const projectIds = (data || []).map((row: any) => row.id) as string[]
+
+  // Next follow-up date per project (latest follow-up's follow_up_date, same as detail view setup)
+  const followUpDateByProject = new Map<string, string | null>()
+  if (projectIds.length > 0) {
+    const { data: followUps } = await supabase
+      .from('project_followups')
+      .select('project_id, follow_up_date, created_at')
+      .in('project_id', projectIds)
+      .order('created_at', { ascending: false })
+
+    const rows = (followUps || []) as Array<{ project_id: string; follow_up_date: string | null }>
+    for (const row of rows) {
+      if (!followUpDateByProject.has(row.project_id)) {
+        followUpDateByProject.set(row.project_id, row.follow_up_date)
+      }
+    }
+  }
+
   const list = (data || []).map((row: any) => {
     const client = normalizeClient(row.clients)
+    const raw = row.project_team_members
+    const members = Array.isArray(raw) ? raw : raw != null ? [raw] : []
+    const myMember = (members as Array<{ work_status?: string; work_started_at?: string }>)[0] ?? null
     return {
       id: row.id,
       name: row.name,
@@ -381,6 +408,11 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
       website_links: row.website_links ?? null,
       created_at: row.created_at,
       created_by: row.created_by,
+      follow_up_date: followUpDateByProject.get(row.id) ?? null,
+      ...(myMember && {
+        my_work_status: myMember.work_status ?? null,
+        my_work_started_at: myMember.work_started_at ?? null,
+      }),
     }
   }) as ProjectListItem[]
 
@@ -863,11 +895,15 @@ export async function updateMyProjectWorkStatus(
     not_started: ['start'],
     start: ['hold', 'end'],
     hold: ['resume', 'end'],
-    end: [],
+    end: ['start'], // can start again next day or same day (repetitive process)
   }
   const allowed = validTransitions[currentStatus] || []
   if (!allowed.includes(eventType)) {
     return { data: null, error: `Cannot ${eventType} from current status (${currentStatus})` }
+  }
+
+  if (eventType === 'end' && (!note || !note.trim())) {
+    return { data: null, error: 'Done points are required. Please describe what you completed before ending work.' }
   }
 
   const now = new Date().toISOString()
@@ -889,6 +925,9 @@ export async function updateMyProjectWorkStatus(
   const updates: Record<string, unknown> = { work_status: eventType === 'resume' ? 'start' : eventType }
   if (eventType === 'start') {
     updates.work_started_at = now
+    // clear previous session end data when starting a new session
+    updates.work_ended_at = null
+    updates.work_done_notes = null
   }
   if (eventType === 'end') {
     updates.work_ended_at = now
@@ -1022,8 +1061,8 @@ export async function createProjectFollowUp(
   const canWriteModule = await hasPermission(currentUser, MODULE_PERMISSION_IDS.projects, 'write')
   const isAdmin = isAdminManager(currentUser.role)
 
-  if (!formData.note?.trim() && !formData.follow_up_date && !formData.next_follow_up_date) {
-    return { data: null, error: 'Please add a note or set a follow-up date (at least one is required)' }
+  if (!formData.note?.trim() && !formData.follow_up_date) {
+    return { data: null, error: 'Please add a note or set a reminder date (at least one is required)' }
   }
 
   const supabase = await createClient()
@@ -1038,7 +1077,7 @@ export async function createProjectFollowUp(
     .insert({
       project_id: projectId,
       follow_up_date: formData.follow_up_date || null,
-      next_follow_up_date: formData.next_follow_up_date || null,
+      next_follow_up_date: null,
       note: formData.note?.trim() || null,
       created_by: currentUser.id,
     } as never)
@@ -1087,15 +1126,15 @@ export async function updateProjectFollowUp(
     }
   }
 
-  if (!formData.note?.trim() && !formData.follow_up_date && !formData.next_follow_up_date) {
-    return { data: null, error: 'Please add a note or set a follow-up date (at least one is required)' }
+  if (!formData.note?.trim() && !formData.follow_up_date) {
+    return { data: null, error: 'Please add a note or set a reminder date (at least one is required)' }
   }
 
   const { data, error } = await supabase
     .from('project_followups')
     .update({
       follow_up_date: formData.follow_up_date || null,
-      next_follow_up_date: formData.next_follow_up_date || null,
+      next_follow_up_date: null,
       note: formData.note?.trim() || null,
     } as never)
     .eq('id', followUpId)
