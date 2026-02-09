@@ -1,14 +1,15 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { LeadsTable } from './leads-table'
+import { LeadsCardList } from './leads-card-list'
 import { LeadModal } from './lead-modal'
 import { LeadDetails } from './lead-details'
 import { DeleteConfirmModal } from './delete-confirm-modal'
 import { LeadsFilters } from './leads-filters'
 import { Pagination } from '@/app/components/ui/pagination'
-import { createLead, updateLead, getLead, deleteLead, LeadFormData, Lead, LeadStatus, type LeadListItem, type FollowUpDateFilter, type LeadSortField } from '@/lib/leads/actions'
+import { createLead, updateLead, getLead, deleteLead, getLeadsPage, LeadFormData, Lead, LeadStatus, type LeadListItem, type FollowUpDateFilter, type LeadSortField } from '@/lib/leads/actions'
 import { createClient, ClientFormData } from '@/lib/clients/actions'
 import { useToast } from '@/app/components/ui/toast-context'
 import { ClientModal } from '../clients/client-modal'
@@ -56,6 +57,16 @@ export function LeadsClient({
   const [deleteLeadName, setDeleteLeadName] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  // Mobile: accumulated list for infinite scroll (desktop uses server-driven page)
+  const [mobileLeads, setMobileLeads] = useState<LeadListItem[]>(leads)
+  const [mobilePage, setMobilePage] = useState(page)
+  const [loadingMore, setLoadingMore] = useState(false)
+
+  // Sync mobile list when filters/sort/page change (e.g. new search from server)
+  useEffect(() => {
+    setMobileLeads(leads)
+    setMobilePage(page)
+  }, [leads, page, initialSearch, initialStatus, initialFollowUpDate, initialSortField, initialSortDirection])
 
   const buildSearchParams = useCallback(
     (updates: {
@@ -275,6 +286,25 @@ export function LeadsClient({
     router.refresh()
   }
 
+  const handleLoadMore = useCallback(async () => {
+    if (loadingMore || mobileLeads.length >= totalCount) return
+    setLoadingMore(true)
+    const result = await getLeadsPage({
+      search: initialSearch || undefined,
+      status: initialStatus !== 'all' ? initialStatus : undefined,
+      followUpDate: initialFollowUpDate !== 'all' ? initialFollowUpDate : undefined,
+      sortField: initialSortField ?? undefined,
+      sortDirection: initialSortDirection,
+      page: mobilePage + 1,
+      pageSize,
+    })
+    setLoadingMore(false)
+    if (result.data?.length) {
+      setMobileLeads((prev) => [...prev, ...result.data])
+      setMobilePage((prev) => prev + 1)
+    }
+  }, [loadingMore, mobileLeads.length, totalCount, initialSearch, initialStatus, initialFollowUpDate, initialSortField, initialSortDirection, mobilePage, pageSize])
+
   const handleConvert = async (leadId: string) => {
     if (!canConvert) {
       showError('Permission Denied', 'You do not have permission to create clients.')
@@ -371,25 +401,45 @@ export function LeadsClient({
             </div>
           )}
           <div className="flex-1 overflow-y-auto">
-            <LeadsTable
-              leads={leads}
-              canWrite={canWrite}
-              onView={handleView}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              onConvert={handleConvert}
-              canConvert={canConvert}
-              sortField={initialSortField}
-              sortDirection={initialSortField ? initialSortDirection : undefined}
-              onSort={handleSort}
-              isFiltered={initialStatus !== 'all' || initialSearch.trim() !== '' || initialFollowUpDate !== 'all'}
-            />
+            {/* Mobile: card list with infinite scroll (only below md) */}
+            <div className="md:hidden">
+              <LeadsCardList
+                leads={mobileLeads}
+                canWrite={canWrite}
+                onView={handleView}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onConvert={handleConvert}
+                canConvert={canConvert}
+                isFiltered={initialStatus !== 'all' || initialSearch.trim() !== '' || initialFollowUpDate !== 'all'}
+                hasMore={mobileLeads.length < totalCount}
+                loadingMore={loadingMore}
+                onLoadMore={handleLoadMore}
+              />
+            </div>
+            {/* Desktop: table + pagination (md and up) */}
+            <div className="hidden md:block h-full">
+              <LeadsTable
+                leads={leads}
+                canWrite={canWrite}
+                onView={handleView}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onConvert={handleConvert}
+                canConvert={canConvert}
+                sortField={initialSortField}
+                sortDirection={initialSortField ? initialSortDirection : undefined}
+                onSort={handleSort}
+                isFiltered={initialStatus !== 'all' || initialSearch.trim() !== '' || initialFollowUpDate !== 'all'}
+              />
+            </div>
           </div>
           <Pagination
             currentPage={page}
             totalCount={totalCount}
             pageSize={pageSize}
             onPageChange={handlePageChange}
+            className="hidden md:flex"
           />
         </div>
       </div>

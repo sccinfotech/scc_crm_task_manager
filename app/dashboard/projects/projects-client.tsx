@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { ProjectsTable } from './projects-table'
+import { ProjectsCardList } from './projects-card-list'
 import { ProjectsFilters } from './projects-filters'
 import { ProjectModal } from './project-modal'
 import { DeleteConfirmModal } from './delete-confirm-modal'
@@ -12,6 +13,7 @@ import {
   updateProject,
   getProject,
   deleteProject,
+  getProjectsPage,
   ProjectFormData,
   Project,
   ProjectStatus,
@@ -79,6 +81,15 @@ export function ProjectsClient({
   const [loading, setLoading] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [selectedClientIdForNewProject, setSelectedClientIdForNewProject] = useState('')
+  // Mobile: accumulated list for infinite scroll (desktop uses server-driven page)
+  const [mobileProjects, setMobileProjects] = useState<ProjectListItem[]>(projects)
+  const [mobilePage, setMobilePage] = useState(page)
+  const [loadingMore, setLoadingMore] = useState(false)
+
+  useEffect(() => {
+    setMobileProjects(projects)
+    setMobilePage(page)
+  }, [projects, page, initialSearch, initialStatus, initialSortField, initialSortDirection])
 
   const canCreate = canWrite
 
@@ -268,6 +279,24 @@ export function ProjectsClient({
     router.refresh()
   }
 
+  const handleLoadMore = useCallback(async () => {
+    if (loadingMore || mobileProjects.length >= totalCount) return
+    setLoadingMore(true)
+    const result = await getProjectsPage({
+      search: initialSearch || undefined,
+      status: initialStatus !== 'all' ? initialStatus : undefined,
+      sortField: initialSortField ?? undefined,
+      sortDirection: initialSortDirection,
+      page: mobilePage + 1,
+      pageSize,
+    })
+    setLoadingMore(false)
+    if (result.data?.length) {
+      setMobileProjects((prev) => [...prev, ...result.data])
+      setMobilePage((prev) => prev + 1)
+    }
+  }, [loadingMore, mobileProjects.length, totalCount, initialSearch, initialStatus, initialSortField, initialSortDirection, mobilePage, pageSize])
+
   return (
     <>
       <div className="flex h-full flex-col p-4 lg:p-6">
@@ -316,26 +345,47 @@ export function ProjectsClient({
             </div>
           )}
           <div className="flex-1 overflow-y-auto">
-            <ProjectsTable
-              projects={projects}
-              canWrite={canWrite}
-              showClientColumn={showClientColumn}
-              showWorkActions={userRole === 'staff'}
-              onWorkUpdated={() => router.refresh()}
-              onView={handleView}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              sortField={initialSortField}
-              sortDirection={initialSortField ? initialSortDirection : undefined}
-              onSort={handleSort}
-              isFiltered={initialStatus !== 'all' || initialSearch.trim() !== ''}
-            />
+            {/* Mobile: card list with infinite scroll (only below md) */}
+            <div className="md:hidden">
+              <ProjectsCardList
+                projects={mobileProjects}
+                canWrite={canWrite}
+                showClientColumn={showClientColumn}
+                showWorkActions={userRole === 'staff'}
+                onView={handleView}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onWorkUpdated={() => router.refresh()}
+                isFiltered={initialStatus !== 'all' || initialSearch.trim() !== ''}
+                hasMore={mobileProjects.length < totalCount}
+                loadingMore={loadingMore}
+                onLoadMore={handleLoadMore}
+              />
+            </div>
+            {/* Desktop: table + pagination (md and up) */}
+            <div className="hidden md:block h-full">
+              <ProjectsTable
+                projects={projects}
+                canWrite={canWrite}
+                showClientColumn={showClientColumn}
+                showWorkActions={userRole === 'staff'}
+                onWorkUpdated={() => router.refresh()}
+                onView={handleView}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                sortField={initialSortField}
+                sortDirection={initialSortField ? initialSortDirection : undefined}
+                onSort={handleSort}
+                isFiltered={initialStatus !== 'all' || initialSearch.trim() !== ''}
+              />
+            </div>
           </div>
           <Pagination
             currentPage={page}
             totalCount={totalCount}
             pageSize={pageSize}
             onPageChange={handlePageChange}
+            className="hidden md:flex"
           />
         </div>
       </div>

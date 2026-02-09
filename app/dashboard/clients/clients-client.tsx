@@ -1,14 +1,15 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { ClientsTable } from './clients-table'
+import { ClientsCardList } from './clients-card-list'
 import { ClientModal } from './client-modal'
 import { DeleteConfirmModal } from './delete-confirm-modal'
 import { ClientsFilters } from './clients-filters'
 import { InternalNotesPanel } from './internal-notes-panel'
 import { Pagination } from '@/app/components/ui/pagination'
-import { createClient, updateClient, getClient, deleteClient, ClientFormData, Client, ClientStatus, type ClientListItem, type ClientSortField } from '@/lib/clients/actions'
+import { createClient, updateClient, getClient, deleteClient, getClientsPage, ClientFormData, Client, ClientStatus, type ClientListItem, type ClientSortField } from '@/lib/clients/actions'
 import { useToast } from '@/app/components/ui/toast-context'
 
 interface ClientsClientProps {
@@ -50,6 +51,15 @@ export function ClientsClient({
   const [internalNotesOpen, setInternalNotesOpen] = useState(false)
   const [internalNotesClientId, setInternalNotesClientId] = useState<string | null>(null)
   const [internalNotesClientName, setInternalNotesClientName] = useState<string>('')
+  // Mobile: accumulated list for infinite scroll (desktop uses server-driven page)
+  const [mobileClients, setMobileClients] = useState<ClientListItem[]>(clients)
+  const [mobilePage, setMobilePage] = useState(page)
+  const [loadingMore, setLoadingMore] = useState(false)
+
+  useEffect(() => {
+    setMobileClients(clients)
+    setMobilePage(page)
+  }, [clients, page, initialSearch, initialStatus, initialSortField, initialSortDirection])
 
   const buildSearchParams = useCallback(
     (updates: {
@@ -223,6 +233,24 @@ export function ClientsClient({
     router.refresh()
   }
 
+  const handleLoadMore = useCallback(async () => {
+    if (loadingMore || mobileClients.length >= totalCount) return
+    setLoadingMore(true)
+    const result = await getClientsPage({
+      search: initialSearch || undefined,
+      status: initialStatus !== 'all' ? initialStatus : undefined,
+      sortField: initialSortField ?? undefined,
+      sortDirection: initialSortDirection,
+      page: mobilePage + 1,
+      pageSize,
+    })
+    setLoadingMore(false)
+    if (result.data?.length) {
+      setMobileClients((prev) => [...prev, ...result.data])
+      setMobilePage((prev) => prev + 1)
+    }
+  }, [loadingMore, mobileClients.length, totalCount, initialSearch, initialStatus, initialSortField, initialSortDirection, mobilePage, pageSize])
+
   const handleOpenInternalNotes = (clientId: string, clientName: string) => {
     if (!canManageInternalNotes) {
       showError('Permission Denied', 'You do not have permission to view internal notes.')
@@ -275,25 +303,45 @@ export function ClientsClient({
             </div>
           )}
           <div className="flex-1 overflow-y-auto">
-            <ClientsTable
-              clients={clients}
-              canWrite={canWrite}
-              canManageInternalNotes={canManageInternalNotes}
-              onView={handleView}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              onOpenInternalNotes={handleOpenInternalNotes}
-              sortField={initialSortField}
-              sortDirection={initialSortField ? initialSortDirection : undefined}
-              onSort={handleSort}
-              isFiltered={initialStatus !== 'all' || initialSearch.trim() !== ''}
-            />
+            {/* Mobile: card list with infinite scroll (only below md) */}
+            <div className="md:hidden">
+              <ClientsCardList
+                clients={mobileClients}
+                canWrite={canWrite}
+                canManageInternalNotes={canManageInternalNotes}
+                onView={handleView}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onOpenInternalNotes={handleOpenInternalNotes}
+                isFiltered={initialStatus !== 'all' || initialSearch.trim() !== ''}
+                hasMore={mobileClients.length < totalCount}
+                loadingMore={loadingMore}
+                onLoadMore={handleLoadMore}
+              />
+            </div>
+            {/* Desktop: table + pagination (md and up) */}
+            <div className="hidden md:block h-full">
+              <ClientsTable
+                clients={clients}
+                canWrite={canWrite}
+                canManageInternalNotes={canManageInternalNotes}
+                onView={handleView}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onOpenInternalNotes={handleOpenInternalNotes}
+                sortField={initialSortField}
+                sortDirection={initialSortField ? initialSortDirection : undefined}
+                onSort={handleSort}
+                isFiltered={initialStatus !== 'all' || initialSearch.trim() !== ''}
+              />
+            </div>
           </div>
           <Pagination
             currentPage={page}
             totalCount={totalCount}
             pageSize={pageSize}
             onPageChange={handlePageChange}
+            className="hidden md:flex"
           />
         </div>
       </div>

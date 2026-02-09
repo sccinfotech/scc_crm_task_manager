@@ -106,34 +106,34 @@ export function LeadsFilters({
             </div>
           </div>
 
-          {/* Status Filter */}
-          <div className="sm:w-48">
-            <select
-              value={statusFilter}
-              onChange={(e) => onStatusChange(e.target.value as LeadStatus | 'all')}
-              className="block w-full rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-[#1E1B4B] shadow-sm transition-all duration-200 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-opacity-20"
-            >
-              {STATUS_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Follow-up Date Filter */}
-          <div className="sm:w-48">
-            <select
-              value={followUpDateFilter}
-              onChange={(e) => onFollowUpDateChange(e.target.value as FollowUpDateFilter)}
-              className="block w-full rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-[#1E1B4B] shadow-sm transition-all duration-200 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-opacity-20"
-            >
-              {FOLLOW_UP_DATE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+          {/* Status + Follow-up: side by side horizontally on mobile and desktop */}
+          <div className="flex flex-row gap-2 sm:gap-4 sm:items-center">
+            <div className="flex-1 min-w-0 sm:flex-none sm:w-48">
+              <select
+                value={statusFilter}
+                onChange={(e) => onStatusChange(e.target.value as LeadStatus | 'all')}
+                className="block w-full rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-[#1E1B4B] shadow-sm transition-all duration-200 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-opacity-20"
+              >
+                {STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1 min-w-0 sm:flex-none sm:w-48">
+              <select
+                value={followUpDateFilter}
+                onChange={(e) => onFollowUpDateChange(e.target.value as FollowUpDateFilter)}
+                className="block w-full rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-[#1E1B4B] shadow-sm transition-all duration-200 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-opacity-20"
+              >
+                {FOLLOW_UP_DATE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
