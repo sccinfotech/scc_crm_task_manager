@@ -1,5 +1,5 @@
 import { requireAuth, hasPermission } from '@/lib/auth/utils'
-import { getProject, getProjectFollowUps } from '@/lib/projects/actions'
+import { getProject } from '@/lib/projects/actions'
 import { getClientsForSelect } from '@/lib/clients/actions'
 import { getTechnologyTools } from '@/lib/settings/technology-tools-actions'
 import { getStaffForSelect } from '@/lib/users/actions'
@@ -23,9 +23,8 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
     redirect('/dashboard?error=unauthorized')
   }
 
-  const [projectResult, followUpsResult, clientsResult, toolsResult, staffResult] = await Promise.all([
+  const [projectResult, clientsResult, toolsResult, staffResult] = await Promise.all([
     getProject(project_id),
-    getProjectFollowUps(project_id),
     getClientsForSelect(),
     getTechnologyTools(),
     getStaffForSelect(),
@@ -36,7 +35,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
   }
 
   const project = projectResult.data
-  const initialFollowUps = followUpsResult.data ?? []
+  // Follow-ups (and Work history, etc.) load only when user opens that tab
   const canWriteModule = await hasPermission(user, MODULE_PERMISSION_IDS.projects, 'write')
   const canManageProject = user.role === 'admin' || user.role === 'manager' || canWriteModule
   const canManageFollowUps = canManageProject || user.role === 'staff'
@@ -66,7 +65,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
       <div className="flex-1 overflow-hidden px-3 lg:px-4 pt-2 pb-2">
         <ProjectDetailView
           project={project}
-          initialFollowUps={initialFollowUps}
+          initialFollowUps={[]}
           canManageProject={canManageProject}
           canManageFollowUps={canManageFollowUps}
           canViewAmount={canViewAmount}

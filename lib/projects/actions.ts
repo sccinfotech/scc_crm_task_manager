@@ -6,7 +6,8 @@ import { encryptAmount, decryptAmount } from '@/lib/amount-encryption'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser, hasPermission } from '@/lib/auth/utils'
 import { MODULE_PERMISSION_IDS } from '@/lib/permissions'
-import { computeMemberWorkSeconds } from '@/lib/projects/work-utils'
+import { computeMemberWorkSeconds, computeWorkHistoryByDay } from '@/lib/projects/work-utils'
+import type { WorkHistoryDay } from '@/lib/projects/work-utils'
 
 export type ProjectStatus = 'pending' | 'in_progress' | 'hold' | 'completed'
 export type ProjectStaffStatus = 'start' | 'hold' | 'end'
@@ -48,7 +49,7 @@ export type ProjectTeamMember = {
   work_started_at?: string | null
   work_ended_at?: string | null
   work_done_notes?: string | null
-  /** Total work seconds (computed from time events) */
+  /** Current session accumulated seconds (computed from time events) */
   total_work_seconds?: number
   /** When current running segment started (if work_status === 'start') */
   work_running_since?: string | null
@@ -799,6 +800,70 @@ export async function updateProject(projectId: string, formData: ProjectFormData
   return { data: data as unknown as Project, error: null }
 }
 
+export type UpdateProjectLinksPayload = {
+  website_links?: string | null
+  reference_links?: string | null
+}
+
+export type UpdateProjectLinksResult =
+  | { data: true; error: null }
+  | { data: null; error: string }
+
+/**
+ * Updates only website_links and reference_links for a project. Admin/Manager or project write permission.
+ */
+export async function updateProjectLinks(
+  projectId: string,
+  payload: UpdateProjectLinksPayload
+): Promise<UpdateProjectLinksResult> {
+  const currentUser = await getCurrentUser()
+  if (!currentUser) {
+    return { data: null, error: 'You must be logged in to update project links' }
+  }
+  const canWrite = await hasPermission(currentUser, MODULE_PERMISSION_IDS.projects, 'write')
+  const isAdmin = isAdminManager(currentUser.role)
+  if (!canWrite && !isAdmin) {
+    return { data: null, error: 'You do not have permission to update project links' }
+  }
+
+  const supabase = await createClient()
+  const { data: existing } = await supabase
+    .from('projects')
+    .select('id')
+    .eq('id', projectId)
+    .single()
+
+  if (!existing) {
+    return { data: null, error: 'Project not found' }
+  }
+
+  const updatePayload: Record<string, string | null> = {}
+  if (payload.website_links !== undefined) {
+    updatePayload.website_links = payload.website_links?.trim() || null
+  }
+  if (payload.reference_links !== undefined) {
+    updatePayload.reference_links = payload.reference_links?.trim() || null
+  }
+
+  if (Object.keys(updatePayload).length === 0) {
+    return { data: true, error: null }
+  }
+
+  const { error } = await supabase
+    .from('projects')
+    .update(updatePayload as never)
+    .eq('id', projectId)
+
+  if (error) {
+    console.error('Error updating project links:', error)
+    return { data: null, error: error.message || 'Failed to update links' }
+  }
+
+  revalidatePath('/dashboard/projects')
+  revalidatePath(`/dashboard/projects/${projectId}`)
+  return { data: true, error: null }
+}
+
 export async function updateProjectStatus(
   projectId: string,
   status: ProjectStatus
@@ -1048,6 +1113,73 @@ export async function getProjectFollowUps(projectId: string): Promise<ProjectFol
   }))
 
   return { data: transformedData, error: null }
+}
+
+export type ProjectWorkHistoryResult =
+  | { data: WorkHistoryDay[]; error: null }
+  | { data: null; error: string }
+
+/**
+ * Returns work history (by day, with segments and notes) for a project.
+ * Data source: project_team_member_time_events (event_type: start, hold, resume, end; note on end).
+ * Staff: always current user. Admin/Manager: optional staffUserId to view that staff's history.
+ */
+export async function getProjectWorkHistory(
+  projectId: string,
+  staffUserId?: string | null
+): Promise<ProjectWorkHistoryResult> {
+  const currentUser = await getCurrentUser()
+  if (!currentUser) {
+    return { data: null, error: 'You must be logged in to view work history' }
+  }
+  const canReadModule = await hasPermission(currentUser, MODULE_PERMISSION_IDS.projects, 'read')
+  const isAdmin = isAdminManager(currentUser.role)
+
+  const supabase = await createClient()
+  if (!isAdmin && !canReadModule) {
+    const isAssigned = await isUserAssignedToProject(supabase, projectId, currentUser.id)
+    if (!isAssigned) {
+      return { data: null, error: 'You do not have permission to view work history' }
+    }
+  }
+
+  const userId = (() => {
+    if (currentUser.role === 'staff') return currentUser.id
+    if (staffUserId) return staffUserId
+    return currentUser.id
+  })()
+
+  if (currentUser.role === 'staff' && userId !== currentUser.id) {
+    return { data: null, error: 'You can only view your own work history' }
+  }
+
+  if (userId !== currentUser.id) {
+    const isAssigned = await isUserAssignedToProject(supabase, projectId, userId)
+    if (!isAssigned) {
+      return { data: null, error: 'Selected staff is not assigned to this project' }
+    }
+  }
+
+  const { data: timeEventRows, error: timeEventsError } = await supabase
+    .from('project_team_member_time_events')
+    .select('user_id, event_type, occurred_at, note')
+    .eq('project_id', projectId)
+    .order('occurred_at', { ascending: true })
+
+  if (timeEventsError) {
+    console.error('Error fetching work history:', timeEventsError)
+    return { data: null, error: timeEventsError.message || 'Failed to fetch work history' }
+  }
+
+  const events = (timeEventRows || []).map((e: { user_id: string; event_type: string; occurred_at: string; note?: string | null }) => ({
+    user_id: e.user_id,
+    event_type: e.event_type,
+    occurred_at: e.occurred_at,
+    note: e.note ?? null,
+  }))
+
+  const days = computeWorkHistoryByDay(userId, events)
+  return { data: days, error: null }
 }
 
 export async function createProjectFollowUp(
