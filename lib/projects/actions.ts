@@ -715,7 +715,7 @@ export async function updateProject(projectId: string, formData: ProjectFormData
 
   if (deleteToolsError) {
     console.error('Error clearing project tools:', deleteToolsError)
-    return { data: data as unknown as Project, error: deleteToolsError.message || 'Failed to update project tools' }
+    return { data: null, error: deleteToolsError.message || 'Failed to update project tools' }
   }
 
   if (toolIds.length > 0) {
@@ -731,7 +731,7 @@ export async function updateProject(projectId: string, formData: ProjectFormData
 
     if (toolError) {
       console.error('Error updating project tools:', toolError)
-      return { data: data as unknown as Project, error: toolError.message || 'Failed to update project tools' }
+      return { data: null, error: toolError.message || 'Failed to update project tools' }
     }
   }
 
@@ -743,7 +743,7 @@ export async function updateProject(projectId: string, formData: ProjectFormData
 
   if (deleteTeamError) {
     console.error('Error clearing project team members:', deleteTeamError)
-    return { data: data as unknown as Project, error: deleteTeamError.message || 'Failed to update project team members' }
+    return { data: null, error: deleteTeamError.message || 'Failed to update project team members' }
   }
 
   if (teamMemberIds.length > 0) {
@@ -759,7 +759,7 @@ export async function updateProject(projectId: string, formData: ProjectFormData
 
     if (teamError) {
       console.error('Error updating project team members:', teamError)
-      return { data: data as unknown as Project, error: teamError.message || 'Failed to update project team members' }
+      return { data: null, error: teamError.message || 'Failed to update project team members' }
     }
   }
 
