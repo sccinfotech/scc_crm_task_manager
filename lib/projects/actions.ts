@@ -871,13 +871,15 @@ export async function updateMyProjectWorkStatus(
   }
 
   const now = new Date().toISOString()
-  const { error: eventError } = await supabase.from('project_team_member_time_events').insert({
-    project_id: projectId,
-    user_id: currentUser.id,
-    event_type: eventType,
-    occurred_at: now,
-    note: eventType === 'end' ? (note ?? null) : null,
-  })
+  const { error: eventError } = await supabase
+    .from('project_team_member_time_events')
+    .insert({
+      project_id: projectId,
+      user_id: currentUser.id,
+      event_type: eventType,
+      occurred_at: now,
+      note: eventType === 'end' ? (note ?? null) : null,
+    } as never)
 
   if (eventError) {
     console.error('Error inserting time event:', eventError)
