@@ -8,6 +8,7 @@ import { ClientModal } from './client-modal'
 import { DeleteConfirmModal } from './delete-confirm-modal'
 import { ClientsFilters } from './clients-filters'
 import { InternalNotesPanel } from './internal-notes-panel'
+import { SidebarToggleButton } from '@/app/components/dashboard/sidebar-context'
 import { Pagination } from '@/app/components/ui/pagination'
 import { createClient, updateClient, getClient, deleteClient, getClientsPage, ClientFormData, Client, ClientStatus, type ClientListItem, type ClientSortField } from '@/lib/clients/actions'
 import { useToast } from '@/app/components/ui/toast-context'
@@ -265,7 +266,10 @@ export function ClientsClient({
     <>
       <div className="flex h-full flex-col p-4 lg:p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-[#1E1B4B]">Clients</h1>
+          <div className="flex items-center gap-3">
+            <SidebarToggleButton />
+            <h1 className="text-2xl font-semibold text-[#1E1B4B]">Clients</h1>
+          </div>
           <div className="flex items-center gap-2">
             <button
               type="button"

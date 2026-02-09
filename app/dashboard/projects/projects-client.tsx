@@ -6,6 +6,7 @@ import { ProjectsTable } from './projects-table'
 import { ProjectsCardList } from './projects-card-list'
 import { ProjectsFilters } from './projects-filters'
 import { ProjectModal } from './project-modal'
+import { SidebarToggleButton } from '@/app/components/dashboard/sidebar-context'
 import { DeleteConfirmModal } from './delete-confirm-modal'
 import { Pagination } from '@/app/components/ui/pagination'
 import {
@@ -302,7 +303,10 @@ export function ProjectsClient({
       <div className="flex h-full flex-col p-4 lg:p-6">
         {/* Page Title, Refresh, and Create Project Button */}
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-[#1E1B4B]">Projects</h1>
+          <div className="flex items-center gap-3">
+            <SidebarToggleButton />
+            <h1 className="text-2xl font-semibold text-[#1E1B4B]">Projects</h1>
+          </div>
           <div className="flex items-center gap-2">
             <button
               type="button"

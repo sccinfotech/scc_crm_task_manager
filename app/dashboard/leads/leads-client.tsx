@@ -8,6 +8,7 @@ import { LeadModal } from './lead-modal'
 import { LeadDetails } from './lead-details'
 import { DeleteConfirmModal } from './delete-confirm-modal'
 import { LeadsFilters } from './leads-filters'
+import { SidebarToggleButton } from '@/app/components/dashboard/sidebar-context'
 import { Pagination } from '@/app/components/ui/pagination'
 import { createLead, updateLead, getLead, deleteLead, getLeadsPage, LeadFormData, Lead, LeadStatus, type LeadListItem, type FollowUpDateFilter, type LeadSortField } from '@/lib/leads/actions'
 import { createClient, ClientFormData } from '@/lib/clients/actions'
@@ -360,7 +361,10 @@ export function LeadsClient({
       <div className="flex h-full flex-col p-4 lg:p-6">
         {/* Page Title, Refresh, and Create Lead Button */}
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-[#1E1B4B]">Leads</h1>
+          <div className="flex items-center gap-3">
+            <SidebarToggleButton />
+            <h1 className="text-2xl font-semibold text-[#1E1B4B]">Leads</h1>
+          </div>
           <div className="flex items-center gap-2">
             <button
               type="button"

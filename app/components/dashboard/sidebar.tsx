@@ -188,25 +188,6 @@ export function Sidebar({
                     <h1 className="text-lg font-bold text-white whitespace-nowrap">CRM Pro</h1>
                   )}
                 </div>
-                {/* Top Collapse Arrow - Only show when expanded */}
-                {!isCollapsed && (
-                  <button
-                    onClick={() => setIsCollapsed(true)}
-                    className="flex items-center justify-center h-7 w-7 rounded-lg bg-white/20 hover:bg-white/30 transition-colors duration-200 flex-shrink-0"
-                    aria-label="Collapse sidebar"
-                    data-tooltip="Collapse"
-                  >
-                    <svg
-                      className="h-4 w-4 text-white"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2.5}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                )}
               </div>
             </div>
           </div>
@@ -375,38 +356,6 @@ export function Sidebar({
               })}
             </ul>
           </nav>
-
-          {/* Bottom Toggle Button - Desktop Only - Only show when collapsed */}
-          {isCollapsed && (
-            <button
-              onClick={() => setIsCollapsed(false)}
-              className="
-                absolute bottom-20 left-1/2 -translate-x-1/2
-                h-9 w-9
-                flex items-center justify-center
-                rounded-lg
-                bg-[#06B6D4]/10
-                text-[#06B6D4]
-                hover:bg-[#06B6D4]/20
-                transition-all duration-200
-                hidden lg:flex
-                shadow-sm
-                border border-[#06B6D4]/20
-              "
-              aria-label="Expand sidebar"
-              data-tooltip="Expand"
-            >
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          )}
 
           {/* Bottom Section - Enhanced Profile Section */}
           <div className={`border-t border-gray-100 transition-all duration-300 ${isCollapsed ? 'p-2' : 'p-3'}`}>

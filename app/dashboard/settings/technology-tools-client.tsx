@@ -13,6 +13,7 @@ import {
   type TechnologyToolFormData,
 } from '@/lib/settings/technology-tools-actions'
 import { useToast } from '@/app/components/ui/toast-context'
+import { SidebarToggleButton } from '@/app/components/dashboard/sidebar-context'
 
 interface TechnologyToolsClientProps {
   tools: TechnologyTool[]
@@ -84,7 +85,8 @@ export function TechnologyToolsClient({ tools, canWrite }: TechnologyToolsClient
       {/* Technology & Tools: single module header (no Settings title) */}
       <section className="flex-1 flex flex-col space-y-4">
         <div className="flex items-center justify-between">
-          <div>
+          <div className="flex items-center gap-3">
+            <SidebarToggleButton />
             <h1 className="text-2xl font-semibold text-[#1E1B4B]">Technology & Tools</h1>
           </div>
           <div className="flex items-center gap-2">

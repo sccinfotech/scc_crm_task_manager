@@ -8,6 +8,7 @@ import { UserModal } from '@/app/components/users/user-modal'
 import { ChangePasswordModal } from '@/app/components/users/change-password-modal'
 import { UserDeleteModal } from '@/app/components/users/user-delete-modal'
 import { Pagination } from '@/app/components/ui/pagination'
+import { SidebarToggleButton } from '@/app/components/dashboard/sidebar-context'
 import { UserData, UserRole, createUser, updateUser, deleteUser } from '@/lib/users/actions'
 import { useToast } from '@/app/components/ui/toast-context'
 
@@ -157,7 +158,10 @@ export default function UsersClient({ initialUsers, totalCount, page, pageSize, 
     return (
         <div className="flex h-full flex-col p-4 lg:p-6">
             <div className="mb-4 flex items-center justify-between">
-                <h1 className="text-2xl font-bold text-slate-900 font-display">User Management</h1>
+                <div className="flex items-center gap-3">
+                    <SidebarToggleButton />
+                    <h1 className="text-2xl font-bold text-slate-900 font-display">User Management</h1>
+                </div>
                 <div className="flex items-center gap-2">
                     <button
                         type="button"
