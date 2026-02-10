@@ -382,6 +382,91 @@ export interface Database {
           updated_at?: string
         }
       }
+      project_requirements: {
+        Row: {
+          id: string
+          project_id: string
+          requirement_type: string
+          pricing_type: string
+          description: string | null
+          attachment_url: string | null
+          estimated_hours: number | null
+          hourly_rate: string | null
+          amount: string | null
+          created_by: string
+          created_at: string
+          updated_at: string
+          is_deleted: boolean
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          requirement_type: string
+          pricing_type?: string
+          description?: string | null
+          attachment_url?: string | null
+          estimated_hours?: number | null
+          hourly_rate?: string | null
+          amount?: string | null
+          created_by: string
+          created_at?: string
+          updated_at?: string
+          is_deleted?: boolean
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          requirement_type?: string
+          pricing_type?: string
+          description?: string | null
+          attachment_url?: string | null
+          estimated_hours?: number | null
+          hourly_rate?: string | null
+          amount?: string | null
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+          is_deleted?: boolean
+        }
+      }
+      project_requirement_milestones: {
+        Row: {
+          id: string
+          requirement_id: string
+          project_id: string
+          title: string
+          description: string | null
+          due_date: string | null
+          amount: string
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          requirement_id: string
+          project_id: string
+          title: string
+          description?: string | null
+          due_date?: string | null
+          amount: string
+          created_by: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          requirement_id?: string
+          project_id?: string
+          title?: string
+          description?: string | null
+          due_date?: string | null
+          amount?: string
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
       project_user_notes: {
         Row: {
           id: string

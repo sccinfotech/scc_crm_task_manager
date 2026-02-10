@@ -25,6 +25,7 @@ import type { StaffSelectOption } from '@/lib/users/actions'
 import { ProjectDetailRightPanel } from '../project-detail-right-panel'
 import { ProjectModal } from '../project-modal'
 import { DeleteConfirmModal } from '../delete-confirm-modal'
+import { ProjectRequirements } from '../project-requirements'
 
 interface ProjectDetailViewProps {
   project: Project
@@ -229,6 +230,26 @@ function normalizeLink(url: string) {
   return `https://${url}`
 }
 
+type ProjectDetailTab = 'details' | 'payments' | 'requirements' | 'tasks'
+
+const PROJECT_DETAIL_TABS: { id: ProjectDetailTab; label: string }[] = [
+  { id: 'details', label: 'Details' },
+  { id: 'payments', label: 'Payments' },
+  { id: 'requirements', label: 'Requirements' },
+  { id: 'tasks', label: 'Tasks' },
+]
+
+function TabPlaceholder({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="flex h-full items-center justify-center">
+      <div className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+        <h3 className="text-xl font-bold text-[#1E1B4B]">{title}</h3>
+        <p className="mt-2 text-sm text-slate-600">{description}</p>
+      </div>
+    </div>
+  )
+}
+
 export function ProjectDetailView({
   project: initialProject,
   initialFollowUps = [],
@@ -247,6 +268,7 @@ export function ProjectDetailView({
   const router = useRouter()
   const { success: showSuccess, error: showError } = useToast()
   const [project, setProject] = useState<Project>(initialProject)
+  const [activeTab, setActiveTab] = useState<ProjectDetailTab>('details')
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [linksModalOpen, setLinksModalOpen] = useState(false)
@@ -262,6 +284,16 @@ export function ProjectDetailView({
   const [endWorkNotes, setEndWorkNotes] = useState('')
   /** Optimistic work state so the timer shows immediately on Start without waiting for server */
   const [optimisticWork, setOptimisticWork] = useState<{ status: 'start'; runningSince: string } | null>(null)
+
+  useEffect(() => {
+    setProject(initialProject)
+  }, [initialProject])
+
+  useEffect(() => {
+    if (activeTab !== 'details') {
+      setMobileFollowUpsOpen(false)
+    }
+  }, [activeTab])
 
   const canUpdateOwnWork = Boolean(
     currentUserId &&
@@ -423,9 +455,47 @@ export function ProjectDetailView({
 
   return (
     <>
-      <div className="flex h-full flex-col lg:flex-row gap-3">
-        {/* LEFT COLUMN: Project Details */}
-        <div className="w-full lg:w-2/5 flex flex-col gap-3 overflow-y-auto pb-24 lg:pb-0 scrollbar-hide">
+        <div className="flex h-full flex-col gap-3">
+        <div className="flex-shrink-0 rounded-2xl bg-white px-4 pt-2 border border-slate-200/80">
+          <div className="flex items-stretch overflow-x-auto" role="tablist" aria-label="Project detail tabs">
+            {PROJECT_DETAIL_TABS.map(({ id, label }, index) => {
+              const isActive = activeTab === id
+              const isLast = index === PROJECT_DETAIL_TABS.length - 1
+              return (
+                <div key={id} className="flex items-stretch">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => setActiveTab(id)}
+                    className={`
+                      relative px-2.5 pb-2 pt-0.5 text-sm font-semibold whitespace-nowrap transition-colors duration-200 cursor-pointer
+                      border-b-2
+                      focus:outline-none focus-visible:ring-2 focus-visible:ring-[#06B6D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white
+                      ${isActive
+                        ? 'text-[#06B6D4] border-[#06B6D4]'
+                        : 'text-slate-600 border-transparent hover:text-slate-800'}
+                    `}
+                  >
+                    {label}
+                  </button>
+                  {!isLast && (
+                    <span
+                      aria-hidden="true"
+                      className="mx-3 w-px self-stretch bg-gradient-to-b from-slate-200/0 via-slate-200/70 to-slate-200/0"
+                    />
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="flex-1 min-h-0">
+          {activeTab === 'details' && (
+            <div className="flex h-full flex-col lg:flex-row gap-3">
+              {/* LEFT COLUMN: Project Details */}
+              <div className="w-full lg:w-2/5 flex flex-col gap-3 overflow-y-auto pb-24 lg:pb-0 scrollbar-hide">
           <div className="rounded-2xl bg-white shadow-sm border border-slate-200 relative">
             <div className="px-4 pt-4 pb-2 border-b border-slate-100">
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">Project Details</h2>
@@ -864,40 +934,68 @@ export function ProjectDetailView({
           />
         </div>
       </div>
+      )}
 
-      {/* Mobile action bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 p-3 lg:hidden shadow-[0_-4px_12px_rgba(0,0,0,0.05)] safe-area-bottom">
-        <div className="grid grid-cols-2 gap-3">
-          {canEdit && (
+      {activeTab === 'requirements' && (
+        <ProjectRequirements
+          projectId={project.id}
+          canWrite={canManageProject}
+          canViewAmount={canViewAmount}
+          isActiveTab={activeTab === 'requirements'}
+          className="h-full"
+        />
+      )}
+
+      {activeTab === 'payments' && (
+        <TabPlaceholder
+          title="Payments"
+          description="Payment tracking for this project will be available here soon."
+        />
+      )}
+
+      {activeTab === 'tasks' && (
+        <TabPlaceholder
+          title="Tasks"
+          description="Task planning and delivery tracking will appear in this tab."
+        />
+      )}
+    </div>
+  </div>
+
+      {activeTab === 'details' && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 p-3 lg:hidden shadow-[0_-4px_12px_rgba(0,0,0,0.05)] safe-area-bottom">
+          <div className="grid grid-cols-2 gap-3">
+            {canEdit && (
+              <button
+                onClick={handleEdit}
+                className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl text-gray-600 hover:bg-gray-50 active:bg-gray-100"
+              >
+                <div className="h-6 w-6 text-[#06B6D4]">
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </div>
+                <span className="text-[10px] font-bold">Edit</span>
+              </button>
+            )}
+
             <button
-              onClick={handleEdit}
-              className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl text-gray-600 hover:bg-gray-50 active:bg-gray-100"
+              onClick={() => setMobileFollowUpsOpen(true)}
+              className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl bg-[#06B6D4] text-white shadow-lg active:scale-95 transition-transform"
             >
-              <div className="h-6 w-6 text-[#06B6D4]">
+              <div className="h-6 w-6">
                 <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <span className="text-[10px] font-bold">Edit</span>
+              <span className="text-[10px] font-bold">Updates</span>
             </button>
-          )}
-
-          <button
-            onClick={() => setMobileFollowUpsOpen(true)}
-            className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl bg-[#06B6D4] text-white shadow-lg active:scale-95 transition-transform"
-          >
-            <div className="h-6 w-6">
-              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <span className="text-[10px] font-bold">Updates</span>
-          </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Mobile updates sheet (Follow-ups, Work history, etc.) */}
-      {mobileFollowUpsOpen && (
+      {mobileFollowUpsOpen && activeTab === 'details' && (
         <div className="fixed inset-0 z-50 lg:hidden flex flex-col bg-gray-900/50 backdrop-blur-sm animate-fade-in">
           <div className="absolute inset-0" onClick={() => setMobileFollowUpsOpen(false)} />
           <div className="absolute bottom-0 left-0 right-0 h-[85vh] bg-[#F8FAFC] rounded-t-3xl shadow-2xl flex flex-col overflow-hidden animate-slide-up">
