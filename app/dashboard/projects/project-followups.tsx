@@ -23,6 +23,7 @@ interface ProjectFollowUpsProps {
   canWrite: boolean
   className?: string
   hideHeader?: boolean
+  isActiveTab?: boolean
 }
 
 function formatDate(dateString: string) {
@@ -94,18 +95,21 @@ export function ProjectFollowUps({
   canWrite,
   className = '',
   hideHeader = false,
+  isActiveTab = true,
 }: ProjectFollowUpsProps) {
   const router = useRouter()
   const { success: showSuccess, error: showError } = useToast()
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const [followUps, setFollowUps] = useState<ProjectFollowUp[]>(initialFollowUps)
-  const [loading, setLoading] = useState(initialFollowUps.length === 0)
+  const [loading, setLoading] = useState(initialFollowUps.length === 0 && isActiveTab)
   const [error, setError] = useState<string | null>(null)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [selectedFollowUp, setSelectedFollowUp] = useState<ProjectFollowUp | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const hasLoadedRef = useRef(false)
+  const wasActiveTabRef = useRef(isActiveTab)
 
   const fetchFollowUps = async (options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false
@@ -134,12 +138,28 @@ export function ProjectFollowUps({
   }
 
   useEffect(() => {
-    if (initialFollowUps.length > 0) {
-      fetchFollowUps({ silent: true })
-    } else {
-      fetchFollowUps()
-    }
+    hasLoadedRef.current = false
   }, [projectId])
+
+  useEffect(() => {
+    const wasActive = wasActiveTabRef.current
+    wasActiveTabRef.current = isActiveTab
+    if (!isActiveTab) return
+
+    if (!hasLoadedRef.current) {
+      hasLoadedRef.current = true
+      if (initialFollowUps.length > 0) {
+        fetchFollowUps({ silent: true })
+      } else {
+        fetchFollowUps()
+      }
+      return
+    }
+
+    if (!wasActive) {
+      fetchFollowUps({ silent: true })
+    }
+  }, [projectId, isActiveTab, initialFollowUps.length])
 
   useEffect(() => {
     if (loading || error) return

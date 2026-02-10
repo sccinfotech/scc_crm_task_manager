@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { ProjectFollowUps } from './project-followups'
 import { ProjectWorkHistory } from './project-work-history'
 import { ProjectMyNotes } from './project-my-notes'
+import { ProjectTeamTalk } from './project-team-talk'
 import type { ProjectFollowUp } from '@/lib/projects/actions'
 import type { ProjectTeamMember } from '@/lib/projects/actions'
 
@@ -148,6 +149,7 @@ export function ProjectDetailRightPanel({
               projectId={projectId}
               initialFollowUps={initialFollowUps}
               canWrite={canManageFollowUps}
+              isActiveTab={tab === 'follow-ups'}
               hideHeader={true}
               className="!rounded-none !border-t-0 h-full"
             />
@@ -186,6 +188,7 @@ export function ProjectDetailRightPanel({
               projectId={projectId}
               userRole={userRole}
               currentUserId={currentUserId}
+              isActiveTab={tab === 'my-notes'}
               hideHeader={true}
               className="!rounded-none !border-t-0 h-full"
             />
@@ -197,9 +200,17 @@ export function ProjectDetailRightPanel({
             role="tabpanel"
             aria-labelledby="tab-team-talk"
             aria-hidden={tab !== 'team-talk'}
-            className={`h-full flex flex-col bg-white rounded-b-2xl border border-t-0 border-slate-200 p-4 ${tab === 'team-talk' ? 'block' : 'hidden'}`}
+            className={`h-full ${tab === 'team-talk' ? 'block' : 'hidden'}`}
           >
-            <p className="text-sm text-slate-500">Team Talk – coming soon.</p>
+            <ProjectTeamTalk
+              projectId={projectId}
+              userRole={userRole}
+              currentUserId={currentUserId}
+              teamMembers={teamMembers ?? undefined}
+              isActiveTab={tab === 'team-talk'}
+              hideHeader={true}
+              className="!rounded-none !border-t-0 h-full"
+            />
           </div>
         )}
       </div>

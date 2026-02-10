@@ -408,6 +408,114 @@ export interface Database {
           updated_at?: string
         }
       }
+      project_note_attachments: {
+        Row: {
+          id: string
+          note_id: string
+          project_id: string
+          file_name: string
+          mime_type: string
+          size_bytes: number
+          cloudinary_url: string
+          cloudinary_public_id: string
+          resource_type: string
+          created_by: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          note_id: string
+          project_id: string
+          file_name: string
+          mime_type: string
+          size_bytes: number
+          cloudinary_url: string
+          cloudinary_public_id: string
+          resource_type?: string
+          created_by: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          note_id?: string
+          project_id?: string
+          file_name?: string
+          mime_type?: string
+          size_bytes?: number
+          cloudinary_url?: string
+          cloudinary_public_id?: string
+          resource_type?: string
+          created_by?: string
+          created_at?: string
+        }
+      }
+      project_team_talk_messages: {
+        Row: {
+          id: string
+          project_id: string
+          message_text: string
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          message_text?: string
+          created_by: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          message_text?: string
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      project_team_talk_attachments: {
+        Row: {
+          id: string
+          message_id: string
+          project_id: string
+          file_name: string
+          mime_type: string
+          size_bytes: number
+          cloudinary_url: string
+          cloudinary_public_id: string
+          resource_type: string
+          created_by: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          message_id: string
+          project_id: string
+          file_name: string
+          mime_type: string
+          size_bytes: number
+          cloudinary_url: string
+          cloudinary_public_id: string
+          resource_type?: string
+          created_by: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          message_id?: string
+          project_id?: string
+          file_name?: string
+          mime_type?: string
+          size_bytes?: number
+          cloudinary_url?: string
+          cloudinary_public_id?: string
+          resource_type?: string
+          created_by?: string
+          created_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never

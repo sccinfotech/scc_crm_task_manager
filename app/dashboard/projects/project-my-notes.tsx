@@ -29,6 +29,7 @@ interface ProjectMyNotesProps {
   currentUserId: string | undefined
   className?: string
   hideHeader?: boolean
+  isActiveTab?: boolean
 }
 
 function formatDateTime(dateString: string) {
@@ -69,6 +70,46 @@ function getRelativeTime(dateString: string): string {
   if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`
 
   return formatDateTime(dateString)
+}
+
+const urlRegex = /((https?:\/\/[^\s<]+)|((www\.)[^\s<]+))/gi
+
+function renderNoteText(text: string, linkClassName: string) {
+  if (!text) return null
+  const parts: Array<string | JSX.Element> = []
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  urlRegex.lastIndex = 0
+
+  while ((match = urlRegex.exec(text)) !== null) {
+    const start = match.index
+    const urlText = match[0]
+    if (start > lastIndex) {
+      parts.push(text.slice(lastIndex, start))
+    }
+    const href = urlText.startsWith('http') ? urlText : `https://${urlText}`
+    parts.push(
+      <a
+        key={`${start}-${urlText}`}
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        className={linkClassName}
+      >
+        {urlText}
+      </a>
+    )
+    lastIndex = start + urlText.length
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex))
+  }
+
+  return parts.map((part, index) =>
+    typeof part === 'string' ? <span key={`text-${index}`}>{part}</span> : part
+  )
 }
 
 function isEdited(note: ProjectMyNote): boolean {
@@ -206,6 +247,7 @@ export function ProjectMyNotes({
   currentUserId,
   className = '',
   hideHeader = false,
+  isActiveTab = true,
 }: ProjectMyNotesProps) {
   const router = useRouter()
   const { success: showSuccess, error: showError } = useToast()
@@ -213,7 +255,7 @@ export function ProjectMyNotes({
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const [notes, setNotes] = useState<ProjectMyNote[]>([])
   const canAccess = (userRole === 'staff' || userRole === 'admin' || userRole === 'manager') && Boolean(currentUserId)
-  const [loading, setLoading] = useState(canAccess)
+  const [loading, setLoading] = useState(canAccess && isActiveTab)
   const [error, setError] = useState<string | null>(null)
   const [noteText, setNoteText] = useState('')
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
@@ -234,7 +276,10 @@ export function ProjectMyNotes({
     fileName: '',
   })
   const [deletingAttachment, setDeletingAttachment] = useState(false)
+  const editTextareaRef = useRef<HTMLTextAreaElement | null>(null)
   const objectUrlsRef = useRef<Map<number, string>>(new Map())
+  const hasLoadedRef = useRef(false)
+  const wasActiveTabRef = useRef(isActiveTab)
 
   const fetchNotes = async (options?: { silent?: boolean }) => {
     if (!canAccess) return
@@ -261,12 +306,29 @@ export function ProjectMyNotes({
   }
 
   useEffect(() => {
+    hasLoadedRef.current = false
+  }, [projectId])
+
+  useEffect(() => {
     if (!canAccess) {
       setLoading(false)
       return
     }
-    fetchNotes()
-  }, [projectId, canAccess])
+
+    const wasActive = wasActiveTabRef.current
+    wasActiveTabRef.current = isActiveTab
+    if (!isActiveTab) return
+
+    if (!hasLoadedRef.current) {
+      hasLoadedRef.current = true
+      fetchNotes()
+      return
+    }
+
+    if (!wasActive) {
+      fetchNotes({ silent: true })
+    }
+  }, [projectId, canAccess, isActiveTab])
 
   useEffect(() => {
     if (loading || error || notes.length === 0) return
@@ -452,8 +514,21 @@ export function ProjectMyNotes({
 
   const handleStartEdit = (note: ProjectMyNote) => {
     setEditingNoteId(note.id)
-    setEditingNoteText(note.note_text)
+    setEditingNoteText(note.note_text ?? '')
   }
+
+  useEffect(() => {
+    if (!editingNoteId) return
+    editTextareaRef.current?.focus()
+    const timer = setTimeout(() => {
+      const el = editTextareaRef.current
+      if (el) {
+        const len = el.value.length
+        el.setSelectionRange(len, len)
+      }
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [editingNoteId])
 
   const handleCancelEdit = () => {
     setEditingNoteId(null)
@@ -491,6 +566,34 @@ export function ProjectMyNotes({
   const handleDelete = (note: ProjectMyNote) => {
     setNoteToDelete(note)
     setDeleteModalOpen(true)
+  }
+
+  const handleCopyNote = async (note: ProjectMyNote) => {
+    const text = note.note_text?.trim() || ''
+    if (!text) {
+      showError('Nothing to Copy', 'This note has no text to copy.')
+      return
+    }
+
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text)
+      } else {
+        const textarea = document.createElement('textarea')
+        textarea.value = text
+        textarea.style.position = 'fixed'
+        textarea.style.opacity = '0'
+        document.body.appendChild(textarea)
+        textarea.focus()
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
+      }
+      showSuccess('Copied', 'Note copied to clipboard.')
+    } catch (error) {
+      console.error('Clipboard copy failed:', error)
+      showError('Copy Failed', 'Unable to copy note.')
+    }
   }
 
   const handleConfirmDelete = async () => {
@@ -650,6 +753,23 @@ export function ProjectMyNotes({
                       </div>
                       {editingNoteId !== note.id && (
                         <div className="flex items-center gap-1 shrink-0">
+                          <Tooltip content="Copy note">
+                            <button
+                              type="button"
+                              onClick={() => handleCopyNote(note)}
+                              className="rounded p-1 text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors cursor-pointer"
+                              aria-label="Copy note"
+                            >
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M8 16h8m-8-4h8m-8-4h6M6 20h12a2 2 0 002-2V8l-6-6H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                />
+                              </svg>
+                            </button>
+                          </Tooltip>
                           <Tooltip content="Edit note">
                             <button
                               type="button"
@@ -679,16 +799,27 @@ export function ProjectMyNotes({
                     {editingNoteId === note.id ? (
                       <div className="mt-2 space-y-2">
                         <textarea
+                          ref={editTextareaRef}
                           value={editingNoteText}
                           onChange={(e) => setEditingNoteText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Escape') {
+                              e.preventDefault()
+                              handleCancelEdit()
+                            } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                              e.preventDefault()
+                              handleSaveEdit(note)
+                            }
+                          }}
                           rows={3}
-                          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 resize-none"
+                          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-slate-700 shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 resize-none"
+                          aria-label="Edit note"
                         />
                         <div className="flex flex-col sm:flex-row gap-1.5 sm:justify-end">
                           <button
                             type="button"
                             onClick={handleCancelEdit}
-                            className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                            className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
                           >
                             Cancel
                           </button>
@@ -696,7 +827,7 @@ export function ProjectMyNotes({
                             type="button"
                             onClick={() => handleSaveEdit(note)}
                             disabled={savingEdit}
-                            className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-700 disabled:opacity-50"
+                            className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-700 disabled:opacity-50 cursor-pointer"
                           >
                             {savingEdit ? 'Saving...' : 'Save changes'}
                           </button>
@@ -705,8 +836,8 @@ export function ProjectMyNotes({
                     ) : (
                       <>
                         {note.note_text.trim() ? (
-                          <p className="mt-1.5 text-sm text-slate-700 whitespace-pre-wrap break-words leading-snug">
-                            {note.note_text}
+                          <p className="mt-1.5 text-sm font-normal text-slate-700 whitespace-pre-wrap break-words leading-snug">
+                            {renderNoteText(note.note_text, 'underline text-cyan-700 hover:text-cyan-800')}
                           </p>
                         ) : null}
                       </>
