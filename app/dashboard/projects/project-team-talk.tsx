@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactElement } from 'react'
 import { useRouter } from 'next/navigation'
 import { Tooltip } from '@/app/components/ui/tooltip'
 import { useToast } from '@/app/components/ui/toast-context'
@@ -94,7 +94,7 @@ function isEdited(message: ProjectTeamTalkMessage): boolean {
 
 function renderMessageText(text: string, linkClassName: string) {
   if (!text) return null
-  const parts: Array<string | JSX.Element> = []
+  const parts: Array<string | ReactElement> = []
   let lastIndex = 0
   let match: RegExpExecArray | null
 

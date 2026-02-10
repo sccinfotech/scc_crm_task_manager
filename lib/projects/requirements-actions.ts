@@ -541,7 +541,20 @@ export async function updateProjectRequirement(
     return { data: null, error: 'Requirement not found' }
   }
 
-  if ((existing as { is_deleted?: boolean }).is_deleted) {
+  type RequirementRow = {
+    is_deleted?: boolean
+    requirement_type: string
+    pricing_type?: string
+    description: string | null
+    attachment_url: string | null
+    estimated_hours: number | string | null
+    hourly_rate: string | null
+    amount: string | null
+    project_id: string
+  }
+  const row = existing as RequirementRow
+
+  if (row.is_deleted) {
     return { data: null, error: 'Requirement not found' }
   }
 
@@ -551,12 +564,12 @@ export async function updateProjectRequirement(
     return { data: null, error: 'You do not have permission to update requirements' }
   }
 
-  const requirementType = formData.requirement_type ?? (existing as { requirement_type: RequirementType }).requirement_type
+  const requirementType = formData.requirement_type ?? (row.requirement_type as RequirementType)
   if (!['initial', 'addon'].includes(requirementType)) {
     return { data: null, error: 'Invalid requirement type' }
   }
 
-  const existingPricingType = (existing as { pricing_type?: PricingType }).pricing_type ?? 'hourly'
+  const existingPricingType = (row.pricing_type as PricingType | undefined) ?? 'hourly'
   const pricingType = formData.pricing_type ?? existingPricingType ?? 'hourly'
   if (!['hourly', 'fixed', 'milestone'].includes(pricingType)) {
     return { data: null, error: 'Invalid pricing type' }
@@ -565,7 +578,7 @@ export async function updateProjectRequirement(
   const description =
     formData.description !== undefined
       ? formData.description?.trim() || null
-      : (existing as { description: string | null }).description ?? null
+      : row.description ?? null
 
   const hasMilestoneInput = Array.isArray(formData.milestones)
   let milestones: ProjectRequirementMilestoneInput[] | null = null
@@ -603,7 +616,7 @@ export async function updateProjectRequirement(
     } else if (existingPricingType !== 'milestone') {
       return { data: null, error: 'Please add at least one milestone.' }
     } else {
-      milestonesTotal = decryptAmount(existing.amount)
+      milestonesTotal = decryptAmount(row.amount)
     }
   }
 
@@ -611,7 +624,7 @@ export async function updateProjectRequirement(
     pricingType === 'hourly'
       ? formData.estimated_hours !== undefined
         ? normalizeNumber(formData.estimated_hours)
-        : normalizeNumber((existing as { estimated_hours: number | string | null }).estimated_hours)
+        : normalizeNumber(row.estimated_hours)
       : null
   if (estimatedHours !== null && estimatedHours < 0) {
     return { data: null, error: 'Estimated hours must be zero or greater' }
@@ -621,7 +634,7 @@ export async function updateProjectRequirement(
     pricingType === 'hourly'
       ? formData.hourly_rate !== undefined
         ? normalizeNumber(formData.hourly_rate)
-        : decryptAmount(existing.hourly_rate)
+        : decryptAmount(row.hourly_rate)
       : null
   if (hourlyRate !== null && hourlyRate < 0) {
     return { data: null, error: 'Hourly rate must be zero or greater' }
@@ -632,7 +645,7 @@ export async function updateProjectRequirement(
       ? null
       : formData.amount !== undefined
         ? normalizeNumber(formData.amount)
-        : decryptAmount(existing.amount)
+        : decryptAmount(row.amount)
   if (amountInput !== null && amountInput < 0) {
     return { data: null, error: 'Amount must be zero or greater' }
   }
@@ -647,7 +660,7 @@ export async function updateProjectRequirement(
   const attachmentUrl =
     formData.attachment_url !== undefined
       ? formData.attachment_url?.trim() || null
-      : (existing as { attachment_url: string | null }).attachment_url ?? null
+      : row.attachment_url ?? null
 
   const { data, error } = await supabase
     .from('project_requirements')
@@ -673,7 +686,7 @@ export async function updateProjectRequirement(
     const milestoneResult = await replaceRequirementMilestones(
       supabase,
       requirementId,
-      (existing as { project_id: string }).project_id,
+      row.project_id,
       milestones,
       currentUser.id
     )
@@ -686,7 +699,7 @@ export async function updateProjectRequirement(
     const milestoneResult = await replaceRequirementMilestones(
       supabase,
       requirementId,
-      (existing as { project_id: string }).project_id,
+      row.project_id,
       [],
       currentUser.id
     )
@@ -695,7 +708,7 @@ export async function updateProjectRequirement(
     }
   }
 
-  const previousAmount = decryptAmount(existing.amount)
+  const previousAmount = decryptAmount(row.amount)
   const nextAmount = calculatedAmount
   const delta =
     previousAmount === null && nextAmount === null
@@ -705,7 +718,7 @@ export async function updateProjectRequirement(
   if (delta !== 0) {
     const amountUpdate = await applyProjectAmountDelta(
       supabase,
-      (existing as { project_id: string }).project_id,
+      row.project_id,
       delta
     )
     if (amountUpdate.error) {
@@ -713,7 +726,7 @@ export async function updateProjectRequirement(
     }
   }
 
-  revalidatePath(`/dashboard/projects/${(existing as { project_id: string }).project_id}`)
+  revalidatePath(`/dashboard/projects/${row.project_id}`)
   revalidatePath('/dashboard/projects')
 
   const createdByName = currentUser.fullName ?? currentUser.email ?? null

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactElement } from 'react'
 import { useRouter } from 'next/navigation'
 import { Tooltip } from '@/app/components/ui/tooltip'
 import { useToast } from '@/app/components/ui/toast-context'
@@ -76,7 +76,7 @@ const urlRegex = /((https?:\/\/[^\s<]+)|((www\.)[^\s<]+))/gi
 
 function renderNoteText(text: string, linkClassName: string) {
   if (!text) return null
-  const parts: Array<string | JSX.Element> = []
+  const parts: Array<string | ReactElement> = []
   let lastIndex = 0
   let match: RegExpExecArray | null
 

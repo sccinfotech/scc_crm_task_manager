@@ -1242,12 +1242,7 @@ export function ProjectRequirements({
                             : "border-slate-200 bg-slate-100 text-slate-700"
                         }`}
                       >
-                        {PRICING_TYPE_LABELS[(req.pricing_type as PricingType) || "hourly"]}
-                        {req.pricing_type === "milestone" && (
-                          <span className="ml-1 text-[11px] font-normal text-slate-500">
-                            • {milestoneCount} milestones
-                          </span>
-                        )}
+                        {PRICING_TYPE_LABELS[req.pricing_type ?? "hourly"]}
                       </span>
                       <span
                         className={`ml-1 text-base font-bold ${
