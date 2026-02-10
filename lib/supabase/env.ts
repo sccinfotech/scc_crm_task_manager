@@ -48,6 +48,18 @@ For more details, see SETUP.md in the project root.`
 }
 
 /**
+ * Check if Supabase client env vars are available (e.g. for optional client features).
+ * Use this to avoid throwing when vars are missing; do not use for required server logic.
+ */
+export function hasSupabaseClientConfig(): boolean {
+  return Boolean(
+    typeof process !== 'undefined' &&
+      process.env?.NEXT_PUBLIC_SUPABASE_URL &&
+      process.env?.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  )
+}
+
+/**
  * Get Supabase URL (public, safe for browser)
  */
 export function getSupabaseUrl(): string {

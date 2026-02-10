@@ -26,6 +26,7 @@ import { ProjectDetailRightPanel } from '../project-detail-right-panel'
 import { ProjectModal } from '../project-modal'
 import { DeleteConfirmModal } from '../delete-confirm-modal'
 import { ProjectRequirements } from '../project-requirements'
+import { ProjectTasks } from '../project-tasks'
 
 interface ProjectDetailViewProps {
   project: Project
@@ -954,9 +955,13 @@ export function ProjectDetailView({
       )}
 
       {activeTab === 'tasks' && (
-        <TabPlaceholder
-          title="Tasks"
-          description="Task planning and delivery tracking will appear in this tab."
+        <ProjectTasks
+          projectId={project.id}
+          canManageTasks={canManageProject}
+          userRole={userRole}
+          currentUserId={currentUserId}
+          teamMembers={teamMembers ?? []}
+          className="h-full"
         />
       )}
     </div>

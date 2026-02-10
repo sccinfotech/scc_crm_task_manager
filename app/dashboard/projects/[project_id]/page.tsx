@@ -61,6 +61,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
       <Header
         pageTitle="Project Details"
         breadcrumb={breadcrumb}
+        userId={user.id}
       />
       <div className="flex-1 overflow-hidden px-3 lg:px-4 pt-2 pb-2">
         <ProjectDetailView

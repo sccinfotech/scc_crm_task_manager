@@ -1,5 +1,7 @@
 'use client'
 
+import { NotificationsBell } from '@/app/components/notifications/notifications-bell'
+
 interface HeaderProps {
   pageTitle?: string
   breadcrumb?: React.ReactNode
@@ -7,6 +9,7 @@ interface HeaderProps {
   onMobileMenuToggle?: () => void
   isSidebarCollapsed?: boolean
   onSidebarToggle?: () => void
+  userId?: string
 }
 
 export function Header({
@@ -16,6 +19,7 @@ export function Header({
   onMobileMenuToggle,
   isSidebarCollapsed = false,
   onSidebarToggle,
+  userId,
 }: HeaderProps) {
   return (
     <header className="sticky top-0 z-30 h-16 bg-white border-b border-gray-100 shadow-sm">
@@ -71,8 +75,16 @@ export function Header({
             <h2 className="text-lg font-semibold text-[#1E1B4B]">{pageTitle}</h2>
           )}
         </div>
+
+        <div className="flex items-center gap-3">
+          {userId && (
+            <div className="hidden sm:flex">
+              {/* Notifications */}
+              <NotificationsBell userId={userId} />
+            </div>
+          )}
+        </div>
       </div>
     </header>
   )
 }
-
