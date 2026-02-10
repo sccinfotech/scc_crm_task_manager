@@ -205,6 +205,8 @@ export function ProjectWorkHistory({
     ? teamMembers?.find((m) => m.id === selectedUserId)
     : null
 
+  const totalProjectSeconds = days.reduce((acc, d) => acc + d.totalSeconds, 0)
+
   return (
     <div
       className={`h-full flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm ${className}`}
@@ -222,24 +224,31 @@ export function ProjectWorkHistory({
             </h4>
           </div>
           {showStaffSelector && (
-            <select
-              value={selectedUserId ?? ''}
-              onChange={(e) => setSelectedUserId(e.target.value || null)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-cyan-500/20 cursor-pointer"
-              aria-label="Select staff member"
-            >
-              {teamMembers?.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.full_name || m.email || 'Staff'}
-                </option>
-              ))}
-            </select>
+            <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+              <select
+                value={selectedUserId ?? ''}
+                onChange={(e) => setSelectedUserId(e.target.value || null)}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-cyan-500/20 cursor-pointer"
+                aria-label="Select staff member"
+              >
+                {teamMembers?.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.full_name || m.email || 'Staff'}
+                  </option>
+                ))}
+              </select>
+              {!loading && selectedUserId && (
+                <span className="text-sm font-bold text-[#0C4A6E] tabular-nums whitespace-nowrap">
+                  Total: {formatTotalHours(totalProjectSeconds)}
+                </span>
+              )}
+            </div>
           )}
         </div>
       )}
 
       {hideHeader && showStaffSelector && (
-        <div className="flex-shrink-0 px-4 pt-3 pb-1 border-b border-slate-100">
+        <div className="flex-shrink-0 px-4 pt-3 pb-1 border-b border-slate-100 flex flex-wrap items-center gap-2">
           <label className="sr-only" htmlFor="work-history-staff-select">View work history for</label>
           <select
             id="work-history-staff-select"
@@ -254,6 +263,11 @@ export function ProjectWorkHistory({
               </option>
             ))}
           </select>
+          {!loading && selectedUserId && (
+            <span className="text-sm font-bold text-[#0C4A6E] tabular-nums whitespace-nowrap ml-auto">
+              Total: {formatTotalHours(totalProjectSeconds)}
+            </span>
+          )}
         </div>
       )}
 
@@ -319,10 +333,10 @@ export function ProjectWorkHistory({
                 className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 shadow-sm"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                  <span className="text-base font-bold text-[#0C4A6E]">
+                  <span className="text-base font-bold text-cyan-600">
                     {formatHistoryDate(day.date)}
                   </span>
-                  <span className="text-base font-bold text-[#0C4A6E] tabular-nums">
+                  <span className="text-base font-bold text-cyan-600 tabular-nums">
                     {formatTotalHours(day.totalSeconds)}
                   </span>
                 </div>
@@ -350,9 +364,6 @@ export function ProjectWorkHistory({
                         </div>
                         {seg.note && seg.note.trim() ? (
                           <div className="mt-2.5 ml-8 pl-3 border-l-2 border-cyan-200/80">
-                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                              Notes
-                            </p>
                             <div className="rounded-md bg-slate-50/80 px-3 py-2 text-sm text-slate-700">
                               <span className="whitespace-pre-wrap break-words" style={{ wordBreak: 'break-word' }}>
                                 {seg.note.trim()}
