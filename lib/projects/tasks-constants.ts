@@ -38,11 +38,37 @@ export const TASK_STATUS_STYLES: Record<TaskStatus, string> = {
   completed: 'bg-cyan-100 text-cyan-800 border-cyan-200',
 }
 
+/** Section header bar background (status-colored full row) */
+export const TASK_STATUS_HEADER_BG: Record<TaskStatus, string> = {
+  todo: 'bg-slate-100',
+  in_progress: 'bg-amber-100',
+  review: 'bg-indigo-100',
+  done: 'bg-emerald-100',
+  completed: 'bg-cyan-100',
+}
+
+/** Dot color for status (e.g. in dropdowns) – matches status semantics */
+export const TASK_STATUS_DOT_COLORS: Record<TaskStatus, string> = {
+  todo: 'bg-slate-400',
+  in_progress: 'bg-amber-500',
+  review: 'bg-indigo-500',
+  done: 'bg-emerald-500',
+  completed: 'bg-cyan-500',
+}
+
 export const TASK_PRIORITY_STYLES: Record<TaskPriority, string> = {
   urgent: 'bg-rose-100 text-rose-700 border-rose-200',
-  high: 'bg-orange-100 text-orange-700 border-orange-200',
-  medium: 'bg-slate-100 text-slate-700 border-slate-200',
-  low: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+  high: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  medium: 'bg-sky-100 text-sky-700 border-sky-200',
+  low: 'bg-slate-100 text-slate-600 border-slate-200',
+}
+
+/** Flag icon color for priority (e.g. in dropdowns) – light yellow (High), light sky (Medium), light gray (Low) */
+export const TASK_PRIORITY_FLAG_COLORS: Record<TaskPriority, string> = {
+  urgent: 'text-rose-500',
+  high: 'text-yellow-500',
+  medium: 'text-sky-500',
+  low: 'text-slate-400',
 }
 
 export const TASK_MAX_ATTACHMENT_SIZE_BYTES = 5 * 1024 * 1024

@@ -305,7 +305,7 @@ export async function getProjectTasks(
   let query = (supabase as any)
     .from('project_tasks')
     .select(
-      'id, project_id, title, description_html, task_type, priority, status, due_date, created_by, created_at, updated_at, in_progress_at, completed_at, actual_minutes, assignees:project_task_assignees(user_id, users(full_name, email))'
+      'id, project_id, title, description_html, task_type, priority, status, due_date, created_by, created_at, updated_at, in_progress_at, completed_at, actual_minutes, assignees:project_task_assignees(user_id, users!project_task_assignees_user_id_fkey(full_name, email))'
     )
     .eq('project_id', projectId)
     .order('created_at', { ascending: false })
@@ -408,7 +408,7 @@ export async function getProjectTaskDetail(taskId: string): Promise<ActionResult
 
   const { data: assigneeRows } = await (supabase as any)
     .from('project_task_assignees')
-    .select('user_id, users(full_name, email)')
+    .select('user_id, users!project_task_assignees_user_id_fkey(full_name, email)')
     .eq('task_id', taskId)
 
   const { data: attachments } = await (supabase as any)
@@ -635,7 +635,7 @@ export async function createProjectTask(
 
   const { data: assignees } = await (supabase as any)
     .from('project_task_assignees')
-    .select('user_id, users(full_name, email)')
+    .select('user_id, users!project_task_assignees_user_id_fkey(full_name, email)')
     .eq('task_id', task.id)
 
   revalidatePath(`/dashboard/projects/${projectId}`)
@@ -730,7 +730,7 @@ export async function updateProjectTask(
 
   const { data: assignees } = await (supabase as any)
     .from('project_task_assignees')
-    .select('user_id, users(full_name, email)')
+    .select('user_id, users!project_task_assignees_user_id_fkey(full_name, email)')
     .eq('task_id', task.id)
 
   revalidatePath(`/dashboard/projects/${task.project_id}`)
@@ -838,7 +838,7 @@ export async function updateTaskAssignees(
 
   const { data: assignees } = await (supabase as any)
     .from('project_task_assignees')
-    .select('user_id, users(full_name, email)')
+    .select('user_id, users!project_task_assignees_user_id_fkey(full_name, email)')
     .eq('task_id', taskId)
 
   revalidatePath(`/dashboard/projects/${task.project_id}`)
@@ -978,7 +978,7 @@ export async function updateTaskStatus(
 
   const { data: assignees } = await supabase
     .from('project_task_assignees')
-    .select('user_id, users(full_name, email)')
+    .select('user_id, users!project_task_assignees_user_id_fkey(full_name, email)')
     .eq('task_id', updated.id)
 
   revalidatePath(`/dashboard/projects/${updated.project_id}`)
