@@ -53,6 +53,19 @@ import type { StaffSelectOption } from '@/lib/users/actions'
 const MAX_FILE_MB = TASK_MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024)
 const ACCEPTED_EXT = TASK_ALLOWED_EXTENSIONS.map((e) => `.${e}`).join(',')
 
+function isImageAttachment(a: TaskAttachment) {
+  return (a.mime_type && a.mime_type.startsWith('image/')) || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(a.file_name || '')
+}
+
+function formatAttachmentDate(iso: string) {
+  try {
+    const d = new Date(iso)
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+  } catch {
+    return ''
+  }
+}
+
 function getInitials(name: string | null | undefined) {
   if (!name) return '?'
   const parts = name.trim().split(/\s+/)
@@ -326,7 +339,10 @@ export function ProjectTasks({
       showError('Update failed', result.error)
       return result
     }
-    showSuccess('Task updated', 'Changes have been saved.')
+    const isDescriptionOnly = Object.keys(payload).length === 1 && 'description_html' in payload
+    if (!isDescriptionOnly) {
+      showSuccess('Task updated', 'Changes have been saved.')
+    }
     if (result.data) {
       setTasks((prev) => prev.map((t) => (t.id === taskId ? result.data! : t)))
       if (taskDetail?.id === taskId) {
@@ -869,6 +885,9 @@ export function ProjectTasks({
             onTaskDeleted={() => setSelectedTaskId(null)}
             showError={showError}
             showSuccess={showSuccess}
+            getAssigneeColor={getAssigneeColor}
+            staffInitials={staffInitials}
+            staffLabel={staffLabel}
           />
         )}
       </div>
@@ -1556,6 +1575,9 @@ function TaskDetailPanel({
   onTaskDeleted,
   showError,
   showSuccess,
+  getAssigneeColor,
+  staffInitials,
+  staffLabel,
 }: {
   taskId: string
   taskDetail: ProjectTaskDetail | null
@@ -1588,9 +1610,14 @@ function TaskDetailPanel({
   onTaskDeleted: () => void
   showError: (title: string, msg: string) => void
   showSuccess: (title: string, msg: string) => void
+  getAssigneeColor: (id: string) => { bg: string; text: string }
+  staffInitials: (o: StaffSelectOption) => string
+  staffLabel: (o: StaffSelectOption) => string
 }) {
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleValue, setTitleValue] = useState('')
+  const [pendingDescriptionHtml, setPendingDescriptionHtml] = useState<string | null>(null)
+  const [closeConfirmOpen, setCloseConfirmOpen] = useState(false)
   const [commentText, setCommentText] = useState('')
   const [mentionIds, setMentionIds] = useState<string[]>([])
   const [showMentionPicker, setShowMentionPicker] = useState(false)
@@ -1598,14 +1625,23 @@ function TaskDetailPanel({
   const [mentionAnchorIndex, setMentionAnchorIndex] = useState(-1)
   const [fileInputKey, setFileInputKey] = useState(0)
   const [activityPanelOpen, setActivityPanelOpen] = useState(false)
-  const [detailDropdownOpen, setDetailDropdownOpen] = useState<'status' | 'priority' | 'type' | null>(null)
+  const [detailDropdownOpen, setDetailDropdownOpen] = useState<'status' | 'assignee' | 'priority' | 'type' | null>(null)
   const [detailDropdownRect, setDetailDropdownRect] = useState<{ top: number; left: number } | null>(null)
   const detailStatusRef = useRef<HTMLButtonElement>(null)
+  const detailAssigneeRef = useRef<HTMLButtonElement>(null)
   const detailPriorityRef = useRef<HTMLButtonElement>(null)
   const detailTypeRef = useRef<HTMLButtonElement>(null)
+  const detailDueInputRef = useRef<HTMLInputElement>(null)
 
   const getDetailTriggerRect = () => {
-    const ref = detailDropdownOpen === 'status' ? detailStatusRef : detailDropdownOpen === 'priority' ? detailPriorityRef : detailTypeRef
+    const ref =
+      detailDropdownOpen === 'status'
+        ? detailStatusRef
+        : detailDropdownOpen === 'assignee'
+          ? detailAssigneeRef
+          : detailDropdownOpen === 'priority'
+            ? detailPriorityRef
+            : detailTypeRef
     return ref.current?.getBoundingClientRect() ?? null
   }
 
@@ -1651,6 +1687,40 @@ function TaskDetailPanel({
       setTitleValue(taskDetail.title)
     }
   }, [taskDetail?.id, taskDetail?.title])
+
+  useEffect(() => {
+    setPendingDescriptionHtml(null)
+  }, [taskDetail?.id])
+
+  const savedDescription = (taskDetail?.description_html ?? '').trim()
+  const currentDescription = (pendingDescriptionHtml ?? savedDescription).trim()
+  const descriptionDirty = canEditTask && pendingDescriptionHtml != null && currentDescription !== savedDescription
+
+  const handleCloseRequest = () => {
+    if (descriptionDirty) {
+      setCloseConfirmOpen(true)
+    } else {
+      onClose()
+    }
+  }
+
+  const handleSaveDescription = async () => {
+    if (!descriptionDirty) return
+    await onUpdateTask(taskId, { description_html: pendingDescriptionHtml ?? taskDetail?.description_html ?? null })
+    setPendingDescriptionHtml(null)
+  }
+
+  const handleCloseConfirmDiscard = () => {
+    setPendingDescriptionHtml(null)
+    setCloseConfirmOpen(false)
+    onClose()
+  }
+
+  const handleCloseConfirmSave = async () => {
+    await handleSaveDescription()
+    setCloseConfirmOpen(false)
+    onClose()
+  }
 
   const filteredMentionUsers = mentionableUsers.filter((u) => {
     const name = (u.full_name ?? u.email ?? '').toLowerCase()
@@ -1714,46 +1784,8 @@ function TaskDetailPanel({
 
   const modalContent = (
     <>
-      {/* Section 1: Task details + Attachments */}
+      {/* Section 1: Description + Attachments (title is in top bar only) */}
       <div className="overflow-y-auto p-5 md:p-6 border-b md:border-b-0 md:border-r border-slate-200 min-h-0">
-        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider pb-3 border-b border-slate-200 mb-4">
-          Task details
-        </h3>
-
-        {/* Title */}
-        <div className="mb-5">
-          {editingTitle && canEditTask ? (
-            <input
-              value={titleValue}
-              onChange={(e) => setTitleValue(e.target.value)}
-              onBlur={async () => {
-                setEditingTitle(false)
-                if (titleValue.trim() !== taskDetail.title) {
-                  await onUpdateTask(taskId, { title: titleValue.trim() })
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  setEditingTitle(false)
-                  if (titleValue.trim() !== taskDetail.title) {
-                    onUpdateTask(taskId, { title: titleValue.trim() })
-                  }
-                }
-              }}
-              className="w-full text-xl font-semibold text-slate-900 border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30 focus:border-[#06B6D4]"
-              autoFocus
-            />
-          ) : (
-            <h2
-              className="text-xl font-semibold text-slate-900 cursor-pointer hover:bg-slate-50 rounded-xl px-1 -mx-1 py-1 transition-colors"
-              onClick={() => canEditTask && setEditingTitle(true)}
-            >
-              {taskDetail.title}
-            </h2>
-          )}
-        </div>
-
-
         {/* Description — full width with icon + label row */}
         <div className="mb-5">
           <div className="flex items-center gap-2 mb-2">
@@ -1764,8 +1796,8 @@ function TaskDetailPanel({
           </div>
           {canEditTask ? (
             <ProjectTasksRichEditor
-              value={taskDetail.description_html ?? ''}
-              onChange={(html) => onUpdateTask(taskId, { description_html: html })}
+              value={pendingDescriptionHtml ?? taskDetail.description_html ?? ''}
+              onChange={(html) => setPendingDescriptionHtml(html)}
               minHeight="120px"
               editable={true}
             />
@@ -1779,62 +1811,106 @@ function TaskDetailPanel({
           )}
         </div>
 
-        {/* Attachments — icon + label left, list + add right */}
-        <div>
-          <div className="flex items-start gap-4">
-            <div className="flex items-center gap-2 w-28 shrink-0 text-slate-600 pt-0.5">
-              <svg className="h-4 w-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-              </svg>
-              <span className="text-sm font-medium">Attachments</span>
-              {taskDetail.attachments.length > 0 && (
-                <span className="text-xs font-semibold text-slate-400 bg-slate-100 rounded-full px-2 py-0.5">
-                  {taskDetail.attachments.length}
-                </span>
-              )}
-            </div>
-            <div className="flex-1 min-w-0 space-y-2">
-              <ul className="space-y-2">
-                {taskDetail.attachments.map((a) => (
-                  <li
-                    key={a.id}
-                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2.5"
-                  >
-                    <a href={a.cloudinary_url} target="_blank" rel="noreferrer" className="text-sm font-medium text-cyan-700 hover:underline truncate flex-1">
-                      {a.file_name}
-                    </a>
-                    {canManageAttachments && (
-                      <button type="button" onClick={() => onRemoveAttachment(a.id)} className="text-rose-600 hover:text-rose-700 text-xs font-medium ml-2 shrink-0">
-                        Remove
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-              {canManageAttachments && (
-                <label className="inline-flex items-center gap-2 rounded-xl border border-dashed border-slate-300 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 cursor-pointer transition-colors">
-                  <input
-                    key={fileInputKey}
-                    type="file"
-                    accept={ACCEPTED_EXT}
-                    multiple
-                    className="hidden"
-                    onChange={async (e) => {
-                      const files = Array.from(e.target.files ?? [])
-                      if (files.length === 0) return
-                      const ok = await onUploadAttachments(taskId, files)
-                      if (ok) setFileInputKey((k) => k + 1)
-                      e.target.value = ''
-                    }}
-                  />
-                  <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8v8M4 12v8" />
-                  </svg>
-                  Add file (max {MAX_FILE_MB} MB)
-                </label>
-              )}
-            </div>
+        {/* Attachments — upload zone + grid with hover view/delete */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-slate-600">
+            <svg className="h-4 w-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+            </svg>
+            <span className="text-sm font-medium">Attachments</span>
+            {taskDetail.attachments.length > 0 && (
+              <span className="text-xs font-semibold text-slate-400 bg-slate-100 rounded-full px-2 py-0.5">
+                {taskDetail.attachments.length}
+              </span>
+            )}
           </div>
+
+          {canManageAttachments && (
+            <label
+              className="flex items-center justify-center gap-2 h-[60px] min-h-[60px] rounded-xl border-2 border-dashed border-slate-300 bg-slate-50/50 px-4 cursor-pointer transition-colors hover:border-[#06B6D4]/50 hover:bg-slate-50 focus-within:ring-2 focus-within:ring-[#06B6D4]/30 focus-within:border-[#06B6D4]"
+            >
+              <input
+                key={fileInputKey}
+                type="file"
+                accept={ACCEPTED_EXT}
+                multiple
+                className="sr-only"
+                onChange={async (e) => {
+                  const files = Array.from(e.target.files ?? [])
+                  if (files.length === 0) return
+                  const ok = await onUploadAttachments(taskId, files)
+                  if (ok) setFileInputKey((k) => k + 1)
+                  e.target.value = ''
+                }}
+              />
+              <svg className="h-5 w-5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              <span className="text-xs text-slate-600">
+                Drop your files here to upload, or <span className="underline font-medium text-cyan-600">browse</span> (max {MAX_FILE_MB} MB)
+              </span>
+            </label>
+          )}
+
+          {taskDetail.attachments.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {taskDetail.attachments.map((a) => (
+                <div
+                  key={a.id}
+                  className="group relative rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                >
+                  <div className="aspect-[4/3] bg-slate-100 relative">
+                    {isImageAttachment(a) ? (
+                      <img
+                        src={a.cloudinary_url}
+                        alt={a.file_name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <svg className="h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      </div>
+                    )}
+                    {/* Hover overlay: View + Delete */}
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <a
+                        href={a.cloudinary_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-2.5 rounded-full bg-white/90 text-slate-700 hover:bg-white hover:text-cyan-600 transition-colors"
+                        aria-label="View attachment"
+                        title="View"
+                      >
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7C7.523 19 3.732 16.057 2.458 12z" />
+                        </svg>
+                      </a>
+                      {canManageAttachments && (
+                        <button
+                          type="button"
+                          onClick={() => onRemoveAttachment(a.id)}
+                          className="p-2.5 rounded-full bg-white/90 text-slate-700 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                          aria-label="Delete attachment"
+                          title="Delete"
+                        >
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="p-2.5 min-w-0">
+                    <p className="text-xs font-medium text-slate-800 truncate" title={a.file_name}>{a.file_name}</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">{formatAttachmentDate(a.created_at)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -1902,13 +1978,52 @@ function TaskDetailPanel({
   )
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-black/20" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-black/20" onClick={(e) => e.target === e.currentTarget && handleCloseRequest()}>
       <div className="relative flex flex-col w-full h-full max-h-full bg-white rounded-2xl shadow-xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
-        {/* Header: title + actions, then Task details */}
+        {/* Header: Task details + title (editable) + actions */}
         <header className="flex-shrink-0 bg-slate-50/50 border-b border-slate-200">
           <div className="flex items-center justify-between px-5 py-3">
-            <h2 className="text-base font-semibold text-slate-800 truncate flex-1 mr-2">{taskDetail?.title ?? 'Task'}</h2>
+            <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider shrink-0 border-b-2 border-[#06B6D4] pb-0.5">Task details</span>
+              {editingTitle && canEditTask ? (
+                <input
+                  value={titleValue}
+                  onChange={(e) => setTitleValue(e.target.value)}
+                  onBlur={async () => {
+                    setEditingTitle(false)
+                    if (titleValue.trim() !== taskDetail.title) {
+                      await onUpdateTask(taskId, { title: titleValue.trim() })
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      setEditingTitle(false)
+                      if (titleValue.trim() !== taskDetail.title) {
+                        onUpdateTask(taskId, { title: titleValue.trim() })
+                      }
+                    }
+                    if (e.key === 'Escape') setEditingTitle(false)
+                  }}
+                  className="flex-1 min-w-0 text-base font-semibold text-slate-800 border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30 focus:border-[#06B6D4]"
+                  autoFocus
+                />
+              ) : (
+                <h2
+                  className={`text-base font-semibold text-slate-800 truncate flex-1 min-w-0 ${canEditTask ? 'cursor-pointer hover:bg-slate-100 rounded-lg px-2 py-1 -mx-1 transition-colors' : ''}`}
+                  onClick={() => canEditTask && setEditingTitle(true)}
+                >
+                  {taskDetail?.title ?? 'Task'}
+                </h2>
+              )}
+            </div>
             <div className="flex items-center gap-1">
+              {descriptionDirty && (
+                <button type="button" onClick={handleSaveDescription} className="p-2 rounded-xl text-cyan-600 hover:bg-cyan-50 transition-colors" aria-label="Save description" title="Save">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                  </svg>
+                </button>
+              )}
               <button type="button" onClick={() => setActivityPanelOpen(true)} className="p-2 rounded-xl text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors" aria-label="Activity" title={`Activity (${taskDetail.activity_log.length})`}>
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1921,7 +2036,7 @@ function TaskDetailPanel({
                   </svg>
                 </button>
               )}
-              <button type="button" onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors" aria-label="Close" title="Close">
+              <button type="button" onClick={handleCloseRequest} className="p-2 rounded-xl text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors" aria-label="Close" title="Close">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -1929,155 +2044,268 @@ function TaskDetailPanel({
             </div>
           </div>
           <div className="px-5 pb-4 pt-3 border-t border-slate-200/80">
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Task details</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-x-4 gap-y-3">
-              {/* Status */}
-              <div>
-                <div className="flex items-center gap-1.5 text-slate-600 mb-1">
-                  <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${TASK_STATUS_DOT_COLORS[taskDetail.status]}`} aria-hidden />
-                  <span className="text-xs font-medium">Status</span>
+            {/* Same compact row as Task List View: Status | Assignees | Due date | Priority | Type */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Status — list row style */}
+              {canUpdateStatus ? (
+                <div className="relative inline-block">
+                  <button
+                    ref={detailStatusRef}
+                    type="button"
+                    onClick={() => setDetailDropdownOpen((o) => (o === 'status' ? null : 'status'))}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30"
+                    title="Change status"
+                  >
+                    <span className={`h-2 w-2 rounded-full ${TASK_STATUS_DOT_COLORS[taskDetail.status] ?? 'bg-slate-400'}`} />
+                    <span>{TASK_STATUS_LABELS[taskDetail.status] ?? taskDetail.status}</span>
+                  </button>
+                  {detailDropdownOpen === 'status' && detailDropdownRect && typeof document !== 'undefined' &&
+                    createPortal(
+                      <>
+                        <div className="fixed inset-0 z-[9998]" aria-hidden onClick={() => setDetailDropdownOpen(null)} />
+                        <div data-detail-dropdown className="fixed z-[9999] w-44 rounded-lg border border-slate-200 bg-white shadow-xl py-1" style={{ top: detailDropdownRect.top, left: detailDropdownRect.left }}>
+                          {TASK_STATUSES.map((s) => (
+                            <button key={s} type="button" onClick={() => { onStatusChange(taskId, s); setDetailDropdownOpen(null) }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50">
+                              <span className={`h-2 w-2 flex-shrink-0 rounded-full ${TASK_STATUS_DOT_COLORS[s] ?? 'bg-slate-400'}`} />
+                              <span>{TASK_STATUS_LABELS[s] ?? s}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </>,
+                      document.body
+                    )}
                 </div>
-                {canUpdateStatus ? (
-                  <div className="relative inline-block">
-                    <button
-                      ref={detailStatusRef}
-                      type="button"
-                      onClick={() => setDetailDropdownOpen((o) => (o === 'status' ? null : 'status'))}
-                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30 ${TASK_STATUS_STYLES[taskDetail.status]} border-slate-200/80`}
-                    >
-                      <span className={`h-1.5 w-1.5 rounded-full ${TASK_STATUS_DOT_COLORS[taskDetail.status]}`} />
-                      {TASK_STATUS_LABELS[taskDetail.status]}
-                      <svg className="h-3 w-3 text-slate-500 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                    </button>
-                    {detailDropdownOpen === 'status' && detailDropdownRect && typeof document !== 'undefined' &&
-                      createPortal(
-                        <>
-                          <div className="fixed inset-0 z-[9998]" aria-hidden onClick={() => setDetailDropdownOpen(null)} />
-                          <div data-detail-dropdown className="fixed z-[9999] w-44 rounded-lg border border-slate-200 bg-white shadow-xl py-1" style={{ top: detailDropdownRect.top, left: detailDropdownRect.left }}>
-                            {TASK_STATUSES.map((s) => (
-                              <button key={s} type="button" onClick={() => { onStatusChange(taskId, s); setDetailDropdownOpen(null) }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50">
-                                <span className={`h-2 w-2 flex-shrink-0 rounded-full ${TASK_STATUS_DOT_COLORS[s]}`} />
-                                {TASK_STATUS_LABELS[s]}
-                              </button>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-xs">
+                  <span className={`h-2 w-2 rounded-full ${TASK_STATUS_DOT_COLORS[taskDetail.status] ?? 'bg-slate-400'}`} />
+                  {TASK_STATUS_LABELS[taskDetail.status] ?? taskDetail.status}
+                </span>
+              )}
+
+              {/* Assignees — list row style (avatar stack + dropdown) */}
+              {(() => {
+                const assigneeIds = taskDetail.assignees.map((a) => a.id)
+                const assigneeOptions = teamMembers.filter((m) => assigneeIds.includes(m.id))
+                const maxAvatars = 3
+                const assigneesToShow = assigneeOptions.slice(0, maxAvatars)
+                const extraCount = assigneeOptions.length - maxAvatars
+                const assigneeNamesTooltip = assigneeOptions.length > 0 ? assigneeOptions.map((o) => staffLabel(o)).join(', ') : 'No assignees'
+                const extraAssigneesTooltip = extraCount > 0 ? assigneeOptions.slice(maxAvatars).map((o) => staffLabel(o)).join(', ') : ''
+                if (canEditTask) {
+                  return (
+                    <div className="relative inline-block">
+                      <button
+                        ref={detailAssigneeRef}
+                        type="button"
+                        onClick={() => setDetailDropdownOpen((o) => (o === 'assignee' ? null : 'assignee'))}
+                        className="flex items-center gap-1 rounded-full border border-slate-200 bg-white p-0.5 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30"
+                        title={assigneeOptions.length === 0 ? 'Change assignee' : assigneeNamesTooltip}
+                      >
+                        {assigneeOptions.length > 0 ? (
+                          <span className="flex items-center -space-x-2">
+                            {assigneesToShow.map((m) => (
+                              <span
+                                key={m.id}
+                                title={staffLabel(m)}
+                                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-white text-xs font-semibold ring-1 ring-slate-200 ${getAssigneeColor(m.id).bg} ${getAssigneeColor(m.id).text}`}
+                              >
+                                {staffInitials(m)}
+                              </span>
                             ))}
-                          </div>
-                        </>,
-                        document.body
-                      )}
-                  </div>
-                ) : (
-                  <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${TASK_STATUS_STYLES[taskDetail.status]} border-slate-200/80`}>
-                    <span className={`h-1.5 w-1.5 rounded-full ${TASK_STATUS_DOT_COLORS[taskDetail.status]}`} />
-                    {TASK_STATUS_LABELS[taskDetail.status]}
-                  </span>
-                )}
-              </div>
-              {/* Assignees */}
-              <div>
-                <div className="flex items-center gap-1.5 text-slate-600 mb-1">
-                  <svg className="h-3.5 w-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                  <span className="text-xs font-medium">Assignees</span>
-                </div>
-                {canEditTask ? (
-                  <AssigneeSelect value={taskDetail.assignees.map((a) => a.id)} options={teamMembers} onChange={(ids) => onAssigneesChange(taskId, ids)} />
-                ) : (
-                  <div className="rounded-lg border border-slate-200 bg-slate-50/50 px-2.5 py-1.5 min-h-[32px] flex items-center flex-wrap gap-1">
-                    {taskDetail.assignees.length === 0 ? <span className="text-xs text-slate-400">—</span> : taskDetail.assignees.map((a) => (
-                      <span key={a.id} className="inline-flex items-center gap-1 rounded-full bg-cyan-50 px-2 py-0.5 text-xs font-medium text-cyan-800">
-                        <span className="h-5 w-5 rounded-full bg-cyan-200 text-cyan-800 flex items-center justify-center text-[10px] font-semibold">{getInitials(a.full_name ?? a.email)}</span>
-                        {a.full_name ?? a.email}
+                            {extraCount > 0 && (
+                              <span
+                                title={extraAssigneesTooltip}
+                                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-white bg-slate-100 text-xs font-semibold text-slate-600 ring-1 ring-slate-200"
+                              >
+                                +{extraCount}
+                              </span>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                          </span>
+                        )}
+                      </button>
+                      {detailDropdownOpen === 'assignee' && detailDropdownRect && typeof document !== 'undefined' &&
+                        createPortal(
+                          <>
+                            <div className="fixed inset-0 z-[9998]" aria-hidden onClick={() => setDetailDropdownOpen(null)} />
+                            <div data-detail-dropdown className="fixed z-[9999] w-56 max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl py-1" style={{ top: detailDropdownRect.top, left: detailDropdownRect.left }}>
+                              {teamMembers.map((m) => {
+                                const isSelected = assigneeIds.includes(m.id)
+                                const color = getAssigneeColor(m.id)
+                                return (
+                                  <button
+                                    key={m.id}
+                                    type="button"
+                                    onClick={() => {
+                                      onAssigneesChange(taskId, isSelected ? assigneeIds.filter((id) => id !== m.id) : [...assigneeIds, m.id])
+                                      setDetailDropdownOpen(null)
+                                    }}
+                                    className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-slate-50 ${isSelected ? 'bg-cyan-50/80' : ''}`}
+                                  >
+                                    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${color.bg} ${color.text}`}>
+                                      {staffInitials(m)}
+                                    </span>
+                                    <span className="text-sm truncate">{staffLabel(m)}</span>
+                                    {isSelected && (
+                                      <svg className="h-4 w-4 ml-auto text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                      </svg>
+                                    )}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </>,
+                          document.body
+                        )}
+                    </div>
+                  )
+                }
+                return assigneeOptions.length > 0 ? (
+                  <span className="inline-flex items-center -space-x-2">
+                    {assigneesToShow.map((m) => (
+                      <span
+                        key={m.id}
+                        title={staffLabel(m)}
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-white text-xs font-semibold ring-1 ring-slate-200 ${getAssigneeColor(m.id).bg} ${getAssigneeColor(m.id).text}`}
+                      >
+                        {staffInitials(m)}
                       </span>
                     ))}
-                  </div>
-                )}
-              </div>
-              {/* Due date */}
-              <div>
-                <div className="flex items-center gap-1.5 text-slate-600 mb-1">
-                  <svg className="h-3.5 w-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                  <span className="text-xs font-medium">Due date</span>
-                </div>
-                {canEditTask ? (
-                  <input type="date" value={taskDetail.due_date ?? ''} onChange={(e) => onUpdateTask(taskId, { due_date: e.target.value || null })} className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30" />
+                    {extraCount > 0 && (
+                      <span
+                        title={extraAssigneesTooltip}
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-white bg-slate-100 text-xs font-semibold text-slate-600 ring-1 ring-slate-200"
+                      >
+                        +{extraCount}
+                      </span>
+                    )}
+                  </span>
                 ) : (
-                  <div className="rounded-lg border border-slate-200 bg-slate-50/50 px-2.5 py-1.5 text-xs text-slate-700">{formatDate(taskDetail.due_date)}</div>
-                )}
-              </div>
-              {/* Priority */}
-              <div>
-                <div className="flex items-center gap-1.5 text-slate-600 mb-1">
-                  <PriorityFlagIcon className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                  <span className="text-xs font-medium">Priority</span>
+                  <span className="text-slate-400 text-xs">—</span>
+                )
+              })()}
+
+              {/* Due date — list row style */}
+              {canEditTask ? (
+                <div className="relative inline-block">
+                  <input
+                    ref={detailDueInputRef}
+                    type="date"
+                    value={taskDetail.due_date ?? ''}
+                    onChange={(e) => onUpdateTask(taskId, { due_date: e.target.value || null })}
+                    className="absolute left-0 top-0 w-full h-full opacity-0 cursor-pointer pointer-events-none"
+                    aria-hidden
+                    tabIndex={-1}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (detailDueInputRef.current) {
+                        try {
+                          detailDueInputRef.current.showPicker?.()
+                        } catch {
+                          detailDueInputRef.current.focus()
+                        }
+                      }
+                    }}
+                    className="flex items-center gap-1.5 rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30"
+                    title="Select due date"
+                  >
+                    <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    {taskDetail.due_date ? formatDate(taskDetail.due_date) : '—'}
+                  </button>
                 </div>
-                {canEditTask ? (
-                  <div className="relative inline-block">
-                    <button ref={detailPriorityRef} type="button" onClick={() => setDetailDropdownOpen((o) => (o === 'priority' ? null : 'priority'))} className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30 ${taskDetail.priority ? `border-slate-200/80 ${TASK_PRIORITY_STYLES[taskDetail.priority]}` : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}>
-                      <PriorityFlagIcon className={`h-3.5 w-3.5 ${taskDetail.priority ? TASK_PRIORITY_FLAG_COLORS[taskDetail.priority] : 'text-slate-400'}`} />
-                      {taskDetail.priority ? TASK_PRIORITY_LABELS[taskDetail.priority] : 'Set'}
-                      <svg className="h-3 w-3 text-slate-500 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                    </button>
-                    {detailDropdownOpen === 'priority' && detailDropdownRect && typeof document !== 'undefined' &&
-                      createPortal(
-                        <>
-                          <div className="fixed inset-0 z-[9998]" aria-hidden onClick={() => setDetailDropdownOpen(null)} />
-                          <div data-detail-dropdown className="fixed z-[9999] w-44 rounded-lg border border-slate-200 bg-white shadow-xl py-1" style={{ top: detailDropdownRect.top, left: detailDropdownRect.left }}>
-                            {TASK_PRIORITIES.map((p) => (
-                              <button key={p} type="button" onClick={() => { onUpdateTask(taskId, { priority: p }); setDetailDropdownOpen(null) }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-sky-50">
-                                <PriorityFlagIcon className={`h-4 w-4 ${TASK_PRIORITY_FLAG_COLORS[p]}`} />
-                                {TASK_PRIORITY_LABELS[p]}
-                              </button>
-                            ))}
-                          </div>
-                        </>,
-                        document.body
-                      )}
-                  </div>
-                ) : (
-                  taskDetail.priority ? (
-                    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${TASK_PRIORITY_STYLES[taskDetail.priority]} border-slate-200/80`}>
-                      <PriorityFlagIcon className={`h-3.5 w-3.5 ${TASK_PRIORITY_FLAG_COLORS[taskDetail.priority]}`} />
-                      {TASK_PRIORITY_LABELS[taskDetail.priority]}
-                    </span>
-                  ) : <span className="text-xs text-slate-400">—</span>
-                )}
-              </div>
-              {/* Type */}
-              <div>
-                <div className="flex items-center gap-1.5 text-slate-600 mb-1">
-                  <TaskTypeIcon type={taskDetail.task_type ?? 'other'} className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                  <span className="text-xs font-medium">Type</span>
+              ) : (
+                <span className="text-slate-600 text-xs">{taskDetail.due_date ? formatDate(taskDetail.due_date) : '—'}</span>
+              )}
+
+              {/* Priority — list row style */}
+              {canEditTask ? (
+                <div className="relative inline-block">
+                  <button
+                    ref={detailPriorityRef}
+                    type="button"
+                    onClick={() => setDetailDropdownOpen((o) => (o === 'priority' ? null : 'priority'))}
+                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30 ${
+                      taskDetail.priority
+                        ? `border-slate-200/80 ${TASK_PRIORITY_STYLES[taskDetail.priority]}`
+                        : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+                    }`}
+                    title="Change priority"
+                  >
+                    <PriorityFlagIcon className={`h-4 w-4 flex-shrink-0 ${taskDetail.priority ? TASK_PRIORITY_FLAG_COLORS[taskDetail.priority] : 'text-slate-400'}`} />
+                    <span>{taskDetail.priority ? TASK_PRIORITY_LABELS[taskDetail.priority] : '—'}</span>
+                  </button>
+                  {detailDropdownOpen === 'priority' && detailDropdownRect && typeof document !== 'undefined' &&
+                    createPortal(
+                      <>
+                        <div className="fixed inset-0 z-[9998]" aria-hidden onClick={() => setDetailDropdownOpen(null)} />
+                        <div data-detail-dropdown className="fixed z-[9999] w-44 rounded-lg border border-slate-200 bg-white shadow-xl py-1" style={{ top: detailDropdownRect.top, left: detailDropdownRect.left }}>
+                          {TASK_PRIORITIES.map((p) => (
+                            <button key={p} type="button" onClick={() => { onUpdateTask(taskId, { priority: p }); setDetailDropdownOpen(null) }} className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-sky-50 ${taskDetail.priority === p ? 'bg-sky-50' : ''}`}>
+                            <PriorityFlagIcon className={`h-4 w-4 flex-shrink-0 ${TASK_PRIORITY_FLAG_COLORS[p]}`} />
+                            <span>{TASK_PRIORITY_LABELS[p]}</span>
+                          </button>
+                        ))}
+                        </div>
+                      </>,
+                      document.body
+                    )}
                 </div>
-                {canEditTask ? (
-                  <div className="relative inline-block">
-                    <button ref={detailTypeRef} type="button" onClick={() => setDetailDropdownOpen((o) => (o === 'type' ? null : 'type'))} className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30">
-                      {taskDetail.task_type ? <><TaskTypeIcon type={taskDetail.task_type} className="h-3.5 w-3.5 text-slate-500" />{TASK_TYPE_LABELS[taskDetail.task_type]}</> : <span className="text-slate-400">Set</span>}
-                      <svg className="h-3 w-3 text-slate-500 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                    </button>
-                    {detailDropdownOpen === 'type' && detailDropdownRect && typeof document !== 'undefined' &&
-                      createPortal(
-                        <>
-                          <div className="fixed inset-0 z-[9998]" aria-hidden onClick={() => setDetailDropdownOpen(null)} />
-                          <div data-detail-dropdown className="fixed z-[9999] w-44 rounded-lg border border-slate-200 bg-white shadow-xl py-1" style={{ top: detailDropdownRect.top, left: detailDropdownRect.left }}>
-                            {TASK_TYPES.map((t) => (
-                              <button key={t} type="button" onClick={() => { onUpdateTask(taskId, { task_type: t }); setDetailDropdownOpen(null) }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">
-                                <TaskTypeIcon type={t} className="h-4 w-4 text-slate-500" />
-                                {TASK_TYPE_LABELS[t]}
-                              </button>
-                            ))}
-                          </div>
-                        </>,
-                        document.body
-                      )}
-                  </div>
+              ) : (
+                <span className={`inline-flex items-center gap-1.5 text-xs ${taskDetail.priority ? TASK_PRIORITY_STYLES[taskDetail.priority] : 'text-slate-400'}`}>
+                  {taskDetail.priority && <PriorityFlagIcon className={`h-4 w-4 ${TASK_PRIORITY_FLAG_COLORS[taskDetail.priority]}`} />}
+                  {taskDetail.priority ? TASK_PRIORITY_LABELS[taskDetail.priority] : '—'}
+                </span>
+              )}
+
+              {/* Type — same pill style as list (detail-only field) */}
+              {canEditTask ? (
+                <div className="relative inline-block">
+                  <button
+                    ref={detailTypeRef}
+                    type="button"
+                    onClick={() => setDetailDropdownOpen((o) => (o === 'type' ? null : 'type'))}
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30"
+                    title="Change type"
+                  >
+                    {taskDetail.task_type ? <TaskTypeIcon type={taskDetail.task_type} className="h-4 w-4 flex-shrink-0 text-slate-500" /> : null}
+                    <span>{taskDetail.task_type ? TASK_TYPE_LABELS[taskDetail.task_type] : '—'}</span>
+                  </button>
+                  {detailDropdownOpen === 'type' && detailDropdownRect && typeof document !== 'undefined' &&
+                    createPortal(
+                      <>
+                        <div className="fixed inset-0 z-[9998]" aria-hidden onClick={() => setDetailDropdownOpen(null)} />
+                        <div data-detail-dropdown className="fixed z-[9999] w-44 rounded-lg border border-slate-200 bg-white shadow-xl py-1" style={{ top: detailDropdownRect.top, left: detailDropdownRect.left }}>
+                          {TASK_TYPES.map((t) => (
+                            <button key={t} type="button" onClick={() => { onUpdateTask(taskId, { task_type: t }); setDetailDropdownOpen(null) }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">
+                              <TaskTypeIcon type={t} className="h-4 w-4 text-slate-500" />
+                              {TASK_TYPE_LABELS[t]}
+                            </button>
+                          ))}
+                        </div>
+                      </>,
+                      document.body
+                    )}
+                </div>
+              ) : (
+                taskDetail.task_type ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm">
+                    <TaskTypeIcon type={taskDetail.task_type} className="h-4 w-4 text-slate-500" />
+                    {TASK_TYPE_LABELS[taskDetail.task_type]}
+                  </span>
                 ) : (
-                  taskDetail.task_type ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
-                      <TaskTypeIcon type={taskDetail.task_type} className="h-3.5 w-3.5" />
-                      {TASK_TYPE_LABELS[taskDetail.task_type]}
-                    </span>
-                  ) : <span className="text-xs text-slate-400">—</span>
-                )}
-              </div>
+                  <span className="text-xs text-slate-400">—</span>
+                )
+              )}
             </div>
           </div>
         </header>
@@ -2103,6 +2331,35 @@ function TaskDetailPanel({
                   <ActivityEntry key={entry.id} entry={entry} />
                 ))}
               </ul>
+            </div>
+          </>
+        )}
+
+        {/* Close with unsaved changes: Discard / Save */}
+        {closeConfirmOpen && (
+          <>
+            <div className="absolute inset-0 bg-black/40 z-30" aria-hidden />
+            <div className="absolute inset-0 z-40 flex items-center justify-center p-4">
+              <div className="bg-white rounded-xl shadow-xl border border-slate-200 p-5 max-w-sm w-full">
+                <p className="text-sm font-medium text-slate-900">You have unsaved changes.</p>
+                <p className="text-xs text-slate-500 mt-1">Save or discard before closing?</p>
+                <div className="flex gap-2 mt-4 justify-end">
+                  <button
+                    type="button"
+                    onClick={handleCloseConfirmDiscard}
+                    className="px-3 py-2 text-sm font-medium text-slate-700 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
+                  >
+                    Discard
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCloseConfirmSave}
+                    className="px-3 py-2 text-sm font-medium text-white rounded-lg bg-[#06B6D4] hover:bg-[#0891b2] transition-colors"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
             </div>
           </>
         )}
