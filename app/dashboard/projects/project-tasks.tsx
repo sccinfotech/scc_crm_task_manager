@@ -52,6 +52,8 @@ import type { StaffSelectOption } from '@/lib/users/actions'
 
 const MAX_FILE_MB = TASK_MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024)
 const ACCEPTED_EXT = TASK_ALLOWED_EXTENSIONS.map((e) => `.${e}`).join(',')
+/** When selectedTaskId is this value, Task Detail panel opens in creation mode (no popup). */
+const CREATE_TASK_SENTINEL = '__create__'
 
 function isImageAttachment(a: TaskAttachment) {
   return (a.mime_type && a.mime_type.startsWith('image/')) || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(a.file_name || '')
@@ -172,7 +174,6 @@ export function ProjectTasks({
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [taskDetail, setTaskDetail] = useState<ProjectTaskDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
-  const [createModalOpen, setCreateModalOpen] = useState(false)
   const [createModalDefaultStatus, setCreateModalDefaultStatus] = useState<TaskStatus | null>(null)
   const [sectionCollapsed, setSectionCollapsed] = useState<Record<TaskStatus, boolean>>(() =>
     TASK_STATUSES.reduce((acc, s) => ({ ...acc, [s]: false }), {} as Record<TaskStatus, boolean>)
@@ -220,8 +221,8 @@ export function ProjectTasks({
   )
 
   useEffect(() => {
-    if (selectedTaskId) loadTaskDetail(selectedTaskId)
-    else setTaskDetail(null)
+    if (selectedTaskId && selectedTaskId !== CREATE_TASK_SENTINEL) loadTaskDetail(selectedTaskId)
+    else if (selectedTaskId !== CREATE_TASK_SENTINEL) setTaskDetail(null)
   }, [selectedTaskId, loadTaskDetail])
 
   useEffect(() => {
@@ -262,15 +263,18 @@ export function ProjectTasks({
       showError('Create failed', result.error)
       return result
     }
-    showSuccess('Task created', 'New task has been added.')
-    setCreateModalOpen(false)
-    if (result.data) setTasks((prev) => [result.data!, ...prev])
+    setCreateModalDefaultStatus(null)
+    if (result.data) {
+      setTasks((prev) => [result.data!, ...prev])
+      setSelectedTaskId(result.data.id)
+    } else {
+      setSelectedTaskId(null)
+    }
     const taskId = result.data?.id
     if (taskId && initial_files?.length) {
       const sigResult = await getTaskUploadSignature(projectId)
       if (sigResult.error || !sigResult.data) {
         showError('Upload failed', sigResult.error ?? 'Could not prepare upload.')
-        router.refresh()
         return result
       }
       const signature = sigResult.data
@@ -312,14 +316,12 @@ export function ProjectTasks({
       if (uploaded.length > 0) {
         const createResult = await createTaskAttachments(taskId, uploaded)
         if (!createResult.error) {
-          loadTasks()
-          showSuccess('Attachments added', '')
+          loadTaskDetail(taskId)
         } else {
           showError('Save failed', createResult.error)
         }
       }
     }
-    router.refresh()
     return result
   }
 
@@ -428,6 +430,43 @@ export function ProjectTasks({
     if (result.data && taskDetail?.id === taskId) {
       setTaskDetail((prev) =>
         prev ? { ...prev, comments: [...prev.comments, result.data!] } : null
+      )
+    }
+    router.refresh()
+  }
+
+  const handleUpdateComment = async (
+    taskId: string,
+    commentId: string,
+    commentText: string,
+    mentionIds: string[]
+  ) => {
+    const result = await updateTaskComment(commentId, commentText, mentionIds)
+    if (result.error) {
+      showError('Update failed', result.error)
+      return
+    }
+    showSuccess('Comment updated', '')
+    if (result.data && taskDetail?.id === taskId) {
+      setTaskDetail((prev) =>
+        prev
+          ? { ...prev, comments: prev.comments.map((c) => (c.id === commentId ? result.data! : c)) }
+          : null
+      )
+    }
+    router.refresh()
+  }
+
+  const handleDeleteComment = async (taskId: string, commentId: string) => {
+    const result = await deleteTaskComment(commentId)
+    if (result.error) {
+      showError('Delete failed', result.error)
+      return
+    }
+    showSuccess('Comment removed', '')
+    if (taskDetail?.id === taskId) {
+      setTaskDetail((prev) =>
+        prev ? { ...prev, comments: prev.comments.filter((c) => c.id !== commentId) } : null
       )
     }
     router.refresh()
@@ -583,7 +622,7 @@ export function ProjectTasks({
             type="button"
             onClick={() => {
               setCreateModalDefaultStatus(null)
-              setCreateModalOpen(true)
+              setSelectedTaskId(CREATE_TASK_SENTINEL)
             }}
             className="rounded-xl bg-[#06B6D4] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0891b2] transition-colors"
           >
@@ -676,7 +715,53 @@ export function ProjectTasks({
       <div className="flex-1 min-h-0 flex mt-3 overflow-y-auto">
         <div className="flex-1 min-w-0 rounded-xl border border-slate-200 bg-slate-50/30">
           {loading ? (
-            <div className="p-8 text-center text-slate-500 text-sm">Loading tasks…</div>
+            <div className="p-3 space-y-4">
+              {[1, 2, 3].map((section) => (
+                <div key={section} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+                  <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-200 bg-slate-50/80">
+                    <span className="h-5 w-5 rounded bg-slate-200 animate-pulse" />
+                    <span className="h-6 w-20 rounded-full bg-slate-200 animate-pulse" />
+                    <span className="h-4 w-6 rounded bg-slate-200 animate-pulse" />
+                  </div>
+                  <table className="w-full text-sm table-fixed">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50/50 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                        <th className="px-3 py-2 min-w-[200px] w-[50%]">Name</th>
+                        <th className="px-3 py-2 w-[92px] shrink-0">Status</th>
+                        <th className="px-3 py-2 w-[88px] shrink-0">Assignee</th>
+                        <th className="px-3 py-2 w-[88px] shrink-0">Due date</th>
+                        <th className="px-3 py-2 w-[78px] shrink-0">Priority</th>
+                        <th className="px-3 py-2 w-9 shrink-0" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[1, 2, 3, 4].map((row) => (
+                        <tr key={row} className="border-b border-slate-100">
+                          <td className="px-3 py-2">
+                            <span className="block h-4 rounded bg-slate-200 animate-pulse w-full max-w-[280px]" />
+                          </td>
+                          <td className="px-3 py-2">
+                            <span className="inline-block h-6 w-16 rounded-md bg-slate-200 animate-pulse" />
+                          </td>
+                          <td className="px-3 py-2">
+                            <span className="inline-flex h-7 w-7 rounded-full bg-slate-200 animate-pulse" />
+                          </td>
+                          <td className="px-3 py-2">
+                            <span className="block h-4 w-20 rounded bg-slate-200 animate-pulse" />
+                          </td>
+                          <td className="px-3 py-2">
+                            <span className="inline-block h-5 w-14 rounded bg-slate-200 animate-pulse" />
+                          </td>
+                          <td className="px-3 py-2">
+                            <span className="h-8 w-8 rounded bg-slate-200 animate-pulse" />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
           ) : viewMode === 'list' ? (
             <div className="p-3 space-y-4">
               {tasks.length === 0 ? (
@@ -726,7 +811,7 @@ export function ProjectTasks({
                             type="button"
                             onClick={() => {
                               setCreateModalDefaultStatus(status)
-                              setCreateModalOpen(true)
+                              setSelectedTaskId(CREATE_TASK_SENTINEL)
                             }}
                             className="rounded-lg px-2 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors"
                           >
@@ -736,15 +821,15 @@ export function ProjectTasks({
                       </div>
                       {!isCollapsed && (
                         <div className="overflow-x-auto min-w-0 rounded-b-xl overflow-hidden">
-                          <table className="w-full text-sm">
+                          <table className="w-full text-sm table-fixed">
                             <thead>
                               <tr className="border-b border-slate-200 bg-slate-50/50 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                                <th className="px-3 py-2 w-[32%]">Name</th>
-                                <th className="px-3 py-2 w-[110px]">Status</th>
-                                <th className="px-3 py-2 w-[100px]">Assignee</th>
-                                <th className="px-3 py-2 w-[90px]">Due date</th>
-                                <th className="px-3 py-2 w-[90px]">Priority</th>
-                                <th className="px-3 py-2 w-10" />
+                                <th className="px-3 py-2 min-w-[200px] w-[50%]">Name</th>
+                                <th className="px-3 py-2 w-[92px] shrink-0">Status</th>
+                                <th className="px-3 py-2 w-[88px] shrink-0">Assignee</th>
+                                <th className="px-3 py-2 w-[88px] shrink-0">Due date</th>
+                                <th className="px-3 py-2 w-[78px] shrink-0">Priority</th>
+                                <th className="px-3 py-2 w-9 shrink-0" />
                               </tr>
                             </thead>
                             <tbody>
@@ -861,13 +946,17 @@ export function ProjectTasks({
           )}
         </div>
 
-        {/* Task detail: modal popup */}
+        {/* Task detail: full panel (view/edit or create mode) */}
         {selectedTaskId && (
           <TaskDetailPanel
             taskId={selectedTaskId}
             taskDetail={taskDetail}
             detailLoading={detailLoading}
-            onClose={() => setSelectedTaskId(null)}
+            isCreateMode={selectedTaskId === CREATE_TASK_SENTINEL}
+            defaultStatus={createModalDefaultStatus ?? undefined}
+            projectId={projectId}
+            onClose={() => { setSelectedTaskId(null); setCreateModalDefaultStatus(null) }}
+            onCreateTask={handleCreateTask}
             userRole={userRole}
             canEditTask={canEditTask}
             canUpdateStatus={canUpdateStatus}
@@ -877,9 +966,11 @@ export function ProjectTasks({
             mentionableUsers={mentionableUsers}
             onStatusChange={handleStatusChange}
             onUpdateTask={handleUpdateTask}
-            onRequestDelete={() => setDeleteConfirmTaskId(selectedTaskId)}
+            onRequestDelete={() => selectedTaskId !== CREATE_TASK_SENTINEL && setDeleteConfirmTaskId(selectedTaskId)}
             onAssigneesChange={handleAssigneesChange}
             onAddComment={handleAddComment}
+            onUpdateComment={handleUpdateComment}
+            onDeleteComment={handleDeleteComment}
             onUploadAttachments={handleUploadAttachments}
             onRemoveAttachment={handleRemoveAttachment}
             onTaskDeleted={() => setSelectedTaskId(null)}
@@ -891,19 +982,6 @@ export function ProjectTasks({
           />
         )}
       </div>
-
-      {/* Create task modal */}
-      {createModalOpen && (
-        <TaskFormModal
-          projectId={projectId}
-          mode="create"
-          teamMembers={teamMembers}
-          initialStatus={createModalDefaultStatus ?? undefined}
-          onSubmit={handleCreateTask}
-          onClose={() => { setCreateModalOpen(false); setCreateModalDefaultStatus(null) }}
-          showError={showError}
-        />
-      )}
 
       {/* Delete confirm */}
       {deleteConfirmTaskId && (
@@ -1292,8 +1370,8 @@ function TaskListRow({
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenTask() } }}
       className="border-b border-slate-100 hover:bg-slate-50/80 group cursor-pointer"
     >
-      <td className="px-3 py-2">
-        <span className="text-left font-medium text-slate-900 group-hover:text-[#06B6D4] truncate block w-full max-w-[200px]">
+      <td className="px-3 py-2 min-w-0">
+        <span className="text-left font-medium text-slate-900 group-hover:text-[#06B6D4] block w-full break-words" title={task.title}>
           {task.title}
         </span>
       </td>
@@ -1557,7 +1635,11 @@ function TaskDetailPanel({
   taskId,
   taskDetail,
   detailLoading,
+  isCreateMode = false,
+  defaultStatus,
+  projectId,
   onClose,
+  onCreateTask,
   userRole,
   canEditTask,
   canUpdateStatus,
@@ -1570,6 +1652,8 @@ function TaskDetailPanel({
   onRequestDelete,
   onAssigneesChange,
   onAddComment,
+  onUpdateComment,
+  onDeleteComment,
   onUploadAttachments,
   onRemoveAttachment,
   onTaskDeleted,
@@ -1582,7 +1666,20 @@ function TaskDetailPanel({
   taskId: string
   taskDetail: ProjectTaskDetail | null
   detailLoading: boolean
+  isCreateMode?: boolean
+  defaultStatus?: TaskStatus
+  projectId?: string
   onClose: () => void
+  onCreateTask?: (p: {
+    title: string
+    description_html?: string | null
+    task_type?: TaskType | null
+    priority?: TaskPriority | null
+    status?: TaskStatus | null
+    due_date?: string | null
+    assignee_ids?: string[]
+    initial_files?: File[]
+  }) => Promise<{ data?: ProjectTaskListItem | null }>
   userRole: string
   canEditTask: boolean
   canUpdateStatus: boolean
@@ -1605,6 +1702,8 @@ function TaskDetailPanel({
   onRequestDelete: () => void
   onAssigneesChange: (taskId: string, assigneeIds: string[]) => void
   onAddComment: (taskId: string, text: string, mentionIds: string[]) => void
+  onUpdateComment: (taskId: string, commentId: string, text: string, mentionIds: string[]) => void
+  onDeleteComment: (taskId: string, commentId: string) => void
   onUploadAttachments: (taskId: string, files: File[]) => Promise<boolean>
   onRemoveAttachment: (attachmentId: string) => void
   onTaskDeleted: () => void
@@ -1617,13 +1716,25 @@ function TaskDetailPanel({
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleValue, setTitleValue] = useState('')
   const [pendingDescriptionHtml, setPendingDescriptionHtml] = useState<string | null>(null)
+  /* Create-mode-only state */
+  const [createDescriptionHtml, setCreateDescriptionHtml] = useState('')
+  const [createStatus, setCreateStatus] = useState<TaskStatus>(defaultStatus ?? 'todo')
+  const [createPriority, setCreatePriority] = useState<TaskPriority | ''>('medium')
+  const [createType, setCreateType] = useState<TaskType | ''>('feature')
+  const [createDueDate, setCreateDueDate] = useState('')
+  const [createAssigneeIds, setCreateAssigneeIds] = useState<string[]>([])
+  const [createInitialFiles, setCreateInitialFiles] = useState<File[]>([])
+  const [createSaving, setCreateSaving] = useState(false)
+  const [createDescriptionError, setCreateDescriptionError] = useState<string | null>(null)
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false)
   const [commentText, setCommentText] = useState('')
   const [mentionIds, setMentionIds] = useState<string[]>([])
   const [showMentionPicker, setShowMentionPicker] = useState(false)
   const [mentionSearch, setMentionSearch] = useState('')
   const [mentionAnchorIndex, setMentionAnchorIndex] = useState(-1)
+  const [mentionHighlightIndex, setMentionHighlightIndex] = useState(0)
   const [fileInputKey, setFileInputKey] = useState(0)
+  const [attachmentMenuOpenId, setAttachmentMenuOpenId] = useState<string | null>(null)
   const [activityPanelOpen, setActivityPanelOpen] = useState(false)
   const [detailDropdownOpen, setDetailDropdownOpen] = useState<'status' | 'assignee' | 'priority' | 'type' | null>(null)
   const [detailDropdownRect, setDetailDropdownRect] = useState<{ top: number; left: number } | null>(null)
@@ -1675,8 +1786,22 @@ function TaskDetailPanel({
   }, [detailDropdownOpen])
 
   useEffect(() => {
+    if (!attachmentMenuOpenId) return
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as Element
+      if (target.closest(`[data-attachment-menu-id="${attachmentMenuOpenId}"]`)) return
+      setAttachmentMenuOpenId(null)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [attachmentMenuOpenId])
+
+  useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setDetailDropdownOpen(null)
+      if (e.key === 'Escape') {
+        setDetailDropdownOpen(null)
+        setAttachmentMenuOpenId(null)
+      }
     }
     document.addEventListener('keydown', handleKey)
     return () => document.removeEventListener('keydown', handleKey)
@@ -1685,8 +1810,14 @@ function TaskDetailPanel({
   useEffect(() => {
     if (taskDetail) {
       setTitleValue(taskDetail.title)
+    } else if (isCreateMode) {
+      setTitleValue('')
     }
-  }, [taskDetail?.id, taskDetail?.title])
+  }, [taskDetail?.id, taskDetail?.title, isCreateMode])
+
+  useEffect(() => {
+    if (isCreateMode && defaultStatus) setCreateStatus(defaultStatus)
+  }, [isCreateMode, defaultStatus])
 
   useEffect(() => {
     setPendingDescriptionHtml(null)
@@ -1696,8 +1827,9 @@ function TaskDetailPanel({
   const currentDescription = (pendingDescriptionHtml ?? savedDescription).trim()
   const descriptionDirty = canEditTask && pendingDescriptionHtml != null && currentDescription !== savedDescription
 
+  const createHasContent = isCreateMode && (titleValue.trim() || createDescriptionHtml.trim())
   const handleCloseRequest = () => {
-    if (descriptionDirty) {
+    if (descriptionDirty || createHasContent) {
       setCloseConfirmOpen(true)
     } else {
       onClose()
@@ -1717,9 +1849,14 @@ function TaskDetailPanel({
   }
 
   const handleCloseConfirmSave = async () => {
-    await handleSaveDescription()
     setCloseConfirmOpen(false)
-    onClose()
+    if (isCreateMode && !taskDetail) {
+      await handleCreateSave()
+      // Parent switches to new task; panel stays open to show it
+    } else {
+      await handleSaveDescription()
+      onClose()
+    }
   }
 
   const filteredMentionUsers = mentionableUsers.filter((u) => {
@@ -1737,6 +1874,7 @@ function TaskDetailPanel({
         setShowMentionPicker(true)
         setMentionSearch(after)
         setMentionAnchorIndex(lastAt)
+        setMentionHighlightIndex(0)
       } else {
         setShowMentionPicker(false)
       }
@@ -1764,23 +1902,107 @@ function TaskDetailPanel({
     setShowMentionPicker(false)
   }
 
-  if (detailLoading || !taskDetail) {
+  const isCreateFlow = isCreateMode && !taskDetail && !detailLoading
+  if (!isCreateFlow && (detailLoading || !taskDetail)) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-black/20">
         <div className="flex flex-col w-full h-full max-h-full bg-white rounded-2xl shadow-xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
-            <span className="text-lg font-semibold text-slate-900">Task</span>
-            <button type="button" onClick={onClose} className="p-2 rounded-lg text-slate-400 hover:bg-slate-100">
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+          {/* Skeleton header */}
+          <header className="flex-shrink-0 bg-slate-50/50 border-b border-slate-200">
+            <div className="flex items-center justify-between px-5 py-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
+                <span className="h-3 w-24 rounded bg-slate-200 animate-pulse" />
+                <span className="h-5 flex-1 max-w-xs rounded bg-slate-200 animate-pulse" />
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="h-9 w-9 rounded-xl bg-slate-200 animate-pulse" />
+                <span className="h-9 w-9 rounded-xl bg-slate-200 animate-pulse" />
+                <button type="button" onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:bg-slate-200 hover:text-slate-600" aria-label="Close" title="Close">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="px-5 pb-4 pt-3 border-t border-slate-200/80">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="h-6 w-16 rounded-md bg-slate-200 animate-pulse" />
+                <span className="h-8 w-20 rounded-full bg-slate-200 animate-pulse" />
+                <span className="h-6 w-20 rounded bg-slate-200 animate-pulse" />
+                <span className="h-6 w-24 rounded bg-slate-200 animate-pulse" />
+                <span className="h-6 w-14 rounded-full bg-slate-200 animate-pulse" />
+              </div>
+            </div>
+          </header>
+          {/* Skeleton body: two-column layout */}
+          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 min-h-0 overflow-hidden">
+            <div className="overflow-y-auto p-5 md:p-6 border-b md:border-b-0 md:border-r border-slate-200 space-y-5">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="h-4 w-4 rounded bg-slate-200 animate-pulse" />
+                  <span className="h-4 w-32 rounded bg-slate-200 animate-pulse" />
+                </div>
+                <div className="h-24 rounded-xl bg-slate-100 animate-pulse" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="h-4 w-4 rounded bg-slate-200 animate-pulse" />
+                  <span className="h-4 w-24 rounded bg-slate-200 animate-pulse" />
+                </div>
+                <div className="h-[60px] rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50 animate-pulse" />
+              </div>
+            </div>
+            <div className="overflow-y-auto p-5 md:p-6 flex flex-col">
+              <div className="h-4 w-36 rounded bg-slate-200 animate-pulse mb-4" />
+              <div className="space-y-3 flex-1">
+                <div className="h-16 rounded-xl bg-slate-100 animate-pulse" />
+                <div className="h-16 rounded-xl bg-slate-100 animate-pulse" />
+                <div className="h-20 rounded-xl bg-slate-100 animate-pulse" />
+              </div>
+            </div>
           </div>
-          <div className="flex-1 flex items-center justify-center text-slate-500">Loading…</div>
         </div>
       </div>
     )
   }
+
+  const isDescriptionEmpty = (html: string) => {
+    if (!html || !html.trim()) return true
+    if (typeof document === 'undefined') return !html.replace(/<[^>]*>/g, '').trim()
+    const doc = new DOMParser().parseFromString(html, 'text/html')
+    return !(doc.body.textContent || '').trim()
+  }
+  const handleCreateSave = async () => {
+    if (!onCreateTask) return
+    setCreateDescriptionError(null)
+    const t = titleValue.trim()
+    if (!t) {
+      showError('Validation', 'Title is required.')
+      return
+    }
+    const desc = isCreateFlow ? createDescriptionHtml : (pendingDescriptionHtml ?? taskDetail?.description_html ?? '')
+    if (isCreateFlow && isDescriptionEmpty(desc)) {
+      setCreateDescriptionError('Description is required.')
+      return
+    }
+    if (isCreateFlow) {
+      setCreateSaving(true)
+      await onCreateTask({
+        title: t,
+        description_html: desc || null,
+        task_type: createType || null,
+        priority: createPriority || null,
+        status: createStatus,
+        due_date: createDueDate || null,
+        assignee_ids: createAssigneeIds,
+        initial_files: createInitialFiles.length > 0 ? createInitialFiles : undefined,
+      })
+      setCreateSaving(false)
+    } else {
+      await handleSaveDescription()
+    }
+  }
+  const showHeaderSave = isCreateFlow || descriptionDirty
 
   const modalContent = (
     <>
@@ -1794,9 +2016,22 @@ function TaskDetailPanel({
             </svg>
             <span className="text-sm font-medium text-slate-600">Description</span>
           </div>
-          {canEditTask ? (
+          {isCreateFlow ? (
+            <>
+              <ProjectTasksRichEditor
+                value={createDescriptionHtml}
+                onChange={(html) => { setCreateDescriptionHtml(html); if (createDescriptionError) setCreateDescriptionError(null) }}
+                minHeight="120px"
+                editable={true}
+                placeholder="Describe the task…"
+              />
+              {createDescriptionError && (
+                <p className="mt-1.5 text-sm text-red-600" role="alert">{createDescriptionError}</p>
+              )}
+            </>
+          ) : canEditTask ? (
             <ProjectTasksRichEditor
-              value={pendingDescriptionHtml ?? taskDetail.description_html ?? ''}
+              value={pendingDescriptionHtml ?? taskDetail!.description_html ?? ''}
               onChange={(html) => setPendingDescriptionHtml(html)}
               minHeight="120px"
               editable={true}
@@ -1805,7 +2040,7 @@ function TaskDetailPanel({
             <div
               className="prose prose-sm max-w-none text-slate-700 rounded-xl border border-slate-200 bg-slate-50/30 p-4 min-h-[80px]"
               dangerouslySetInnerHTML={{
-                __html: taskDetail.description_html || '<p class="text-slate-400">No description</p>',
+                __html: taskDetail!.description_html || '<p class="text-slate-400">No description</p>',
               }}
             />
           )}
@@ -1818,14 +2053,54 @@ function TaskDetailPanel({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
             </svg>
             <span className="text-sm font-medium">Attachments</span>
-            {taskDetail.attachments.length > 0 && (
+            {isCreateFlow && (
+              <span className="text-xs text-slate-500">(uploaded when you save)</span>
+            )}
+            {!isCreateFlow && taskDetail!.attachments.length > 0 && (
               <span className="text-xs font-semibold text-slate-400 bg-slate-100 rounded-full px-2 py-0.5">
-                {taskDetail.attachments.length}
+                {taskDetail!.attachments.length}
+              </span>
+            )}
+            {isCreateFlow && createInitialFiles.length > 0 && (
+              <span className="text-xs font-semibold text-slate-400 bg-slate-100 rounded-full px-2 py-0.5">
+                {createInitialFiles.length}
               </span>
             )}
           </div>
 
-          {canManageAttachments && (
+          {isCreateFlow ? (
+            <>
+              <label className="flex items-center justify-center gap-2 h-[60px] min-h-[60px] rounded-xl border-2 border-dashed border-slate-300 bg-slate-50/50 px-4 cursor-pointer transition-colors hover:border-[#06B6D4]/50 hover:bg-slate-50 focus-within:ring-2 focus-within:ring-[#06B6D4]/30 focus-within:border-[#06B6D4]">
+                <input
+                  type="file"
+                  accept={ACCEPTED_EXT}
+                  multiple
+                  className="sr-only"
+                  onChange={(e) => {
+                    const list = Array.from(e.target.files ?? [])
+                    setCreateInitialFiles((prev) => [...prev, ...list])
+                    e.target.value = ''
+                  }}
+                />
+                <svg className="h-5 w-5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                <span className="text-xs text-slate-600">
+                  Add files (max {MAX_FILE_MB} MB). Attachments are uploaded when you save the task.
+                </span>
+              </label>
+              {createInitialFiles.length > 0 && (
+                <ul className="space-y-1.5">
+                  {createInitialFiles.map((f, i) => (
+                    <li key={`${f.name}-${i}`} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-sm">
+                      <span className="truncate text-slate-700">{f.name}</span>
+                      <button type="button" onClick={() => setCreateInitialFiles((prev) => prev.filter((_, idx) => idx !== i))} className="text-rose-600 hover:text-rose-700 text-xs font-medium ml-2">Remove</button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          ) : canManageAttachments && (
             <label
               className="flex items-center justify-center gap-2 h-[60px] min-h-[60px] rounded-xl border-2 border-dashed border-slate-300 bg-slate-50/50 px-4 cursor-pointer transition-colors hover:border-[#06B6D4]/50 hover:bg-slate-50 focus-within:ring-2 focus-within:ring-[#06B6D4]/30 focus-within:border-[#06B6D4]"
             >
@@ -1852,11 +2127,12 @@ function TaskDetailPanel({
             </label>
           )}
 
-          {taskDetail.attachments.length > 0 && (
+          {!isCreateFlow && taskDetail!.attachments.length > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {taskDetail.attachments.map((a) => (
                 <div
                   key={a.id}
+                  data-attachment-menu-id={a.id}
                   className="group relative rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow"
                 >
                   <div className="aspect-[4/3] bg-slate-100 relative">
@@ -1873,33 +2149,68 @@ function TaskDetailPanel({
                         </svg>
                       </div>
                     )}
-                    {/* Hover overlay: View + Delete */}
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                      <a
-                        href={a.cloudinary_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="p-2.5 rounded-full bg-white/90 text-slate-700 hover:bg-white hover:text-cyan-600 transition-colors"
-                        aria-label="View attachment"
-                        title="View"
+                    {/* More button: top-right, visible on hover (or when menu is open) */}
+                    <div className={`absolute top-2 right-2 transition-opacity ${attachmentMenuOpenId === a.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setAttachmentMenuOpenId((id) => (id === a.id ? null : a.id)) }}
+                        className="p-1.5 rounded-lg bg-white/95 shadow-sm border border-slate-200/80 text-slate-600 hover:bg-white hover:text-slate-800 transition-colors"
+                        aria-label="More actions"
+                        title="More actions"
+                        aria-expanded={attachmentMenuOpenId === a.id}
+                        aria-haspopup="true"
                       >
-                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7C7.523 19 3.732 16.057 2.458 12z" />
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
                         </svg>
-                      </a>
-                      {canManageAttachments && (
-                        <button
-                          type="button"
-                          onClick={() => onRemoveAttachment(a.id)}
-                          className="p-2.5 rounded-full bg-white/90 text-slate-700 hover:bg-rose-50 hover:text-rose-600 transition-colors"
-                          aria-label="Delete attachment"
-                          title="Delete"
-                        >
-                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
+                      </button>
+                      {attachmentMenuOpenId === a.id && (
+                        <div className="absolute top-full right-0 mt-1 w-44 rounded-lg border border-slate-200 bg-white shadow-lg py-1 z-10">
+                          <a
+                            href={a.cloudinary_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                            onClick={() => setAttachmentMenuOpenId(null)}
+                            aria-label="View attachment"
+                            title="View attachment"
+                          >
+                            <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7C7.523 19 3.732 16.057 2.458 12z" />
+                            </svg>
+                            View
+                          </a>
+                          <a
+                            href={a.cloudinary_url}
+                            download={a.file_name}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                            onClick={() => setAttachmentMenuOpenId(null)}
+                            aria-label="Download attachment"
+                            title="Download attachment"
+                          >
+                            <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                            Download
+                          </a>
+                          {canManageAttachments && (
+                            <button
+                              type="button"
+                              onClick={() => { onRemoveAttachment(a.id); setAttachmentMenuOpenId(null) }}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-rose-600 hover:bg-rose-50"
+                              aria-label="Remove attachment"
+                              title="Remove attachment"
+                            >
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              Remove
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1914,42 +2225,110 @@ function TaskDetailPanel({
         </div>
       </div>
 
-      {/* Section 2: Comments + Activity */}
-      <div className="overflow-y-auto p-5 md:p-6 min-h-0 flex flex-col">
-        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider pb-3 border-b border-slate-200 mb-4">
+      {/* Section 2: Comments + Activity — list scrolls, typing area fixed at bottom */}
+      <div className="p-5 md:p-6 min-h-0 flex flex-col flex-1">
+        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider pb-3 border-b border-slate-200 mb-4 flex-shrink-0">
           Comments & activity
         </h3>
-        <div className="flex-1 min-h-0 flex flex-col gap-4">
-          <div>
-            <div className="space-y-3">
-              {taskDetail.comments.map((c) => (
-                <CommentRow key={c.id} comment={c} />
+        {isCreateFlow ? (
+          <p className="text-sm text-slate-500 flex-shrink-0">Save the task to add comments and see activity.</p>
+        ) : (
+          <>
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-4">
+              {taskDetail!.comments.map((c) => (
+                <CommentRow
+                  key={c.id}
+                  comment={c}
+                  currentUserId={currentUserId}
+                  taskId={taskId}
+                  onUpdateComment={onUpdateComment}
+                  onDeleteComment={onDeleteComment}
+                  getInitials={getInitials}
+                />
               ))}
             </div>
             {userRole !== 'client' && (
-              <div className="mt-4 relative">
-                <textarea
-                  value={commentText}
-                  onChange={(e) => handleCommentTextChange(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      handleCommentSubmit()
-                    }
-                    if (e.key === 'Escape') setShowMentionPicker(false)
-                  }}
-                  placeholder="Add a comment… Type @ to mention"
-                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm min-h-[88px] focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30 focus:border-[#06B6D4]"
-                  rows={3}
-                />
+              <div className="flex-shrink-0 pt-4 mt-auto relative">
+                {/* Single comment container: typing area + toolbar (attachment + send) inside */}
+                <div className="rounded-xl border border-slate-200 focus-within:ring-2 focus-within:ring-[#06B6D4]/30 focus-within:border-[#06B6D4] bg-white flex flex-col min-h-[100px] max-h-[280px]">
+                  {/* Typing area */}
+                  <div className="relative flex-1 min-h-[72px] overflow-hidden rounded-t-xl">
+                    <div
+                      className="absolute inset-0 px-4 pt-3 pb-2 text-sm whitespace-pre-wrap overflow-hidden pointer-events-none"
+                      aria-hidden
+                    >
+                      {commentText ? (
+                        <span className="text-slate-700">
+                          {renderCommentWithMentions(commentText, mentionableUsers.filter((u) => mentionIds.includes(u.id)))}
+                        </span>
+                      ) : null}
+                    </div>
+                    <textarea
+                      value={commentText}
+                      onChange={(e) => handleCommentTextChange(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (showMentionPicker && filteredMentionUsers.length > 0) {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            handleMentionSelect(filteredMentionUsers[mentionHighlightIndex])
+                            return
+                          }
+                          if (e.key === 'ArrowDown') {
+                            e.preventDefault()
+                            setMentionHighlightIndex((i) => (i + 1) % filteredMentionUsers.length)
+                            return
+                          }
+                          if (e.key === 'ArrowUp') {
+                            e.preventDefault()
+                            setMentionHighlightIndex((i) => (i - 1 + filteredMentionUsers.length) % filteredMentionUsers.length)
+                            return
+                          }
+                        }
+                        if (e.key === 'Escape') setShowMentionPicker(false)
+                      }}
+                      placeholder="Add a comment… Type @ to mention"
+                      className="relative z-10 w-full min-h-[72px] max-h-[200px] border-0 bg-transparent px-4 pt-3 pb-2 text-sm focus:outline-none focus:ring-0 resize-none text-transparent caret-slate-800 placeholder:text-slate-400 block"
+                      rows={3}
+                    />
+                  </div>
+                  {/* Toolbar inside container: attachment + send only */}
+                  <div className="flex-shrink-0 flex items-center justify-between gap-2 px-3 py-2 border-t border-slate-200 rounded-b-xl bg-slate-50/50">
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        className="p-2 rounded-lg text-slate-500 hover:bg-slate-200/60 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30"
+                        aria-label="Attach file"
+                        title="Attach file"
+                      >
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                        </svg>
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCommentSubmit}
+                      disabled={!commentText.trim()}
+                      className={`flex-shrink-0 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30 disabled:opacity-50 disabled:hover:bg-transparent ${
+                        commentText.trim() ? 'text-[#06B6D4] hover:bg-cyan-50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200/60'
+                      }`}
+                      aria-label="Post comment"
+                      title="Post comment"
+                    >
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
                 {showMentionPicker && filteredMentionUsers.length > 0 && (
                   <div className="absolute bottom-full left-0 right-0 mb-1 rounded-xl border border-slate-200 bg-white shadow-xl py-1 max-h-48 overflow-y-auto z-10">
-                    {filteredMentionUsers.map((u) => (
+                    {filteredMentionUsers.map((u, idx) => (
                       <button
                         key={u.id}
                         type="button"
                         onClick={() => handleMentionSelect(u)}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-cyan-50 flex items-center gap-2"
+                        className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 ${idx === mentionHighlightIndex ? 'bg-cyan-50 ring-1 ring-cyan-200' : 'hover:bg-slate-50'}`}
                       >
                         <span className="h-7 w-7 rounded-full bg-cyan-100 text-cyan-800 flex items-center justify-center text-xs font-semibold">
                           {getInitials(u.full_name ?? u.email)}
@@ -1959,20 +2338,10 @@ function TaskDetailPanel({
                     ))}
                   </div>
                 )}
-                <div className="mt-2 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={handleCommentSubmit}
-                    disabled={!commentText.trim()}
-                    className="rounded-xl bg-[#06B6D4] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#0891b2] disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30"
-                  >
-                    Post comment
-                  </button>
-                </div>
               </div>
             )}
-          </div>
-        </div>
+          </>
+        )}
       </div>
     </>
   )
@@ -1984,21 +2353,36 @@ function TaskDetailPanel({
         <header className="flex-shrink-0 bg-slate-50/50 border-b border-slate-200">
           <div className="flex items-center justify-between px-5 py-3">
             <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider shrink-0 border-b-2 border-[#06B6D4] pb-0.5">Task details</span>
-              {editingTitle && canEditTask ? (
+              {isCreateFlow && createSaving && (
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center" aria-hidden>
+                  <svg className="h-5 w-5 animate-spin text-cyan-600" fill="none" viewBox="0 0 24 24" aria-label="Saving">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                </span>
+              )}
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider shrink-0 border-b-2 border-[#06B6D4] pb-0.5">{isCreateFlow ? 'New Task' : 'Task details'}</span>
+              {isCreateFlow ? (
+                <input
+                  value={titleValue}
+                  onChange={(e) => setTitleValue(e.target.value)}
+                  placeholder="Task title"
+                  className="flex-1 min-w-0 text-base font-semibold text-slate-800 border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30 focus:border-[#06B6D4]"
+                />
+              ) : editingTitle && canEditTask ? (
                 <input
                   value={titleValue}
                   onChange={(e) => setTitleValue(e.target.value)}
                   onBlur={async () => {
                     setEditingTitle(false)
-                    if (titleValue.trim() !== taskDetail.title) {
+                    if (taskDetail && titleValue.trim() !== taskDetail.title) {
                       await onUpdateTask(taskId, { title: titleValue.trim() })
                     }
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       setEditingTitle(false)
-                      if (titleValue.trim() !== taskDetail.title) {
+                      if (taskDetail && titleValue.trim() !== taskDetail.title) {
                         onUpdateTask(taskId, { title: titleValue.trim() })
                       }
                     }
@@ -2017,26 +2401,35 @@ function TaskDetailPanel({
               )}
             </div>
             <div className="flex items-center gap-1">
-              {descriptionDirty && (
-                <button type="button" onClick={handleSaveDescription} className="p-2 rounded-xl text-cyan-600 hover:bg-cyan-50 transition-colors" aria-label="Save description" title="Save">
+              {showHeaderSave && (
+                <button type="button" onClick={handleCreateSave} disabled={isCreateFlow && createSaving} className="p-2 rounded-xl text-cyan-600 hover:bg-cyan-50 transition-colors disabled:opacity-50" aria-label="Save" title={isCreateFlow && createInitialFiles.length > 0 ? 'Save task (attachments will be uploaded)' : isCreateFlow ? 'Save new task' : 'Save description'}>
+                  {isCreateFlow && createSaving ? (
+                    <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden>
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                  ) : (
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                    </svg>
+                  )}
+                </button>
+              )}
+              {!isCreateFlow && (
+                <button type="button" onClick={() => setActivityPanelOpen(true)} className="p-2 rounded-xl text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors" aria-label="View activity" title={taskDetail ? `View activity (${taskDetail.activity_log.length} entries)` : 'View activity'}>
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </button>
               )}
-              <button type="button" onClick={() => setActivityPanelOpen(true)} className="p-2 rounded-xl text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors" aria-label="Activity" title={`Activity (${taskDetail.activity_log.length})`}>
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
-              {canEditTask && (
+              {canEditTask && !isCreateFlow && (
                 <button type="button" onClick={onRequestDelete} className="p-2 rounded-xl text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors" aria-label="Delete task" title="Delete task">
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
                 </button>
               )}
-              <button type="button" onClick={handleCloseRequest} className="p-2 rounded-xl text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors" aria-label="Close" title="Close">
+              <button type="button" onClick={handleCloseRequest} className="p-2 rounded-xl text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors" aria-label="Close panel" title="Close task panel">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -2045,9 +2438,16 @@ function TaskDetailPanel({
           </div>
           <div className="px-5 pb-4 pt-3 border-t border-slate-200/80">
             {/* Same compact row as Task List View: Status | Assignees | Due date | Priority | Type */}
+            {(() => {
+              const metaStatus = isCreateFlow ? createStatus : (taskDetail?.status ?? 'todo')
+              const metaAssigneeIds = isCreateFlow ? createAssigneeIds : (taskDetail?.assignees.map((a) => a.id) ?? [])
+              const metaDueDate = isCreateFlow ? createDueDate : (taskDetail?.due_date ?? '')
+              const metaPriority = isCreateFlow ? createPriority : (taskDetail?.priority ?? '')
+              const metaType = isCreateFlow ? createType : (taskDetail?.task_type ?? '')
+              return (
             <div className="flex flex-wrap items-center gap-2">
               {/* Status — list row style */}
-              {canUpdateStatus ? (
+              {(canUpdateStatus || isCreateFlow) ? (
                 <div className="relative inline-block">
                   <button
                     ref={detailStatusRef}
@@ -2056,8 +2456,8 @@ function TaskDetailPanel({
                     className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30"
                     title="Change status"
                   >
-                    <span className={`h-2 w-2 rounded-full ${TASK_STATUS_DOT_COLORS[taskDetail.status] ?? 'bg-slate-400'}`} />
-                    <span>{TASK_STATUS_LABELS[taskDetail.status] ?? taskDetail.status}</span>
+                    <span className={`h-2 w-2 rounded-full ${TASK_STATUS_DOT_COLORS[metaStatus] ?? 'bg-slate-400'}`} />
+                    <span>{TASK_STATUS_LABELS[metaStatus] ?? metaStatus}</span>
                   </button>
                   {detailDropdownOpen === 'status' && detailDropdownRect && typeof document !== 'undefined' &&
                     createPortal(
@@ -2065,7 +2465,7 @@ function TaskDetailPanel({
                         <div className="fixed inset-0 z-[9998]" aria-hidden onClick={() => setDetailDropdownOpen(null)} />
                         <div data-detail-dropdown className="fixed z-[9999] w-44 rounded-lg border border-slate-200 bg-white shadow-xl py-1" style={{ top: detailDropdownRect.top, left: detailDropdownRect.left }}>
                           {TASK_STATUSES.map((s) => (
-                            <button key={s} type="button" onClick={() => { onStatusChange(taskId, s); setDetailDropdownOpen(null) }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50">
+                            <button key={s} type="button" onClick={() => { if (isCreateFlow) setCreateStatus(s); else onStatusChange(taskId, s); setDetailDropdownOpen(null) }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50">
                               <span className={`h-2 w-2 flex-shrink-0 rounded-full ${TASK_STATUS_DOT_COLORS[s] ?? 'bg-slate-400'}`} />
                               <span>{TASK_STATUS_LABELS[s] ?? s}</span>
                             </button>
@@ -2077,14 +2477,14 @@ function TaskDetailPanel({
                 </div>
               ) : (
                 <span className="inline-flex items-center gap-1.5 text-xs">
-                  <span className={`h-2 w-2 rounded-full ${TASK_STATUS_DOT_COLORS[taskDetail.status] ?? 'bg-slate-400'}`} />
-                  {TASK_STATUS_LABELS[taskDetail.status] ?? taskDetail.status}
+                  <span className={`h-2 w-2 rounded-full ${TASK_STATUS_DOT_COLORS[metaStatus] ?? 'bg-slate-400'}`} />
+                  {TASK_STATUS_LABELS[metaStatus] ?? metaStatus}
                 </span>
               )}
 
               {/* Assignees — list row style (avatar stack + dropdown) */}
               {(() => {
-                const assigneeIds = taskDetail.assignees.map((a) => a.id)
+                const assigneeIds = Array.isArray(metaAssigneeIds) ? metaAssigneeIds : []
                 const assigneeOptions = teamMembers.filter((m) => assigneeIds.includes(m.id))
                 const maxAvatars = 3
                 const assigneesToShow = assigneeOptions.slice(0, maxAvatars)
@@ -2142,7 +2542,9 @@ function TaskDetailPanel({
                                     key={m.id}
                                     type="button"
                                     onClick={() => {
-                                      onAssigneesChange(taskId, isSelected ? assigneeIds.filter((id) => id !== m.id) : [...assigneeIds, m.id])
+                                      const next = isSelected ? assigneeIds.filter((id) => id !== m.id) : [...assigneeIds, m.id]
+                                      if (isCreateFlow) setCreateAssigneeIds(next)
+                                      else onAssigneesChange(taskId, next)
                                       setDetailDropdownOpen(null)
                                     }}
                                     className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-slate-50 ${isSelected ? 'bg-cyan-50/80' : ''}`}
@@ -2192,13 +2594,13 @@ function TaskDetailPanel({
               })()}
 
               {/* Due date — list row style */}
-              {canEditTask ? (
+              {(canEditTask || isCreateFlow) ? (
                 <div className="relative inline-block">
                   <input
                     ref={detailDueInputRef}
                     type="date"
-                    value={taskDetail.due_date ?? ''}
-                    onChange={(e) => onUpdateTask(taskId, { due_date: e.target.value || null })}
+                    value={metaDueDate}
+                    onChange={(e) => { if (isCreateFlow) setCreateDueDate(e.target.value); else onUpdateTask(taskId, { due_date: e.target.value || null }) }}
                     className="absolute left-0 top-0 w-full h-full opacity-0 cursor-pointer pointer-events-none"
                     aria-hidden
                     tabIndex={-1}
@@ -2220,29 +2622,29 @@ function TaskDetailPanel({
                     <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                    {taskDetail.due_date ? formatDate(taskDetail.due_date) : '—'}
+                    {metaDueDate ? formatDate(metaDueDate) : '—'}
                   </button>
                 </div>
               ) : (
-                <span className="text-slate-600 text-xs">{taskDetail.due_date ? formatDate(taskDetail.due_date) : '—'}</span>
+                <span className="text-slate-600 text-xs">{metaDueDate ? formatDate(metaDueDate) : '—'}</span>
               )}
 
               {/* Priority — list row style */}
-              {canEditTask ? (
+              {(canEditTask || isCreateFlow) ? (
                 <div className="relative inline-block">
                   <button
                     ref={detailPriorityRef}
                     type="button"
                     onClick={() => setDetailDropdownOpen((o) => (o === 'priority' ? null : 'priority'))}
                     className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30 ${
-                      taskDetail.priority
-                        ? `border-slate-200/80 ${TASK_PRIORITY_STYLES[taskDetail.priority]}`
+                      metaPriority
+                        ? `border-slate-200/80 ${TASK_PRIORITY_STYLES[metaPriority as TaskPriority]}`
                         : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
                     }`}
                     title="Change priority"
                   >
-                    <PriorityFlagIcon className={`h-4 w-4 flex-shrink-0 ${taskDetail.priority ? TASK_PRIORITY_FLAG_COLORS[taskDetail.priority] : 'text-slate-400'}`} />
-                    <span>{taskDetail.priority ? TASK_PRIORITY_LABELS[taskDetail.priority] : '—'}</span>
+                    <PriorityFlagIcon className={`h-4 w-4 flex-shrink-0 ${metaPriority ? TASK_PRIORITY_FLAG_COLORS[metaPriority as TaskPriority] : 'text-slate-400'}`} />
+                    <span>{metaPriority ? TASK_PRIORITY_LABELS[metaPriority as TaskPriority] : '—'}</span>
                   </button>
                   {detailDropdownOpen === 'priority' && detailDropdownRect && typeof document !== 'undefined' &&
                     createPortal(
@@ -2250,7 +2652,7 @@ function TaskDetailPanel({
                         <div className="fixed inset-0 z-[9998]" aria-hidden onClick={() => setDetailDropdownOpen(null)} />
                         <div data-detail-dropdown className="fixed z-[9999] w-44 rounded-lg border border-slate-200 bg-white shadow-xl py-1" style={{ top: detailDropdownRect.top, left: detailDropdownRect.left }}>
                           {TASK_PRIORITIES.map((p) => (
-                            <button key={p} type="button" onClick={() => { onUpdateTask(taskId, { priority: p }); setDetailDropdownOpen(null) }} className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-sky-50 ${taskDetail.priority === p ? 'bg-sky-50' : ''}`}>
+                            <button key={p} type="button" onClick={() => { if (isCreateFlow) setCreatePriority(p); else onUpdateTask(taskId, { priority: p }); setDetailDropdownOpen(null) }} className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-sky-50 ${metaPriority === p ? 'bg-sky-50' : ''}`}>
                             <PriorityFlagIcon className={`h-4 w-4 flex-shrink-0 ${TASK_PRIORITY_FLAG_COLORS[p]}`} />
                             <span>{TASK_PRIORITY_LABELS[p]}</span>
                           </button>
@@ -2261,14 +2663,14 @@ function TaskDetailPanel({
                     )}
                 </div>
               ) : (
-                <span className={`inline-flex items-center gap-1.5 text-xs ${taskDetail.priority ? TASK_PRIORITY_STYLES[taskDetail.priority] : 'text-slate-400'}`}>
-                  {taskDetail.priority && <PriorityFlagIcon className={`h-4 w-4 ${TASK_PRIORITY_FLAG_COLORS[taskDetail.priority]}`} />}
-                  {taskDetail.priority ? TASK_PRIORITY_LABELS[taskDetail.priority] : '—'}
+                <span className={`inline-flex items-center gap-1.5 text-xs ${metaPriority ? TASK_PRIORITY_STYLES[metaPriority as TaskPriority] : 'text-slate-400'}`}>
+                  {metaPriority && <PriorityFlagIcon className={`h-4 w-4 ${TASK_PRIORITY_FLAG_COLORS[metaPriority as TaskPriority]}`} />}
+                  {metaPriority ? TASK_PRIORITY_LABELS[metaPriority as TaskPriority] : '—'}
                 </span>
               )}
 
               {/* Type — same pill style as list (detail-only field) */}
-              {canEditTask ? (
+              {(canEditTask || isCreateFlow) ? (
                 <div className="relative inline-block">
                   <button
                     ref={detailTypeRef}
@@ -2277,8 +2679,8 @@ function TaskDetailPanel({
                     className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30"
                     title="Change type"
                   >
-                    {taskDetail.task_type ? <TaskTypeIcon type={taskDetail.task_type} className="h-4 w-4 flex-shrink-0 text-slate-500" /> : null}
-                    <span>{taskDetail.task_type ? TASK_TYPE_LABELS[taskDetail.task_type] : '—'}</span>
+                    {metaType ? <TaskTypeIcon type={metaType as TaskType} className="h-4 w-4 flex-shrink-0 text-slate-500" /> : null}
+                    <span>{metaType ? TASK_TYPE_LABELS[metaType as TaskType] : '—'}</span>
                   </button>
                   {detailDropdownOpen === 'type' && detailDropdownRect && typeof document !== 'undefined' &&
                     createPortal(
@@ -2286,7 +2688,7 @@ function TaskDetailPanel({
                         <div className="fixed inset-0 z-[9998]" aria-hidden onClick={() => setDetailDropdownOpen(null)} />
                         <div data-detail-dropdown className="fixed z-[9999] w-44 rounded-lg border border-slate-200 bg-white shadow-xl py-1" style={{ top: detailDropdownRect.top, left: detailDropdownRect.left }}>
                           {TASK_TYPES.map((t) => (
-                            <button key={t} type="button" onClick={() => { onUpdateTask(taskId, { task_type: t }); setDetailDropdownOpen(null) }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">
+                            <button key={t} type="button" onClick={() => { if (isCreateFlow) setCreateType(t); else onUpdateTask(taskId, { task_type: t }); setDetailDropdownOpen(null) }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">
                               <TaskTypeIcon type={t} className="h-4 w-4 text-slate-500" />
                               {TASK_TYPE_LABELS[t]}
                             </button>
@@ -2297,16 +2699,18 @@ function TaskDetailPanel({
                     )}
                 </div>
               ) : (
-                taskDetail.task_type ? (
+                metaType ? (
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm">
-                    <TaskTypeIcon type={taskDetail.task_type} className="h-4 w-4 text-slate-500" />
-                    {TASK_TYPE_LABELS[taskDetail.task_type]}
+                    <TaskTypeIcon type={metaType as TaskType} className="h-4 w-4 text-slate-500" />
+                    {TASK_TYPE_LABELS[metaType as TaskType]}
                   </span>
                 ) : (
                   <span className="text-xs text-slate-400">—</span>
                 )
               )}
             </div>
+            )
+            })()}
           </div>
         </header>
         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 min-h-0 overflow-hidden">
@@ -2320,14 +2724,14 @@ function TaskDetailPanel({
             <div className="absolute inset-y-0 right-0 w-full max-w-sm bg-white rounded-l-2xl shadow-2xl flex flex-col z-20 animate-slide-in-right">
               <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
                 <h3 className="text-base font-semibold text-slate-900">Activity</h3>
-                <button type="button" onClick={() => setActivityPanelOpen(false)} className="p-2 rounded-lg text-slate-400 hover:bg-slate-100">
+                <button type="button" onClick={() => setActivityPanelOpen(false)} className="p-2 rounded-lg text-slate-400 hover:bg-slate-100" aria-label="Close activity panel" title="Close activity panel">
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
               <ul className="flex-1 overflow-y-auto p-4 space-y-2">
-                {taskDetail.activity_log.slice(0, 50).map((entry) => (
+                {(taskDetail?.activity_log ?? []).slice(0, 50).map((entry) => (
                   <ActivityEntry key={entry.id} entry={entry} />
                 ))}
               </ul>
@@ -2368,21 +2772,180 @@ function TaskDetailPanel({
   )
 }
 
-function CommentRow({ comment }: { comment: TaskComment }) {
+function renderCommentWithMentions(commentText: string, mentionedUsers: TaskAssignee[] = []) {
+  if (!mentionedUsers.length) return <span className="whitespace-pre-wrap">{commentText}</span>
+  const mentions = mentionedUsers
+    .map((u) => ({ id: u.id, name: u.full_name ?? u.email ?? '' }))
+    .filter((m) => m.name)
+  if (!mentions.length) return <span className="whitespace-pre-wrap">{commentText}</span>
+  const parts: Array<{ type: 'text'; value: string } | { type: 'mention'; name: string }> = []
+  let text = commentText
+  while (text.length > 0) {
+    let best: { index: number; name: string } | null = null
+    for (const m of mentions) {
+      const needle = '@' + m.name
+      const idx = text.indexOf(needle)
+      if (idx !== -1 && (best === null || idx < best.index)) best = { index: idx, name: m.name }
+    }
+    if (best === null) {
+      parts.push({ type: 'text', value: text })
+      break
+    }
+    if (best.index > 0) parts.push({ type: 'text', value: text.slice(0, best.index) })
+    parts.push({ type: 'mention', name: best.name })
+    text = text.slice(best.index + ('@' + best.name).length)
+  }
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3">
-      <div className="flex items-center gap-2">
-        <div className="h-7 w-7 rounded-full bg-cyan-100 text-cyan-800 flex items-center justify-center text-xs font-semibold">
+    <span className="whitespace-pre-wrap">
+      {parts.map((p, i) =>
+        p.type === 'text' ? (
+          <span key={i}>{p.value}</span>
+        ) : (
+          <span
+            key={i}
+            className="font-medium text-cyan-600"
+            title={p.name}
+          >
+            @{p.name}
+          </span>
+        )
+      )}
+    </span>
+  )
+}
+
+function CommentRow({
+  comment,
+  currentUserId,
+  taskId,
+  onUpdateComment,
+  onDeleteComment,
+  getInitials,
+}: {
+  comment: TaskComment
+  currentUserId: string | undefined
+  taskId: string
+  onUpdateComment: (taskId: string, commentId: string, text: string, mentionIds: string[]) => void
+  onDeleteComment: (taskId: string, commentId: string) => void
+  getInitials: (name: string | null) => string
+}) {
+  const [editing, setEditing] = useState(false)
+  const [editText, setEditText] = useState(comment.comment_text)
+  const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const isOwner = currentUserId !== undefined && comment.created_by === currentUserId
+  useEffect(() => {
+    setEditText(comment.comment_text)
+    if (!editing) setDeleteConfirm(false)
+  }, [comment.id, comment.comment_text, editing])
+
+  const handleSaveEdit = () => {
+    const trimmed = editText.trim()
+    if (!trimmed) return
+    onUpdateComment(taskId, comment.id, trimmed, comment.mentioned_user_ids ?? [])
+    setEditing(false)
+  }
+
+  return (
+    <div className="group rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow transition-shadow overflow-hidden">
+      <div className="flex gap-3 p-4">
+        <div className="h-9 w-9 shrink-0 rounded-full bg-cyan-100 text-cyan-800 flex items-center justify-center text-sm font-semibold">
           {getInitials(comment.created_by_name)}
         </div>
-        <span className="text-sm font-medium text-slate-800">{comment.created_by_name}</span>
-        <span className="text-xs text-slate-400">{formatRelative(comment.created_at)}</span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-semibold text-slate-900">{comment.created_by_name}</span>
+              <span className="text-xs text-slate-400" title={comment.created_at}>
+                {formatRelative(comment.created_at)}
+              </span>
+              {comment.mentioned_users?.length ? (
+                <span className="text-xs text-slate-500">
+                  Mentioned: {comment.mentioned_users.map((u) => u.full_name ?? u.email).join(', ')}
+                </span>
+              ) : null}
+            </div>
+            {isOwner && !editing && (
+              <div className="flex items-center gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => { setEditText(comment.comment_text); setEditing(true) }}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-600 hover:bg-cyan-50"
+                  aria-label="Edit comment"
+                  title="Edit"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.5-2.5l-7.586 7.586a2 2 0 01-2.828 0L5 12.828V11m8.586-8.586a2 2 0 012.828 0l2.828 2.828a2 2 0 010 2.828l-7.586 7.586" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirm(true)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                  aria-label="Delete comment"
+                  title="Delete"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+            )}
+          </div>
+          {editing ? (
+            <div className="mt-2 space-y-2">
+              <textarea
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm min-h-[72px] focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
+                rows={3}
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleSaveEdit}
+                  className="rounded-lg bg-cyan-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-cyan-700"
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setEditing(false); setEditText(comment.comment_text) }}
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-1 text-sm text-slate-700">
+              {renderCommentWithMentions(comment.comment_text, comment.mentioned_users)}
+            </p>
+          )}
+        </div>
       </div>
-      <p className="mt-1 text-sm text-slate-700 whitespace-pre-wrap">{comment.comment_text}</p>
-      {comment.mentioned_users?.length > 0 && (
-        <p className="mt-1 text-xs text-slate-500">
-          Mentioned: {comment.mentioned_users.map((u) => u.full_name ?? u.email).join(', ')}
-        </p>
+      {deleteConfirm && (
+        <div className="px-4 pb-4 pt-0">
+          <div className="rounded-lg border border-rose-200 bg-rose-50/50 p-3 flex items-center justify-between gap-2">
+            <span className="text-sm text-rose-800">Delete this comment?</span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirm(false)}
+                className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-medium text-slate-700 bg-white hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => { onDeleteComment(taskId, comment.id); setDeleteConfirm(false) }}
+                className="rounded-lg bg-rose-600 px-2 py-1 text-xs font-medium text-white hover:bg-rose-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
