@@ -25,6 +25,7 @@ export type StaffSelectOption = {
     id: string
     full_name: string | null
     email: string | null
+    role?: string | null
 }
 
 export type CreateUserFormData = {
@@ -116,7 +117,7 @@ export async function getStaffForSelect(): Promise<{ data: StaffSelectOption[]; 
     const supabase = await createClient()
     const { data, error } = await (supabase
         .from('users')
-        .select('id, full_name, email')
+        .select('id, full_name, email, role')
         .eq('role', 'staff')
         .eq('is_active', true)
         .is('deleted_at', null)

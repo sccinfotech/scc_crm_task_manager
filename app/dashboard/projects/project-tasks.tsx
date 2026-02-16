@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, useId } from 'react'
+import { useState, useEffect, useCallback, useRef, useId, type ReactElement } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/app/components/ui/toast-context'
+import { Tooltip } from '@/app/components/ui/tooltip'
 import { EmptyState } from '@/app/components/empty-state'
 import { ProjectTasksRichEditor } from './project-tasks-rich-editor'
 import {
@@ -90,6 +91,26 @@ function formatRelative(dateString: string) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+function formatRoleLabel(role: string | null | undefined) {
+  if (!role) return ''
+  return role
+    .replace(/_/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+function getUserName(user: { id: string; full_name: string | null; email: string | null }) {
+  return user.full_name ?? user.email ?? user.id
+}
+
+function getUserTagLabel(user: { id: string; full_name: string | null; email: string | null; role?: string | null }) {
+  const roleLabel = formatRoleLabel(user.role)
+  const name = getUserName(user)
+  return roleLabel ? `${name} (${roleLabel})` : name
+}
+
 function PriorityFlagIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -107,7 +128,7 @@ function PriorityFlagIcon({ className }: { className?: string }) {
   )
 }
 
-const TASK_TYPE_ICONS: Record<TaskType, JSX.Element> = {
+const TASK_TYPE_ICONS: Record<TaskType, ReactElement> = {
   feature: (
     <svg className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
@@ -1017,11 +1038,11 @@ export function ProjectTasks({
 }
 
 function staffLabel(o: StaffSelectOption) {
-  return o.full_name ?? o.email ?? o.id
+  return getUserTagLabel(o)
 }
 
 function staffInitials(o: StaffSelectOption) {
-  return getInitials(o.full_name ?? o.email ?? null)
+  return getInitials(getUserName(o))
 }
 
 /** Stable color palette for assignee avatars; same id => same color in dropdown and tags. */
@@ -1355,7 +1376,7 @@ function TaskListRow({
   }, [openDropdown])
 
   const assigneeOptions = task.assignees
-    .map((a) => assignableUsers.find((m) => m.id === a.id) ?? { id: a.id, full_name: a.full_name, email: a.email })
+    .map((a) => assignableUsers.find((m) => m.id === a.id) ?? { id: a.id, full_name: a.full_name, email: a.email, role: a.role })
     .filter(Boolean) as StaffSelectOption[]
   const assigneeNamesTooltip = assigneeOptions.length > 0 ? assigneeOptions.map((o) => staffLabel(o)).join(', ') : 'No assignees'
   const maxAvatars = 3
@@ -1862,7 +1883,7 @@ function TaskDetailPanel({
   }
 
   const filteredMentionUsers = mentionableUsers.filter((u) => {
-    const name = (u.full_name ?? u.email ?? '').toLowerCase()
+    const name = getUserTagLabel(u).toLowerCase()
     const search = mentionSearch.toLowerCase()
     return name.includes(search)
   }).slice(0, 8)
@@ -1886,7 +1907,7 @@ function TaskDetailPanel({
   }
 
   const handleMentionSelect = (user: TaskAssignee) => {
-    const name = user.full_name ?? user.email ?? 'User'
+    const name = getUserName(user)
     const before = mentionAnchorIndex > 0 ? commentText.slice(0, mentionAnchorIndex) : ''
     const after = commentText.slice(mentionAnchorIndex + 1 + mentionSearch.length)
     setCommentText(before + '@' + name + ' ' + after)
@@ -2131,7 +2152,7 @@ function TaskDetailPanel({
 
           {!isCreateFlow && taskDetail!.attachments.length > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {taskDetail.attachments.map((a) => (
+              {taskDetail!.attachments.map((a) => (
                 <div
                   key={a.id}
                   data-attachment-menu-id={a.id}
@@ -2227,16 +2248,16 @@ function TaskDetailPanel({
         </div>
       </div>
 
-      {/* Section 2: Comments + Activity — fills full column; list scrolls, typing area fixed at bottom */}
-      <div className="p-5 md:p-6 h-full min-h-0 overflow-hidden flex flex-col">
-        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider pb-3 border-b border-slate-200 mb-4 flex-shrink-0">
-          Comments & activity
+      {/* Section 2: Comments — fills full right column; list scrolls, composer stays fixed at bottom */}
+      <div className="p-4 md:p-5 h-full min-h-0 overflow-hidden flex flex-col">
+        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider pb-3 border-b border-slate-200 mb-3 flex-shrink-0">
+          Comments
         </h3>
         {isCreateFlow ? (
-          <p className="text-sm text-slate-500 flex-shrink-0">Save the task to add comments and see activity.</p>
+          <p className="text-sm text-slate-500 flex-shrink-0">Save the task to add comments.</p>
         ) : (
           <>
-            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden space-y-4">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden space-y-3">
               {taskDetail!.comments.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center text-slate-500">
                   <svg className="h-10 w-10 text-slate-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
@@ -2259,7 +2280,7 @@ function TaskDetailPanel({
               ))}
             </div>
             {userRole !== 'client' && (
-              <div className="flex-shrink-0 pt-4 mt-auto relative">
+              <div className="flex-shrink-0 pt-3 mt-auto relative">
                 {/* Single comment container: typing area + toolbar (attachment + send) inside */}
                 <div className="rounded-xl border border-slate-200 focus-within:ring-2 focus-within:ring-[#06B6D4]/30 focus-within:border-[#06B6D4] bg-white flex flex-col min-h-[100px] max-h-[280px]">
                   {/* Typing area */}
@@ -2305,31 +2326,35 @@ function TaskDetailPanel({
                   {/* Toolbar inside container: attachment + send only */}
                   <div className="flex-shrink-0 flex items-center justify-between gap-2 px-3 py-2 border-t border-slate-200 rounded-b-xl bg-slate-50/50">
                     <div className="flex items-center gap-1">
+                      <Tooltip content="Attach file">
+                        <button
+                          type="button"
+                          className="p-2 rounded-lg text-slate-500 hover:bg-slate-200/60 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30"
+                          aria-label="Attach file"
+                          title="Attach file"
+                        >
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                          </svg>
+                        </button>
+                      </Tooltip>
+                    </div>
+                    <Tooltip content={commentText.trim() ? 'Post comment' : 'Type a comment to post'}>
                       <button
                         type="button"
-                        className="p-2 rounded-lg text-slate-500 hover:bg-slate-200/60 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30"
-                        aria-label="Attach file"
-                        title="Attach file"
+                        onClick={handleCommentSubmit}
+                        disabled={!commentText.trim()}
+                        className={`flex-shrink-0 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30 disabled:opacity-50 disabled:hover:bg-transparent ${
+                          commentText.trim() ? 'text-[#06B6D4] hover:bg-cyan-50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200/60'
+                        }`}
+                        aria-label="Post comment"
+                        title="Post comment"
                       >
                         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                         </svg>
                       </button>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleCommentSubmit}
-                      disabled={!commentText.trim()}
-                      className={`flex-shrink-0 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30 disabled:opacity-50 disabled:hover:bg-transparent ${
-                        commentText.trim() ? 'text-[#06B6D4] hover:bg-cyan-50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200/60'
-                      }`}
-                      aria-label="Post comment"
-                      title="Post comment"
-                    >
-                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                      </svg>
-                    </button>
+                    </Tooltip>
                   </div>
                 </div>
                 {showMentionPicker && filteredMentionUsers.length > 0 && (
@@ -2342,9 +2367,9 @@ function TaskDetailPanel({
                         className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 ${idx === mentionHighlightIndex ? 'bg-cyan-50 ring-1 ring-cyan-200' : 'hover:bg-slate-50'}`}
                       >
                         <span className="h-7 w-7 rounded-full bg-cyan-100 text-cyan-800 flex items-center justify-center text-xs font-semibold">
-                          {getInitials(u.full_name ?? u.email)}
+                          {getInitials(getUserName(u))}
                         </span>
-                        {u.full_name ?? u.email ?? u.id}
+                        <span className="truncate" title={getUserTagLabel(u)}>{getUserTagLabel(u)}</span>
                       </button>
                     ))}
                   </div>
@@ -2413,38 +2438,46 @@ function TaskDetailPanel({
             </div>
             <div className="flex items-center gap-1">
               {showHeaderSave && (
-                <button type="button" onClick={handleCreateSave} disabled={isCreateFlow && createSaving} className="p-2 rounded-xl text-cyan-600 hover:bg-cyan-50 transition-colors disabled:opacity-50" aria-label="Save" title={isCreateFlow && createInitialFiles.length > 0 ? 'Save task (attachments will be uploaded)' : isCreateFlow ? 'Save new task' : 'Save description'}>
-                  {isCreateFlow && createSaving ? (
-                    <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden>
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                  ) : (
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                    </svg>
-                  )}
-                </button>
+                <Tooltip content={isCreateFlow && createInitialFiles.length > 0 ? 'Save task (attachments will be uploaded)' : isCreateFlow ? 'Save new task' : 'Save description'}>
+                  <button type="button" onClick={handleCreateSave} disabled={isCreateFlow && createSaving} className="p-2 rounded-xl text-cyan-600 hover:bg-cyan-50 transition-colors disabled:opacity-50" aria-label="Save" title={isCreateFlow && createInitialFiles.length > 0 ? 'Save task (attachments will be uploaded)' : isCreateFlow ? 'Save new task' : 'Save description'}>
+                    {isCreateFlow && createSaving ? (
+                      <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden>
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                    ) : (
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                      </svg>
+                    )}
+                  </button>
+                </Tooltip>
               )}
               {!isCreateFlow && (
-                <button type="button" onClick={() => setActivityPanelOpen(true)} className="p-2 rounded-xl text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors" aria-label="View activity" title={taskDetail ? `View activity (${taskDetail.activity_log.length} entries)` : 'View activity'}>
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </button>
+                <Tooltip content={taskDetail ? `View activity (${taskDetail.activity_log.length} entries)` : 'View activity'}>
+                  <button type="button" onClick={() => setActivityPanelOpen(true)} className="p-2 rounded-xl text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors" aria-label="View activity" title={taskDetail ? `View activity (${taskDetail?.activity_log.length ?? 0} entries)` : 'View activity'}>
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </button>
+                </Tooltip>
               )}
               {canEditTask && !isCreateFlow && (
-                <button type="button" onClick={onRequestDelete} className="p-2 rounded-xl text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors" aria-label="Delete task" title="Delete task">
+                <Tooltip content="Delete task">
+                  <button type="button" onClick={onRequestDelete} className="p-2 rounded-xl text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors" aria-label="Delete task" title="Delete task">
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </Tooltip>
+              )}
+              <Tooltip content="Close task panel">
+                <button type="button" onClick={handleCloseRequest} className="p-2 rounded-xl text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors" aria-label="Close panel" title="Close task panel">
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
-              )}
-              <button type="button" onClick={handleCloseRequest} className="p-2 rounded-xl text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors" aria-label="Close panel" title="Close task panel">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+              </Tooltip>
             </div>
           </div>
           <div className="px-5 pb-4 pt-3 border-t border-slate-200/80">
@@ -2499,7 +2532,7 @@ function TaskDetailPanel({
                 const assigneeOptions = assigneeIds.map((id) => {
                   const m = assignableUsers.find((u) => u.id === id)
                   const a = taskDetail?.assignees?.find((x) => x.id === id)
-                  return (m ?? (a ? { id: a.id, full_name: a.full_name, email: a.email } : null)) as StaffSelectOption | null
+                  return (m ?? (a ? { id: a.id, full_name: a.full_name, email: a.email, role: a.role } : null)) as StaffSelectOption | null
                 }).filter(Boolean) as StaffSelectOption[]
                 const maxAvatars = 3
                 const assigneesToShow = assigneeOptions.slice(0, maxAvatars)
@@ -2790,24 +2823,24 @@ function TaskDetailPanel({
 function renderCommentWithMentions(commentText: string, mentionedUsers: TaskAssignee[] = []) {
   if (!mentionedUsers.length) return <span className="whitespace-pre-wrap">{commentText}</span>
   const mentions = mentionedUsers
-    .map((u) => ({ id: u.id, name: u.full_name ?? u.email ?? '' }))
+    .map((u) => ({ id: u.id, name: getUserName(u), displayName: getUserTagLabel(u) }))
     .filter((m) => m.name)
   if (!mentions.length) return <span className="whitespace-pre-wrap">{commentText}</span>
-  const parts: Array<{ type: 'text'; value: string } | { type: 'mention'; name: string }> = []
+  const parts: Array<{ type: 'text'; value: string } | { type: 'mention'; name: string; displayName: string }> = []
   let text = commentText
   while (text.length > 0) {
-    let best: { index: number; name: string } | null = null
+    let best: { index: number; name: string; displayName: string } | null = null
     for (const m of mentions) {
       const needle = '@' + m.name
       const idx = text.indexOf(needle)
-      if (idx !== -1 && (best === null || idx < best.index)) best = { index: idx, name: m.name }
+      if (idx !== -1 && (best === null || idx < best.index)) best = { index: idx, name: m.name, displayName: m.displayName }
     }
     if (best === null) {
       parts.push({ type: 'text', value: text })
       break
     }
     if (best.index > 0) parts.push({ type: 'text', value: text.slice(0, best.index) })
-    parts.push({ type: 'mention', name: best.name })
+    parts.push({ type: 'mention', name: best.name, displayName: best.displayName })
     text = text.slice(best.index + ('@' + best.name).length)
   }
   return (
@@ -2819,9 +2852,9 @@ function renderCommentWithMentions(commentText: string, mentionedUsers: TaskAssi
           <span
             key={i}
             className="font-medium text-cyan-600"
-            title={p.name}
+            title={p.displayName}
           >
-            @{p.name}
+            @{p.displayName}
           </span>
         )
       )}
@@ -2862,7 +2895,7 @@ function CommentRow({
 
   return (
     <div className="group rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow transition-shadow overflow-hidden">
-      <div className="flex gap-3 p-4">
+      <div className="flex gap-2.5 p-3.5">
         <div className="h-9 w-9 shrink-0 rounded-full bg-cyan-100 text-cyan-800 flex items-center justify-center text-sm font-semibold">
           {getInitials(comment.created_by_name)}
         </div>
@@ -2870,39 +2903,43 @@ function CommentRow({
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-semibold text-slate-900">{comment.created_by_name}</span>
+              {comment.created_by_role ? (
+                <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                  {formatRoleLabel(comment.created_by_role)}
+                </span>
+              ) : null}
               <span className="text-xs text-slate-400" title={comment.created_at}>
                 {formatRelative(comment.created_at)}
               </span>
-              {comment.mentioned_users?.length ? (
-                <span className="text-xs text-slate-500">
-                  Mentioned: {comment.mentioned_users.map((u) => u.full_name ?? u.email).join(', ')}
-                </span>
-              ) : null}
             </div>
             {isOwner && !editing && (
               <div className="flex items-center gap-0.5">
-                <button
-                  type="button"
-                  onClick={() => { setEditText(comment.comment_text); setEditing(true) }}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-600 hover:bg-cyan-50"
-                  aria-label="Edit comment"
-                  title="Edit"
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.5-2.5l-7.586 7.586a2 2 0 01-2.828 0L5 12.828V11m8.586-8.586a2 2 0 012.828 0l2.828 2.828a2 2 0 010 2.828l-7.586 7.586" />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDeleteConfirm(true)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"
-                  aria-label="Delete comment"
-                  title="Delete"
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
+                <Tooltip content="Edit comment">
+                  <button
+                    type="button"
+                    onClick={() => { setEditText(comment.comment_text); setEditing(true) }}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-600 hover:bg-cyan-50"
+                    aria-label="Edit comment"
+                    title="Edit comment"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.5-2.5l-7.586 7.586a2 2 0 01-2.828 0L5 12.828V11m8.586-8.586a2 2 0 012.828 0l2.828 2.828a2 2 0 010 2.828l-7.586 7.586" />
+                    </svg>
+                  </button>
+                </Tooltip>
+                <Tooltip content="Delete comment">
+                  <button
+                    type="button"
+                    onClick={() => setDeleteConfirm(true)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                    aria-label="Delete comment"
+                    title="Delete comment"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </Tooltip>
               </div>
             )}
           </div>
@@ -2940,7 +2977,7 @@ function CommentRow({
         </div>
       </div>
       {deleteConfirm && (
-        <div className="px-4 pb-4 pt-0">
+        <div className="px-3.5 pb-3.5 pt-0">
           <div className="rounded-lg border border-rose-200 bg-rose-50/50 p-3 flex items-center justify-between gap-2">
             <span className="text-sm text-rose-800">Delete this comment?</span>
             <div className="flex gap-2">
