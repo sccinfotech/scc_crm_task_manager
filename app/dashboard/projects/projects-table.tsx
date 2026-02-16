@@ -28,6 +28,8 @@ type SortField =
   | 'name'
   | 'status'
   | 'start_date'
+  | 'developer_deadline_date'
+  | 'follow_up_date'
   | 'created_at'
   | 'project_amount' // kept for URL/API compatibility; column not shown
   | null
@@ -256,11 +258,23 @@ export function ProjectsTable({
                 <SortIcon direction={sortField === 'start_date' ? sortDirection : null} />
               </div>
             </th>
-            <th className="hidden md:table-cell md:w-[12%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-              Deadline
+            <th
+              className="group hidden md:table-cell md:w-[12%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
+              onClick={() => handleSort('developer_deadline_date')}
+            >
+              <div className="flex items-center">
+                Deadline
+                <SortIcon direction={sortField === 'developer_deadline_date' ? sortDirection : null} />
+              </div>
             </th>
-            <th className="hidden lg:table-cell lg:w-[12%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-              Follow-up
+            <th
+              className="group hidden lg:table-cell lg:w-[12%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
+              onClick={() => handleSort('follow_up_date')}
+            >
+              <div className="flex items-center">
+                Follow-up
+                <SortIcon direction={sortField === 'follow_up_date' ? sortDirection : null} />
+              </div>
             </th>
             <th
               className="group hidden xl:table-cell xl:w-[12%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
@@ -339,7 +353,7 @@ export function ProjectsTable({
                     {project.developer_deadline_date ? formatDate(project.developer_deadline_date) : '--'}
                   </Link>
                 </td>
-                <td className="hidden px-6 py-3 text-sm lg:table-cell">
+                <td className="hidden px-6 py-3 text-sm text-gray-500 lg:table-cell">
                   <Link href={`/dashboard/projects/${project.id}`} prefetch className="block no-underline text-inherit">
                     {project.follow_up_date ? (
                       <span className={getFollowUpDateColor(project.follow_up_date)}>

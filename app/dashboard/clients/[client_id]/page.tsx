@@ -35,6 +35,7 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
   const canWrite = await hasPermission(user, MODULE_PERMISSION_IDS.clients, 'write')
   const canManageInternalNotes = user.role === 'admin' || user.role === 'manager'
 
+  const clientName = client.name ?? client.company_name ?? 'Client'
   const breadcrumb = (
     <div className="flex items-center gap-2 text-sm">
       <Link
@@ -46,14 +47,14 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
       <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
       </svg>
-      <span className="font-['Poppins',sans-serif] text-lg font-bold text-[#0C4A6E]">Client Details</span>
+      <span className="font-['Poppins',sans-serif] text-lg font-bold text-[#0C4A6E] truncate max-w-[200px] sm:max-w-[320px]" title={clientName}>{clientName}</span>
     </div>
   )
 
   return (
     <div className="flex flex-col h-full">
       <Header
-        pageTitle="Client Details"
+        pageTitle={clientName}
         breadcrumb={breadcrumb}
       />
       <div className="flex-1 overflow-hidden px-4 lg:px-6 pt-2 lg:pt-3 pb-2">

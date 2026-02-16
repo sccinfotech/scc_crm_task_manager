@@ -33,6 +33,7 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
   const canWrite = await hasPermission(user, MODULE_PERMISSION_IDS.leads, 'write')
   const canCreateClient = await hasPermission(user, MODULE_PERMISSION_IDS.clients, 'write')
 
+  const leadName = lead.name ?? lead.company_name ?? 'Lead'
   const breadcrumb = (
     <div className="flex items-center gap-2 text-sm">
       <Link
@@ -44,14 +45,14 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
       <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
       </svg>
-      <span className="font-['Poppins',sans-serif] text-lg font-bold text-[#0C4A6E]">Lead Details</span>
+      <span className="font-['Poppins',sans-serif] text-lg font-bold text-[#0C4A6E] truncate max-w-[200px] sm:max-w-[320px]" title={leadName}>{leadName}</span>
     </div>
   )
 
   return (
     <div className="flex flex-col h-full">
       <Header
-        pageTitle="Lead Details"
+        pageTitle={leadName}
         breadcrumb={breadcrumb}
       />
       <div className="flex-1 overflow-hidden px-4 lg:px-6 pt-2 lg:pt-3 pb-2">

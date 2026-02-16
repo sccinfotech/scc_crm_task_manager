@@ -180,6 +180,8 @@ export function ProjectTasks({
   )
   const [deleteConfirmTaskId, setDeleteConfirmTaskId] = useState<string | null>(null)
   const [mentionableUsers, setMentionableUsers] = useState<TaskAssignee[]>([])
+  /** All active users (any role) for assignee dropdowns; same shape as StaffSelectOption */
+  const assignableUsers: StaffSelectOption[] = mentionableUsers
 
   const canUpdateStatus =
     canManageTasks || (userRole === 'staff' && Boolean(currentUserId))
@@ -712,8 +714,8 @@ export function ProjectTasks({
       )}
 
       {/* Main content: list or board; task detail opens in modal overlay */}
-      <div className="flex-1 min-h-0 flex mt-3 overflow-y-auto">
-        <div className="flex-1 min-w-0 rounded-xl border border-slate-200 bg-slate-50/30">
+      <div className="flex-1 min-h-0 flex flex-col mt-3 overflow-hidden">
+        <div className="flex-1 min-h-0 min-w-0 rounded-xl border border-slate-200 bg-slate-50/30 overflow-y-auto overflow-x-hidden">
           {loading ? (
             <div className="p-3 space-y-4">
               {[1, 2, 3].map((section) => (
@@ -820,7 +822,7 @@ export function ProjectTasks({
                         )}
                       </div>
                       {!isCollapsed && (
-                        <div className="overflow-x-auto min-w-0 rounded-b-xl overflow-hidden">
+                        <div className="overflow-x-auto overflow-y-hidden min-w-0 rounded-b-xl">
                           <table className="w-full text-sm table-fixed">
                             <thead>
                               <tr className="border-b border-slate-200 bg-slate-50/50 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
@@ -829,7 +831,7 @@ export function ProjectTasks({
                                 <th className="px-3 py-2 w-[88px] shrink-0">Assignee</th>
                                 <th className="px-3 py-2 w-[88px] shrink-0">Due date</th>
                                 <th className="px-3 py-2 w-[78px] shrink-0">Priority</th>
-                                <th className="px-3 py-2 w-9 shrink-0" />
+                                <th className="px-3 py-2 w-9 shrink-0">Actions</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -837,7 +839,7 @@ export function ProjectTasks({
                                 <TaskListRow
                                   key={task.id}
                                   task={task}
-                                  teamMembers={teamMembers}
+                                  assignableUsers={assignableUsers}
                                   canEditTask={canEditTask}
                                   canUpdateStatus={canUpdateStatus}
                                   onOpenTask={() => setSelectedTaskId(task.id)}
@@ -962,7 +964,7 @@ export function ProjectTasks({
             canUpdateStatus={canUpdateStatus}
             canManageAttachments={canManageAttachments}
             currentUserId={currentUserId}
-            teamMembers={teamMembers}
+            assignableUsers={assignableUsers}
             mentionableUsers={mentionableUsers}
             onStatusChange={handleStatusChange}
             onUpdateTask={handleUpdateTask}
@@ -1268,7 +1270,7 @@ function AssigneeSearchSelect({
 
 function TaskListRow({
   task,
-  teamMembers,
+  assignableUsers,
   canEditTask,
   canUpdateStatus,
   onOpenTask,
@@ -1282,7 +1284,7 @@ function TaskListRow({
   staffLabel,
 }: {
   task: ProjectTaskListItem
-  teamMembers: StaffSelectOption[]
+  assignableUsers: StaffSelectOption[]
   canEditTask: boolean
   canUpdateStatus: boolean
   onOpenTask: () => void
@@ -1353,7 +1355,7 @@ function TaskListRow({
   }, [openDropdown])
 
   const assigneeOptions = task.assignees
-    .map((a) => teamMembers.find((m) => m.id === a.id))
+    .map((a) => assignableUsers.find((m) => m.id === a.id) ?? { id: a.id, full_name: a.full_name, email: a.email })
     .filter(Boolean) as StaffSelectOption[]
   const assigneeNamesTooltip = assigneeOptions.length > 0 ? assigneeOptions.map((o) => staffLabel(o)).join(', ') : 'No assignees'
   const maxAvatars = 3
@@ -1375,7 +1377,7 @@ function TaskListRow({
           {task.title}
         </span>
       </td>
-      <td className="px-3 py-2">
+      <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
         {canUpdateStatus ? (
           <div className="relative inline-block">
             <button
@@ -1420,7 +1422,7 @@ function TaskListRow({
           </span>
         )}
       </td>
-      <td className="px-3 py-2">
+      <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
         {canEditTask ? (
           <div className="relative inline-block">
             <button
@@ -1467,7 +1469,7 @@ function TaskListRow({
                     className="fixed z-[9999] w-56 max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl py-1"
                     style={{ top: dropdownRect.top, left: dropdownRect.left }}
                   >
-                    {teamMembers.map((m) => {
+                    {assignableUsers.map((m) => {
                       const isSelected = assigneeIds.includes(m.id)
                       const color = getAssigneeColor(m.id)
                       return (
@@ -1521,7 +1523,7 @@ function TaskListRow({
           <span className="text-slate-400">—</span>
         )}
       </td>
-      <td className="px-3 py-2">
+      <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
         {canEditTask ? (
           <div className="relative inline-block">
             <input
@@ -1558,7 +1560,7 @@ function TaskListRow({
           <span className="text-slate-600 text-xs">{task.due_date ? formatDate(task.due_date) : '—'}</span>
         )}
       </td>
-      <td className="px-3 py-2">
+      <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
         {canEditTask ? (
           <div className="relative inline-block">
             <button
@@ -1610,7 +1612,7 @@ function TaskListRow({
           </span>
         )}
       </td>
-      <td className="px-3 py-2">
+      <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
         {canEditTask ? (
           <button
             type="button"
@@ -1645,7 +1647,7 @@ function TaskDetailPanel({
   canUpdateStatus,
   canManageAttachments,
   currentUserId,
-  teamMembers,
+  assignableUsers,
   mentionableUsers,
   onStatusChange,
   onUpdateTask,
@@ -1685,7 +1687,7 @@ function TaskDetailPanel({
   canUpdateStatus: boolean
   canManageAttachments: boolean
   currentUserId: string | undefined
-  teamMembers: StaffSelectOption[]
+  assignableUsers: StaffSelectOption[]
   mentionableUsers: TaskAssignee[]
   onStatusChange: (taskId: string, status: TaskStatus) => void
   onUpdateTask: (
@@ -2225,8 +2227,8 @@ function TaskDetailPanel({
         </div>
       </div>
 
-      {/* Section 2: Comments + Activity — list scrolls, typing area fixed at bottom */}
-      <div className="p-5 md:p-6 min-h-0 flex flex-col flex-1">
+      {/* Section 2: Comments + Activity — fills full column; list scrolls, typing area fixed at bottom */}
+      <div className="p-5 md:p-6 h-full min-h-0 overflow-hidden flex flex-col">
         <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider pb-3 border-b border-slate-200 mb-4 flex-shrink-0">
           Comments & activity
         </h3>
@@ -2234,7 +2236,16 @@ function TaskDetailPanel({
           <p className="text-sm text-slate-500 flex-shrink-0">Save the task to add comments and see activity.</p>
         ) : (
           <>
-            <div className="flex-1 min-h-0 overflow-y-auto space-y-4">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden space-y-4">
+              {taskDetail!.comments.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center text-slate-500">
+                  <svg className="h-10 w-10 text-slate-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  <p className="text-sm font-medium">No comments yet</p>
+                  <p className="text-xs mt-0.5">Add a comment below to start the conversation.</p>
+                </div>
+              ) : null}
               {taskDetail!.comments.map((c) => (
                 <CommentRow
                   key={c.id}
@@ -2485,7 +2496,11 @@ function TaskDetailPanel({
               {/* Assignees — list row style (avatar stack + dropdown) */}
               {(() => {
                 const assigneeIds = Array.isArray(metaAssigneeIds) ? metaAssigneeIds : []
-                const assigneeOptions = teamMembers.filter((m) => assigneeIds.includes(m.id))
+                const assigneeOptions = assigneeIds.map((id) => {
+                  const m = assignableUsers.find((u) => u.id === id)
+                  const a = taskDetail?.assignees?.find((x) => x.id === id)
+                  return (m ?? (a ? { id: a.id, full_name: a.full_name, email: a.email } : null)) as StaffSelectOption | null
+                }).filter(Boolean) as StaffSelectOption[]
                 const maxAvatars = 3
                 const assigneesToShow = assigneeOptions.slice(0, maxAvatars)
                 const extraCount = assigneeOptions.length - maxAvatars
@@ -2534,7 +2549,7 @@ function TaskDetailPanel({
                           <>
                             <div className="fixed inset-0 z-[9998]" aria-hidden onClick={() => setDetailDropdownOpen(null)} />
                             <div data-detail-dropdown className="fixed z-[9999] w-56 max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl py-1" style={{ top: detailDropdownRect.top, left: detailDropdownRect.left }}>
-                              {teamMembers.map((m) => {
+                              {assignableUsers.map((m) => {
                                 const isSelected = assigneeIds.includes(m.id)
                                 const color = getAssigneeColor(m.id)
                                 return (

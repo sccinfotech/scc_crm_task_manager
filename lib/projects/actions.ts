@@ -91,6 +91,8 @@ export type ProjectSortField =
   | 'name'
   | 'status'
   | 'start_date'
+  | 'developer_deadline_date'
+  | 'follow_up_date'
   | 'created_at'
   | 'project_amount'
 
@@ -358,7 +360,9 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
 
   const sortField = options.sortField ?? 'created_at'
   const sortDirection = options.sortDirection ?? 'desc'
-  query = query.order(sortField, { ascending: sortDirection === 'asc' })
+  // follow_up_date is derived from project_followups, not a column on projects; fall back to created_at
+  const orderField = sortField === 'follow_up_date' ? 'created_at' : sortField
+  query = query.order(orderField, { ascending: sortDirection === 'asc' })
 
   const from = (page - 1) * pageSize
   const to = from + pageSize - 1

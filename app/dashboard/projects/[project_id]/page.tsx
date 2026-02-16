@@ -41,6 +41,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
   const canManageFollowUps = canManageProject || user.role === 'staff'
   const canViewAmount = user.role === 'admin' || user.role === 'manager'
 
+  const projectName = project.name ?? 'Project'
   const breadcrumb = (
     <div className="flex items-center gap-2 text-sm">
       <Link
@@ -52,14 +53,14 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
       <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
       </svg>
-      <span className="font-['Poppins',sans-serif] text-lg font-bold text-[#0C4A6E]">Project Details</span>
+      <span className="font-['Poppins',sans-serif] text-lg font-bold text-[#0C4A6E] truncate max-w-[200px] sm:max-w-[320px]" title={projectName}>{projectName}</span>
     </div>
   )
 
   return (
     <div className="flex flex-col h-full">
       <Header
-        pageTitle="Project Details"
+        pageTitle={projectName}
         breadcrumb={breadcrumb}
         userId={user.id}
       />

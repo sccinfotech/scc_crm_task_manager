@@ -234,10 +234,10 @@ function normalizeLink(url: string) {
 type ProjectDetailTab = 'details' | 'payments' | 'requirements' | 'tasks'
 
 const PROJECT_DETAIL_TABS: { id: ProjectDetailTab; label: string }[] = [
-  { id: 'details', label: 'Details' },
-  { id: 'payments', label: 'Payments' },
-  { id: 'requirements', label: 'Requirements' },
   { id: 'tasks', label: 'Tasks' },
+  { id: 'requirements', label: 'Requirements' },
+  { id: 'payments', label: 'Payments' },
+  { id: 'details', label: 'Details' },
 ]
 
 function TabPlaceholder({ title, description }: { title: string; description: string }) {
@@ -269,7 +269,7 @@ export function ProjectDetailView({
   const router = useRouter()
   const { success: showSuccess, error: showError } = useToast()
   const [project, setProject] = useState<Project>(initialProject)
-  const [activeTab, setActiveTab] = useState<ProjectDetailTab>('details')
+  const [activeTab, setActiveTab] = useState<ProjectDetailTab>('tasks')
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [linksModalOpen, setLinksModalOpen] = useState(false)
@@ -286,6 +286,12 @@ export function ProjectDetailView({
   /** Optimistic work state so the timer shows immediately on Start without waiting for server */
   const [optimisticWork, setOptimisticWork] = useState<{ status: 'start'; runningSince: string } | null>(null)
 
+  /** Requirements and Payments tabs are hidden from Staff and Clients (must be declared before useEffects that use it) */
+  const showRequirementsAndPayments = userRole !== 'staff' && userRole !== 'client'
+  const visibleTabs = showRequirementsAndPayments
+    ? PROJECT_DETAIL_TABS
+    : PROJECT_DETAIL_TABS.filter((t) => t.id !== 'requirements' && t.id !== 'payments')
+
   useEffect(() => {
     setProject(initialProject)
   }, [initialProject])
@@ -295,6 +301,13 @@ export function ProjectDetailView({
       setMobileFollowUpsOpen(false)
     }
   }, [activeTab])
+
+  /** If Staff/Client and current tab is hidden, switch to Tasks */
+  useEffect(() => {
+    if (!showRequirementsAndPayments && (activeTab === 'requirements' || activeTab === 'payments')) {
+      setActiveTab('tasks')
+    }
+  }, [showRequirementsAndPayments, activeTab])
 
   const canUpdateOwnWork = Boolean(
     currentUserId &&
@@ -459,9 +472,9 @@ export function ProjectDetailView({
         <div className="flex h-full flex-col gap-3">
         <div className="flex-shrink-0 rounded-2xl bg-white px-4 pt-2 border border-slate-200/80">
           <div className="flex items-stretch overflow-x-auto" role="tablist" aria-label="Project detail tabs">
-            {PROJECT_DETAIL_TABS.map(({ id, label }, index) => {
+            {visibleTabs.map(({ id, label }, index) => {
               const isActive = activeTab === id
-              const isLast = index === PROJECT_DETAIL_TABS.length - 1
+              const isLast = index === visibleTabs.length - 1
               return (
                 <div key={id} className="flex items-stretch">
                   <button
