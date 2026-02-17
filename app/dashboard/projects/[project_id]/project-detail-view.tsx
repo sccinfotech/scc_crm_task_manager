@@ -469,9 +469,9 @@ export function ProjectDetailView({
 
   return (
     <>
-        <div className="flex h-full flex-col gap-3">
-        <div className="flex-shrink-0 rounded-2xl bg-white px-4 pt-2 border border-slate-200/80">
-          <div className="flex items-stretch overflow-x-auto" role="tablist" aria-label="Project detail tabs">
+        <div className="flex h-full flex-col gap-2 sm:gap-3">
+        <div className="flex-shrink-0 rounded-2xl border border-slate-200/80 bg-white px-3 pt-1.5 sm:px-4 sm:pt-2">
+          <div className="flex items-stretch overflow-x-auto scrollbar-hide" role="tablist" aria-label="Project detail tabs">
             {visibleTabs.map(({ id, label }, index) => {
               const isActive = activeTab === id
               const isLast = index === visibleTabs.length - 1
@@ -483,7 +483,7 @@ export function ProjectDetailView({
                     aria-selected={isActive}
                     onClick={() => setActiveTab(id)}
                     className={`
-                      relative px-2.5 pb-2 pt-0.5 text-sm font-semibold whitespace-nowrap transition-colors duration-200 cursor-pointer
+                      relative px-2.5 pb-2 pt-1 text-sm font-semibold whitespace-nowrap transition-colors duration-200 cursor-pointer
                       border-b-2
                       focus:outline-none focus-visible:ring-2 focus-visible:ring-[#06B6D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white
                       ${isActive
@@ -496,7 +496,7 @@ export function ProjectDetailView({
                   {!isLast && (
                     <span
                       aria-hidden="true"
-                      className="mx-3 w-px self-stretch bg-gradient-to-b from-slate-200/0 via-slate-200/70 to-slate-200/0"
+                      className="mx-2 w-px self-stretch bg-gradient-to-b from-slate-200/0 via-slate-200/70 to-slate-200/0 sm:mx-3"
                     />
                   )}
                 </div>
@@ -507,16 +507,16 @@ export function ProjectDetailView({
 
         <div className="flex-1 min-h-0">
           {activeTab === 'details' && (
-            <div className="flex h-full flex-col lg:flex-row gap-3">
+            <div className="flex h-full flex-col gap-3 overflow-y-auto lg:flex-row lg:overflow-hidden">
               {/* LEFT COLUMN: Project Details */}
-              <div className="w-full lg:w-2/5 flex flex-col gap-3 overflow-y-auto pb-24 lg:pb-0 scrollbar-hide">
+              <div className="w-full lg:w-2/5 flex flex-col gap-3 pb-24 scrollbar-hide lg:overflow-y-auto lg:pb-0">
           <div className="rounded-2xl bg-white shadow-sm border border-slate-200 relative">
             <div className="px-4 pt-4 pb-2 border-b border-slate-100">
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">Project Details</h2>
             </div>
-            <div className="relative bg-white border-b border-gray-100 p-4 rounded-t-2xl">
-              <div className="flex justify-between items-start">
-                <div className="flex items-start gap-5">
+            <div className="relative rounded-t-2xl border-b border-gray-100 bg-white p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex min-w-0 items-start gap-3 sm:gap-5">
                   {project.logo_url ? (
                     <img
                       src={project.logo_url}
@@ -532,8 +532,8 @@ export function ProjectDetailView({
                   )}
 
                   <div className="flex-1 min-w-0">
-                    <h1 className="text-2xl font-extrabold text-[#1E1B4B] mb-3 truncate" title={project.name}>{project.name}</h1>
-                    <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+                    <h1 className="mb-3 truncate text-xl font-extrabold text-[#1E1B4B] sm:text-2xl" title={project.name}>{project.name}</h1>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5 sm:gap-x-6 sm:gap-y-3">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Status</span>
                         {canEditClientStatus ? (
@@ -554,7 +554,7 @@ export function ProjectDetailView({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 self-end sm:self-auto">
                   {canEdit && (
                     <Tooltip content="Edit project">
                       <button
@@ -587,8 +587,8 @@ export function ProjectDetailView({
               </div>
             </div>
 
-            <div className="p-4 bg-slate-50/30">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="bg-slate-50/30 p-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {userRole !== 'staff' && (
                   project.client?.id ? (
                     <Link
@@ -934,8 +934,8 @@ export function ProjectDetailView({
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Tabs – Follow-ups, Work history, My Notes, Team Talk */}
-        <div className="w-full lg:w-3/5 flex flex-col gap-3 overflow-y-auto pb-24 lg:pb-0 scrollbar-hide">
+        {/* RIGHT COLUMN: Tabs – desktop only (mobile opens this via Updates full-screen) */}
+        <div className="hidden w-full lg:w-3/5 lg:flex lg:flex-col lg:gap-3 lg:overflow-y-auto lg:pb-0 scrollbar-hide">
           <ProjectDetailRightPanel
             projectId={project.id}
             initialFollowUps={initialFollowUps}
@@ -981,12 +981,12 @@ export function ProjectDetailView({
   </div>
 
       {activeTab === 'details' && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 p-3 lg:hidden shadow-[0_-4px_12px_rgba(0,0,0,0.05)] safe-area-bottom">
-          <div className="grid grid-cols-2 gap-3">
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white p-3 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] safe-area-bottom lg:hidden">
+          <div className={`grid gap-3 ${canEdit ? 'grid-cols-2' : 'grid-cols-1'}`}>
             {canEdit && (
               <button
                 onClick={handleEdit}
-                className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl text-gray-600 hover:bg-gray-50 active:bg-gray-100"
+                className="flex flex-col items-center justify-center gap-1 rounded-xl p-2 text-gray-600 hover:bg-gray-50 active:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06B6D4] focus-visible:ring-offset-2"
               >
                 <div className="h-6 w-6 text-[#06B6D4]">
                   <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -999,7 +999,7 @@ export function ProjectDetailView({
 
             <button
               onClick={() => setMobileFollowUpsOpen(true)}
-              className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl bg-[#06B6D4] text-white shadow-lg active:scale-95 transition-transform"
+              className="flex flex-col items-center justify-center gap-1 rounded-xl bg-[#06B6D4] p-2 text-white shadow-lg transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06B6D4] focus-visible:ring-offset-2"
             >
               <div className="h-6 w-6">
                 <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1016,7 +1016,7 @@ export function ProjectDetailView({
       {mobileFollowUpsOpen && activeTab === 'details' && (
         <div className="fixed inset-0 z-50 lg:hidden flex flex-col bg-gray-900/50 backdrop-blur-sm animate-fade-in">
           <div className="absolute inset-0" onClick={() => setMobileFollowUpsOpen(false)} />
-          <div className="absolute bottom-0 left-0 right-0 h-[85vh] bg-[#F8FAFC] rounded-t-3xl shadow-2xl flex flex-col overflow-hidden animate-slide-up">
+          <div className="absolute inset-0 bg-[#F8FAFC] shadow-2xl flex flex-col overflow-hidden animate-slide-up">
             <div className="p-4 bg-white border-b border-gray-100 flex items-center justify-between flex-shrink-0">
               <h3 className="font-['Poppins',sans-serif] text-lg font-bold text-[#0C4A6E]">Updates</h3>
               <button
@@ -1095,11 +1095,11 @@ export function ProjectDetailView({
             <p className="text-xs text-slate-500 mb-4">
               Required. Describe what you completed in this work session before ending.
             </p>
-            <div className="flex gap-3 justify-end">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={() => { setEndWorkModalOpen(false); setEndWorkNotes('') }}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer sm:w-auto"
               >
                 Cancel
               </button>
@@ -1107,7 +1107,7 @@ export function ProjectDetailView({
                 type="button"
                 onClick={() => handleMyWorkStatus('end', endWorkNotes.trim() || undefined)}
                 disabled={myWorkStatusUpdating || !endWorkNotes.trim()}
-                className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
+                className="w-full rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 cursor-pointer sm:w-auto"
               >
                 {myWorkStatusUpdating ? 'Saving...' : 'End & save'}
               </button>
@@ -1153,11 +1153,11 @@ export function ProjectDetailView({
                 />
               </div>
             </div>
-            <div className="flex gap-2 justify-end mt-5">
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={() => setLinksModalOpen(false)}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors"
+                className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors sm:w-auto"
               >
                 Cancel
               </button>
@@ -1165,7 +1165,7 @@ export function ProjectDetailView({
                 type="button"
                 onClick={handleSaveLinks}
                 disabled={linksUpdating}
-                className="rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-700 disabled:opacity-50 cursor-pointer transition-colors"
+                className="w-full rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-700 disabled:opacity-50 cursor-pointer transition-colors sm:w-auto"
               >
                 {linksUpdating ? 'Saving…' : 'Save'}
               </button>

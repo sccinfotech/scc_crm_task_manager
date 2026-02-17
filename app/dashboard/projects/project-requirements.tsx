@@ -663,12 +663,12 @@ function RequirementModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative z-10 w-full max-w-3xl rounded-2xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 sm:px-6 sm:py-4">
           <div>
-            <h2 className="text-xl font-semibold text-[#1E1B4B]">
+            <h2 className="text-lg font-semibold text-[#1E1B4B] sm:text-xl">
               {mode === "create" ? "Add Requirement" : "Edit Requirement"}
             </h2>
           </div>
@@ -683,7 +683,7 @@ function RequirementModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="max-h-[calc(100vh-180px)] overflow-y-auto px-6 py-6 space-y-6">
+        <form onSubmit={handleSubmit} className="max-h-[calc(100dvh-140px)] overflow-y-auto px-4 py-4 space-y-6 sm:max-h-[calc(100vh-180px)] sm:px-6 sm:py-6">
           {error && (
             <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3">
               <p className="text-sm font-medium text-rose-700">{error}</p>
@@ -1030,18 +1030,18 @@ function RequirementModal({
             </div>
           )}
 
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:w-auto"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-xl bg-cyan-600 px-5 py-2 text-sm font-semibold text-white hover:bg-cyan-700 disabled:opacity-50"
+              className="w-full rounded-xl bg-cyan-600 px-5 py-2 text-sm font-semibold text-white hover:bg-cyan-700 disabled:opacity-50 sm:w-auto"
             >
               {submitting ? "Saving..." : mode === "create" ? "Add Requirement" : "Save Changes"}
             </button>
@@ -1386,7 +1386,7 @@ export function ProjectRequirements({
             <button
               type="button"
               onClick={handleOpenCreate}
-              className="rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-700 shadow-sm"
+              className="w-full rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-700 shadow-sm sm:w-auto"
             >
               Add Requirement
             </button>

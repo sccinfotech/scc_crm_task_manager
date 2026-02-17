@@ -874,7 +874,7 @@ export function ProjectTeamTalk({
                   </div>
                   <div
                     data-message-card={message.id}
-                    className={`min-w-[14rem] w-fit max-w-[85%] rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-[0_1px_3px_0_rgba(0,0,0,0.06)] transition-colors duration-200 ${
+                    className={`w-fit min-w-0 max-w-[92%] rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-[0_1px_3px_0_rgba(0,0,0,0.06)] transition-colors duration-200 sm:min-w-[14rem] sm:max-w-[85%] ${
                       isMine ? 'border-l-2 border-l-slate-300' : 'border-l-2 border-l-slate-200'
                     }`}
                     style={
@@ -1075,8 +1075,8 @@ export function ProjectTeamTalk({
             </div>
           )}
 
-          <div className="flex gap-2 flex-1 min-h-0">
-            <div className="flex-1 min-w-0 min-h-0 flex flex-col">
+          <div className="flex flex-1 min-h-0 flex-col gap-2 sm:flex-row">
+            <div className="flex flex-1 min-h-0 min-w-0 flex-col">
               <textarea
                 id="project-team-talk-message"
                 value={messageText}
@@ -1086,12 +1086,12 @@ export function ProjectTeamTalk({
                 aria-describedby="team-talk-limits"
               />
             </div>
-            <div className="flex flex-col gap-2 flex-shrink-0">
+            <div className="flex flex-row gap-2 sm:flex-col flex-shrink-0">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={submitting}
-                className="flex flex-col items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-700 transition-colors duration-200 hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed min-w-[72px] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1"
+                className="flex flex-1 flex-col items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-700 transition-colors duration-200 hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed min-w-[72px] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1"
                 aria-label="Add attachment"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
@@ -1103,7 +1103,7 @@ export function ProjectTeamTalk({
                 type="button"
                 onClick={handleSend}
                 disabled={submitting}
-                className="flex flex-col items-center justify-center gap-1 rounded-xl bg-slate-800 px-3 py-2.5 text-white shadow-sm transition-colors duration-200 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed min-w-[72px] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-1"
+                className="flex flex-1 flex-col items-center justify-center gap-1 rounded-xl bg-slate-800 px-3 py-2.5 text-white shadow-sm transition-colors duration-200 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed min-w-[72px] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-1"
                 aria-label={submitting ? 'Sending message' : 'Send message'}
               >
                 {submitting ? (

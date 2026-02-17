@@ -381,7 +381,7 @@ export function ProjectFollowUps({
 
         <div
           ref={scrollContainerRef}
-          className={`flex-1 overflow-y-auto overflow-x-hidden p-3 scrollbar-hide ${hideHeader ? 'pt-4' : ''}`}
+          className={`flex-1 overflow-y-auto overflow-x-hidden p-2.5 sm:p-3 scrollbar-hide ${hideHeader ? 'pt-4' : ''}`}
         >
           {followUps.length === 0 ? (
             <div className="flex h-full items-center justify-center">
@@ -480,7 +480,7 @@ export function ProjectFollowUps({
           )}
         </div>
 
-        <div className="p-3 border-t border-slate-100 bg-white/60 rounded-b-2xl">
+        <div className="border-t border-slate-100 bg-white/60 p-2.5 sm:p-3 rounded-b-2xl">
           {canWrite ? (
             <form
               id="add-followup-form"

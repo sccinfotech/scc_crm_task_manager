@@ -977,8 +977,8 @@ export function ProjectMyNotes({
             </div>
           )}
 
-          <div className="flex gap-1.5 flex-1 min-h-0">
-            <div className="flex-1 min-w-0 min-h-0 flex flex-col">
+          <div className="flex flex-1 min-h-0 flex-col gap-1.5 sm:flex-row">
+            <div className="flex flex-1 min-h-0 min-w-0 flex-col">
               <textarea
                 id="project-my-note"
                 value={noteText}
@@ -987,12 +987,12 @@ export function ProjectMyNotes({
                 className="w-full flex-1 min-h-[72px] max-h-[140px] rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-sm text-slate-700 placeholder-slate-400 shadow-sm transition-all duration-200 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/10 resize-none"
               />
             </div>
-            <div className="flex flex-col gap-1 flex-shrink-0">
+            <div className="flex flex-row gap-1 sm:flex-col flex-shrink-0">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={submitting}
-                className="flex flex-col items-center justify-center gap-0.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-medium text-slate-700 transition-colors hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-700 disabled:opacity-50 min-w-[64px] cursor-pointer"
+                className="flex flex-1 flex-col items-center justify-center gap-0.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-medium text-slate-700 transition-colors hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-700 disabled:opacity-50 min-w-[64px] cursor-pointer"
               >
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828L18 9.828a4 4 0 00-5.656-5.656L6.343 10.172a6 6 0 108.486 8.486L20 13" />
@@ -1003,7 +1003,7 @@ export function ProjectMyNotes({
                 type="button"
                 onClick={handleCreate}
                 disabled={submitting}
-                className="btn-gradient-smooth flex flex-col items-center justify-center gap-0.5 rounded-lg px-2.5 py-2 text-white shadow-sm transition-colors hover:opacity-90 disabled:opacity-50 min-w-[64px] cursor-pointer"
+                className="btn-gradient-smooth flex flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-2.5 py-2 text-white shadow-sm transition-colors hover:opacity-90 disabled:opacity-50 min-w-[64px] cursor-pointer"
               >
                 {submitting ? (
                   <>

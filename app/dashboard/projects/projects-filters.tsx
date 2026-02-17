@@ -21,6 +21,9 @@ const STATUS_OPTIONS: { value: ProjectStatus | 'all'; label: string }[] = [
   { value: 'completed', label: 'Completed' },
 ]
 
+const FILTER_SELECT_CLASSES =
+  'block h-10 w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 pr-10 text-sm font-medium text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.05)] transition-all duration-200 hover:border-slate-300 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/20'
+
 export function ProjectsFilters({
   statusFilter,
   onStatusChange,
@@ -46,7 +49,7 @@ export function ProjectsFilters({
   const hasActiveFilters = statusFilter !== 'all' || searchQuery.trim() !== ''
 
   return (
-    <div className="border-b border-gray-200 bg-white px-6 py-4">
+    <div className="border-b border-gray-200 bg-white px-3 py-3 sm:px-4 sm:py-4 lg:px-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 flex-col gap-4 sm:flex-row sm:items-center">
           {/* Search Input */}
@@ -78,11 +81,11 @@ export function ProjectsFilters({
           </div>
 
           {/* Status Filter */}
-          <div className="sm:w-52">
+          <div className="relative sm:w-52">
             <select
               value={statusFilter}
               onChange={(e) => onStatusChange(e.target.value as ProjectStatus | 'all')}
-              className="block w-full rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-[#1E1B4B] shadow-sm transition-all duration-200 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-opacity-20"
+              className={FILTER_SELECT_CLASSES}
             >
               {STATUS_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -90,6 +93,11 @@ export function ProjectsFilters({
                 </option>
               ))}
             </select>
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
           </div>
         </div>
 
@@ -97,7 +105,7 @@ export function ProjectsFilters({
         {hasActiveFilters && (
           <button
             onClick={onClearFilters}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 whitespace-nowrap"
+            className="w-full rounded-lg px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 whitespace-nowrap sm:w-auto"
           >
             Clear Filters
           </button>

@@ -300,19 +300,20 @@ export function ProjectsClient({
 
   return (
     <>
-      <div className="flex h-full flex-col p-4 lg:p-6">
+      <div className="flex h-full flex-col p-3 sm:p-4 lg:p-6">
         {/* Page Title, Refresh, and Create Project Button */}
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 sm:mb-4">
           <div className="flex items-center gap-3">
             <SidebarToggleButton />
-            <h1 className="text-2xl font-semibold text-[#1E1B4B]">Projects</h1>
+            <h1 className="text-xl font-semibold text-[#1E1B4B] sm:text-2xl">Projects</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-2">
             <button
               type="button"
               onClick={handleRefresh}
               title="Refresh"
-              className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+              aria-label="Refresh projects"
+              className="rounded-xl border border-gray-200 bg-white px-2.5 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 sm:px-3 sm:py-2.5"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -326,7 +327,7 @@ export function ProjectsClient({
                   ? 'Read-only access'
                   : 'Create project'
               }
-              className={`btn-gradient-smooth rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#06B6D4]/25 transition-all duration-200 hover:shadow-xl hover:shadow-[#06B6D4]/30 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-offset-2 active:translate-y-0 active:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 ${!canCreate ? 'hover:shadow-lg hover:-translate-y-0' : ''}`}
+              className={`btn-gradient-smooth rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-[#06B6D4]/25 transition-all duration-200 hover:shadow-xl hover:shadow-[#06B6D4]/30 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-offset-2 active:translate-y-0 active:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 sm:px-5 sm:py-2.5 ${!canCreate ? 'hover:shadow-lg hover:-translate-y-0' : ''}`}
             >
               Create Project
             </button>
@@ -344,7 +345,7 @@ export function ProjectsClient({
           />
 
           {loading && (
-            <div className="border-b border-gray-200 bg-blue-50 px-6 py-3">
+            <div className="border-b border-gray-200 bg-blue-50 px-4 py-3 sm:px-6">
               <p className="text-sm text-blue-800">Loading...</p>
             </div>
           )}

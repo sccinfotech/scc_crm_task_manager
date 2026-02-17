@@ -174,7 +174,7 @@ export function ProjectsCardList({
   }
 
   return (
-    <div className="flex flex-col gap-3 bg-white p-4 pb-8">
+    <div className="flex flex-col gap-3 bg-white p-3 pb-6 sm:p-4 sm:pb-8">
       {projects.map((project) => {
         const clientLabel = project.client_name || project.client_company_name || '—'
         const websiteLinks = parseWebsiteLinks(project.website_links)
@@ -190,7 +190,7 @@ export function ProjectsCardList({
               prefetch
               className="block no-underline text-inherit outline-none"
             >
-              <div className="flex items-start gap-3 p-4">
+              <div className="flex items-start gap-3 p-3.5 sm:p-4">
                 {project.logo_url ? (
                   <img
                     src={project.logo_url}
@@ -227,9 +227,9 @@ export function ProjectsCardList({
               </div>
             </Link>
             {(showWorkActions && myStatus != null) || websiteLinks.length > 0 || canWrite ? (
-              <div className="flex flex-wrap items-center justify-end gap-1 border-t border-gray-100 px-4 py-2">
+              <div className="flex flex-wrap items-center gap-1 border-t border-gray-100 px-3.5 py-2 sm:px-4">
                 {showWorkActions && myStatus != null && (
-                  <div className="mr-auto flex flex-wrap items-center gap-1.5">
+                  <div className="flex flex-1 flex-wrap items-center gap-1.5">
                     {myStatus === 'not_started' && (
                       <button
                         type="button"

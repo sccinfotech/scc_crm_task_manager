@@ -431,7 +431,7 @@ export function ProjectWorkHistory({
                         type="button"
                         onClick={() => onStaffWorkStatus('start')}
                         disabled={staffWorkState.isUpdating}
-                        className="rounded-lg bg-cyan-600 px-3 py-1.5 text-sm font-bold text-white hover:bg-cyan-700 disabled:opacity-50 cursor-pointer transition-colors"
+                        className="w-full rounded-lg bg-cyan-600 px-3 py-1.5 text-sm font-bold text-white hover:bg-cyan-700 disabled:opacity-50 cursor-pointer transition-colors sm:w-auto"
                       >
                         {status === 'end' ? 'Start again' : 'Start work'}
                       </button>
@@ -518,7 +518,7 @@ export function ProjectWorkHistory({
                       <label className="block text-sm font-bold text-slate-700 mb-1.5">
                         Done points <span className="text-rose-500">*</span>
                       </label>
-                      <div className="flex gap-2 items-stretch">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
                         <textarea
                           value={endNotes}
                           onChange={(e) => setEndNotes(e.target.value)}
@@ -526,7 +526,7 @@ export function ProjectWorkHistory({
                           className="flex-1 min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm min-h-[52px] max-h-24 resize-y focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-cyan-500/20 placeholder:text-slate-400"
                           rows={2}
                         />
-                        <div className="flex flex-col gap-2 flex-shrink-0 justify-center">
+                        <div className="flex flex-row gap-2 sm:flex-col sm:gap-2 flex-shrink-0 justify-center">
                           <button
                             type="button"
                             onClick={() => { setEndNotesOpen(false); setEndNotes('') }}

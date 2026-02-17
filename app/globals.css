@@ -157,6 +157,10 @@ body {
   /* Chrome, Safari and Opera */
 }
 
+.safe-area-bottom {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
+}
+
 /* Empty State Animations */
 @keyframes bounce-slow {
 

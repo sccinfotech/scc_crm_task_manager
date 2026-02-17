@@ -20,7 +20,7 @@ export default function ProjectDetailLoading() {
   return (
     <div className="flex flex-col h-full">
       <Header pageTitle="Project Details" breadcrumb={breadcrumb} />
-      <div className="flex-1 overflow-hidden px-4 lg:px-6 pt-2 lg:pt-3 pb-2">
+      <div className="flex-1 overflow-hidden px-3 pt-2 pb-2 sm:px-4 lg:px-6 lg:pt-3">
         <div className="flex h-full flex-col lg:flex-row gap-4">
           <div className="w-full lg:w-1/2 flex flex-col gap-4">
             <div className="rounded-2xl bg-white shadow-sm border border-slate-200 overflow-hidden">
@@ -76,4 +76,3 @@ export default function ProjectDetailLoading() {
     </div>
   )
 }
-

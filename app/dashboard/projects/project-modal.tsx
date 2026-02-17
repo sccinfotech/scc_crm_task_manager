@@ -81,7 +81,7 @@ export function ProjectModal({
   return (
     <>
       <div
-        className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+        className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-4"
         onClick={onClose}
       >
         {/* Backdrop */}
@@ -93,8 +93,8 @@ export function ProjectModal({
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-            <h2 className="text-xl font-semibold text-[#1E1B4B]">
+          <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 sm:px-6 sm:py-4">
+            <h2 className="text-lg font-semibold text-[#1E1B4B] sm:text-xl">
               {mode === 'create' ? 'Create New Project' : 'Edit Project'}
             </h2>
             <button
@@ -119,7 +119,7 @@ export function ProjectModal({
           </div>
 
           {/* Content */}
-          <div className="max-h-[calc(100vh-200px)] overflow-y-auto px-6 py-6">
+          <div className="max-h-[calc(100dvh-140px)] overflow-y-auto px-4 py-4 sm:max-h-[calc(100vh-200px)] sm:px-6 sm:py-6">
             <ProjectForm
               initialData={initialData}
               onSubmit={onSubmit}

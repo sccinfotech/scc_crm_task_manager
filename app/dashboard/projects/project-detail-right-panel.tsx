@@ -86,8 +86,8 @@ export function ProjectDetailRightPanel({
     <div className={`w-full h-full flex flex-col ${className}`}>
       {!hideTabs && (
         <div className="flex-shrink-0 rounded-t-2xl overflow-hidden bg-slate-100/80 p-1.5 border border-slate-200/80">
-          <div className="flex gap-1" role="tablist" aria-label="Project detail sections">
-            {tabConfig.map(({ id, label }, index) => {
+          <div className="flex gap-1 overflow-x-auto scrollbar-hide" role="tablist" aria-label="Project detail sections">
+            {tabConfig.map(({ id, label }) => {
               const isActive = tab === id
               return (
                 <button
@@ -99,7 +99,7 @@ export function ProjectDetailRightPanel({
                   id={`tab-${id}`}
                   onClick={() => handleTab(id)}
                   className={`
-                    flex-1 min-w-0 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200
+                    min-w-[120px] shrink-0 rounded-xl px-3 py-2 text-sm font-semibold whitespace-nowrap transition-all duration-200 sm:min-w-0 sm:flex-1 sm:px-4 sm:py-2.5
                     focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-offset-2 focus:ring-offset-slate-100
                     cursor-pointer
                     ${isActive

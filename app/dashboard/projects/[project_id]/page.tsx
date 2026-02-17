@@ -64,7 +64,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
         breadcrumb={breadcrumb}
         userId={user.id}
       />
-      <div className="flex-1 overflow-hidden px-3 lg:px-4 pt-2 pb-2">
+      <div className="flex-1 overflow-hidden px-2.5 pt-2 pb-2 sm:px-3 lg:px-4">
         <ProjectDetailView
           project={project}
           initialFollowUps={[]}
@@ -84,4 +84,3 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
     </div>
   )
 }
-

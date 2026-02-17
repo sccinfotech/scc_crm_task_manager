@@ -64,6 +64,8 @@ const ACCEPTED_FILE_TYPES = Array.from(
 ).join(',')
 
 const TASK_ALLOWED_MIME_TYPE_SET = new Set<string>(TASK_ALLOWED_MIME_TYPES)
+const FILTER_DROPDOWN_TRIGGER_CLASSES =
+  'h-10 min-w-[9rem] rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.05)] transition-all duration-200 hover:border-slate-300 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/20'
 
 type TaskAttachmentFileValidation =
   | { ok: true; mimeType: string }
@@ -382,6 +384,7 @@ export function ProjectTasks({
   const router = useRouter()
   const { success: showSuccess, error: showError } = useToast()
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list')
+  const [isMobile, setIsMobile] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState<TaskFilters>({
@@ -410,6 +413,22 @@ export function ProjectTasks({
     canManageTasks || (userRole === 'staff' && Boolean(currentUserId))
   const canEditTask = canManageTasks
   const canManageAttachments = canManageTasks
+  const effectiveViewMode: 'list' | 'board' = isMobile ? 'list' : viewMode
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 767px)')
+    const handleViewportChange = () => {
+      const mobile = mediaQuery.matches
+      setIsMobile(mobile)
+      if (mobile) {
+        setViewMode('list')
+      }
+    }
+
+    handleViewportChange()
+    mediaQuery.addEventListener('change', handleViewportChange)
+    return () => mediaQuery.removeEventListener('change', handleViewportChange)
+  }, [])
 
   const loadTasks = useCallback(async () => {
     setLoading(true)
@@ -896,17 +915,20 @@ export function ProjectTasks({
     ? tasks.find((task) => task.id === deleteConfirmTaskId)?.title ??
       (taskDetail?.id === deleteConfirmTaskId ? taskDetail.title : null)
     : null
+  const selectedStatusFilter = Array.isArray(filters.status) ? 'all' : (filters.status ?? 'all')
+  const selectedPriorityFilter = Array.isArray(filters.priority) ? 'all' : (filters.priority ?? 'all')
+  const selectedTypeFilter = Array.isArray(filters.task_type) ? 'all' : (filters.task_type ?? 'all')
 
   return (
     <div className={`flex h-full flex-col ${className}`}>
       {/* Header: view toggle, search, filters, New Task */}
-      <div className="flex flex-wrap items-center gap-2 pb-3 border-b border-slate-200">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
         <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-1">
           <button
             type="button"
             onClick={() => setViewMode('list')}
             className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-              viewMode === 'list'
+              effectiveViewMode === 'list'
                 ? 'bg-[#06B6D4] text-white'
                 : 'text-slate-600 hover:bg-slate-100'
             }`}
@@ -916,7 +938,7 @@ export function ProjectTasks({
           <button
             type="button"
             onClick={() => setViewMode('board')}
-            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+            className={`hidden rounded-lg px-3 py-1.5 text-sm font-medium transition-colors md:inline-flex ${
               viewMode === 'board'
                 ? 'bg-[#06B6D4] text-white'
                 : 'text-slate-600 hover:bg-slate-100'
@@ -930,7 +952,7 @@ export function ProjectTasks({
           placeholder="Search tasks…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="rounded-xl border border-slate-200 px-3 py-2 text-sm w-44 sm:w-56 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/20"
+          className="w-full min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/20 sm:max-w-xs"
         />
         <button
           type="button"
@@ -953,7 +975,7 @@ export function ProjectTasks({
               setCreateModalDefaultStatus(null)
               setSelectedTaskId(CREATE_TASK_SENTINEL)
             }}
-            className="rounded-xl bg-[#06B6D4] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0891b2] transition-colors"
+            className="w-full rounded-xl bg-[#06B6D4] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#0891b2] sm:ml-auto sm:w-auto"
           >
             + Add Task
           </button>
@@ -976,73 +998,82 @@ export function ProjectTasks({
           </label>
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-slate-600">Status</span>
-            <select
-              value={Array.isArray(filters.status) ? 'all' : (filters.status ?? 'all')}
-              onChange={(e) =>
+            <FilterDropdown
+              value={selectedStatusFilter}
+              ariaLabel="Filter by status"
+              options={[
+                { value: 'all', label: 'All' },
+                ...TASK_STATUSES.map((status) => ({ value: status, label: TASK_STATUS_LABELS[status] })),
+              ]}
+              onChange={(value) =>
                 setFilters((f) => ({
                   ...f,
-                  status: e.target.value === 'all' ? 'all' : (e.target.value as TaskStatus),
+                  status: value === 'all' ? 'all' : (value as TaskStatus),
                 }))
               }
-              className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
-            >
-              <option value="all">All</option>
-              {TASK_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {TASK_STATUS_LABELS[s]}
-                </option>
-              ))}
-            </select>
+              renderIcon={(value) =>
+                value === 'all'
+                  ? null
+                  : <span className={`h-2 w-2 rounded-full ${TASK_STATUS_DOT_COLORS[value as TaskStatus] ?? 'bg-slate-400'}`} />
+              }
+            />
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-slate-600">Priority</span>
-            <select
-              value={Array.isArray(filters.priority) ? 'all' : (filters.priority ?? 'all')}
-              onChange={(e) =>
+            <FilterDropdown
+              value={selectedPriorityFilter}
+              ariaLabel="Filter by priority"
+              options={[
+                { value: 'all', label: 'All' },
+                ...(['urgent', 'high', 'medium', 'low'] as const).map((priority) => ({
+                  value: priority,
+                  label: TASK_PRIORITY_LABELS[priority],
+                })),
+              ]}
+              onChange={(value) =>
                 setFilters((f) => ({
                   ...f,
-                  priority: e.target.value === 'all' ? 'all' : (e.target.value as TaskPriority),
+                  priority: value === 'all' ? 'all' : (value as TaskPriority),
                 }))
               }
-              className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
-            >
-              <option value="all">All</option>
-              {(['urgent', 'high', 'medium', 'low'] as const).map((p) => (
-                <option key={p} value={p}>
-                  {TASK_PRIORITY_LABELS[p]}
-                </option>
-              ))}
-            </select>
+              renderIcon={(value) =>
+                value === 'all'
+                  ? null
+                  : <PriorityFlagIcon className={`h-4 w-4 flex-shrink-0 ${TASK_PRIORITY_FLAG_COLORS[value as TaskPriority]}`} />
+              }
+            />
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-slate-600">Type</span>
-            <select
-              value={Array.isArray(filters.task_type) ? 'all' : (filters.task_type ?? 'all')}
-              onChange={(e) =>
+            <FilterDropdown
+              value={selectedTypeFilter}
+              ariaLabel="Filter by type"
+              options={[
+                { value: 'all', label: 'All' },
+                ...(['feature', 'bug', 'improvement', 'research', 'other'] as const).map((type) => ({
+                  value: type,
+                  label: TASK_TYPE_LABELS[type],
+                })),
+              ]}
+              onChange={(value) =>
                 setFilters((f) => ({
                   ...f,
-                  task_type:
-                    e.target.value === 'all' ? 'all' : (e.target.value as TaskType),
+                  task_type: value === 'all' ? 'all' : (value as TaskType),
                 }))
               }
-              className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
-            >
-              <option value="all">All</option>
-              {(['feature', 'bug', 'improvement', 'research', 'other'] as const).map(
-                (t) => (
-                  <option key={t} value={t}>
-                    {TASK_TYPE_LABELS[t]}
-                  </option>
-                )
-              )}
-            </select>
+              renderIcon={(value) =>
+                value === 'all'
+                  ? null
+                  : <TaskTypeIcon type={value as TaskType} className="h-4 w-4 flex-shrink-0 text-slate-500" />
+              }
+            />
           </div>
         </div>
       )}
 
       {/* Main content: list or board; task detail opens in modal overlay */}
       <div className="flex-1 min-h-0 flex flex-col mt-2 overflow-hidden">
-        <div className={`flex-1 min-h-0 min-w-0 ${viewMode === 'board' ? 'overflow-hidden' : 'overflow-y-auto overflow-x-hidden'}`}>
+        <div className={`flex-1 min-h-0 min-w-0 ${effectiveViewMode === 'board' ? 'overflow-hidden' : 'overflow-y-auto overflow-x-hidden'}`}>
           {loading ? (
             <div className="px-0.5 py-2 space-y-3">
               {[1, 2, 3].map((section) => (
@@ -1052,7 +1083,7 @@ export function ProjectTasks({
                     <span className="h-6 w-20 rounded-full bg-slate-200 animate-pulse" />
                     <span className="h-4 w-6 rounded bg-slate-200 animate-pulse" />
                   </div>
-                  <table className="w-full text-sm table-fixed">
+                  <table className="w-full min-w-[720px] table-fixed text-sm">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-50/50 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                         <th className="px-3 py-2 min-w-[200px] w-[50%]">Name</th>
@@ -1091,7 +1122,7 @@ export function ProjectTasks({
                 </div>
               ))}
             </div>
-          ) : viewMode === 'list' ? (
+          ) : effectiveViewMode === 'list' ? (
             <div className="px-0.5 py-2 space-y-3">
               {tasks.length === 0 ? (
                 <div className="p-8">
@@ -1149,40 +1180,70 @@ export function ProjectTasks({
                         )}
                       </div>
                       {!isCollapsed && (
-                        <div className="overflow-x-auto overflow-y-hidden min-w-0 rounded-b-xl">
-                          <table className="w-full text-sm table-fixed">
-                            <thead>
-                              <tr className="border-b border-slate-200 bg-slate-50/50 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                                <th className="px-3 py-2 min-w-[200px] w-[50%]">Name</th>
-                                <th className="px-3 py-2 w-[92px] shrink-0">Status</th>
-                                <th className="px-3 py-2 w-[88px] shrink-0">Assignee</th>
-                                <th className="px-3 py-2 w-[88px] shrink-0">Due date</th>
-                                <th className="px-3 py-2 w-[78px] shrink-0">Priority</th>
-                                <th className="px-3 py-2 w-9 shrink-0">Actions</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {sectionTasks.map((task) => (
-                                <TaskListRow
-                                  key={task.id}
-                                  task={task}
-                                  assignableUsers={assignableUsers}
-                                  canEditTask={canEditTask}
-                                  canUpdateStatus={canUpdateStatus}
-                                  onOpenTask={() => setSelectedTaskId(task.id)}
-                                  onStatusChange={handleStatusChange}
-                                  onAssigneesChange={handleAssigneesChange}
-                                  onDueDateChange={handleDueDateChange}
-                                  onPriorityChange={handlePriorityChange}
-                                  onRequestDelete={() => setDeleteConfirmTaskId(task.id)}
-                                  getAssigneeColor={getAssigneeColor}
-                                  staffInitials={staffInitials}
-                                  staffLabel={staffLabel}
-                                />
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
+                        <>
+                          {/* Mobile list mode: card layout per task */}
+                          <div className="space-y-2 p-2.5 md:hidden">
+                            {sectionTasks.map((task) => (
+                              <TaskBoardCard
+                                key={task.id}
+                                task={task}
+                                canEditTask={canEditTask}
+                                canUpdateStatus={canUpdateStatus}
+                                canDrag={false}
+                                isDragging={false}
+                                showStatusControl={true}
+                                onOpenTask={() => setSelectedTaskId(task.id)}
+                                onDragStart={() => {}}
+                                onDragEnd={() => {}}
+                                onStatusChange={handleStatusChange}
+                                onAssigneesChange={handleAssigneesChange}
+                                onDueDateChange={handleDueDateChange}
+                                onPriorityChange={handlePriorityChange}
+                                onRequestDelete={() => setDeleteConfirmTaskId(task.id)}
+                                assignableUsers={assignableUsers}
+                                getAssigneeColor={getAssigneeColor}
+                                staffInitials={staffInitials}
+                                staffLabel={staffLabel}
+                              />
+                            ))}
+                          </div>
+
+                          {/* Desktop list mode: keep existing table */}
+                          <div className="hidden min-w-0 overflow-x-auto overflow-y-hidden rounded-b-xl md:block">
+                            <table className="w-full min-w-[720px] table-fixed text-sm">
+                              <thead>
+                                <tr className="border-b border-slate-200 bg-slate-50/50 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                  <th className="px-3 py-2 min-w-[200px] w-[50%]">Name</th>
+                                  <th className="px-3 py-2 w-[92px] shrink-0">Status</th>
+                                  <th className="px-3 py-2 w-[88px] shrink-0">Assignee</th>
+                                  <th className="px-3 py-2 w-[88px] shrink-0">Due date</th>
+                                  <th className="px-3 py-2 w-[78px] shrink-0">Priority</th>
+                                  <th className="px-3 py-2 w-9 shrink-0">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {sectionTasks.map((task) => (
+                                  <TaskListRow
+                                    key={task.id}
+                                    task={task}
+                                    assignableUsers={assignableUsers}
+                                    canEditTask={canEditTask}
+                                    canUpdateStatus={canUpdateStatus}
+                                    onOpenTask={() => setSelectedTaskId(task.id)}
+                                    onStatusChange={handleStatusChange}
+                                    onAssigneesChange={handleAssigneesChange}
+                                    onDueDateChange={handleDueDateChange}
+                                    onPriorityChange={handlePriorityChange}
+                                    onRequestDelete={() => setDeleteConfirmTaskId(task.id)}
+                                    getAssigneeColor={getAssigneeColor}
+                                    staffInitials={staffInitials}
+                                    staffLabel={staffLabel}
+                                  />
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </>
                       )}
                     </div>
                   )
@@ -1190,8 +1251,8 @@ export function ProjectTasks({
               )}
             </div>
           ) : (
-            <div className="h-full min-h-[420px] overflow-y-hidden px-0.5 py-2">
-              <div className="grid h-full grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+            <div className="h-full min-h-[420px] overflow-x-auto overflow-y-hidden px-0.5 py-2 scrollbar-hide">
+              <div className="grid h-full min-w-[980px] grid-cols-5 gap-3 lg:min-w-0">
                 {TASK_STATUSES.map((status) => {
                   const statusTasks = tasksByStatus[status]
                   const isDragOverColumn =
@@ -1619,11 +1680,14 @@ function AssigneeSearchSelect({
 function TaskBoardCard({
   task,
   canEditTask,
+  canUpdateStatus = false,
   canDrag,
   isDragging,
+  showStatusControl = false,
   onOpenTask,
   onDragStart,
   onDragEnd,
+  onStatusChange,
   onAssigneesChange,
   onDueDateChange,
   onPriorityChange,
@@ -1635,11 +1699,14 @@ function TaskBoardCard({
 }: {
   task: ProjectTaskListItem
   canEditTask: boolean
+  canUpdateStatus?: boolean
   canDrag: boolean
   isDragging: boolean
+  showStatusControl?: boolean
   onOpenTask: () => void
   onDragStart: (taskId: string, status: TaskStatus, event: React.DragEvent<HTMLElement>) => void
   onDragEnd: () => void
+  onStatusChange?: (taskId: string, status: TaskStatus) => void
   onAssigneesChange: (taskId: string, assigneeIds: string[]) => void
   onDueDateChange: (taskId: string, dueDate: string | null) => void
   onPriorityChange: (taskId: string, priority: TaskPriority | null) => void
@@ -1649,17 +1716,23 @@ function TaskBoardCard({
   staffInitials: (o: StaffSelectOption) => string
   staffLabel: (o: StaffSelectOption) => string
 }) {
-  const [openDropdown, setOpenDropdown] = useState<'assignee' | 'priority' | null>(null)
+  const [openDropdown, setOpenDropdown] = useState<'status' | 'assignee' | 'priority' | null>(null)
   const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number; right?: number } | null>(null)
   const cardRef = useRef<HTMLElement>(null)
   const suppressOpenRef = useRef(false)
+  const statusBtnRef = useRef<HTMLButtonElement>(null)
   const assigneeBtnRef = useRef<HTMLButtonElement>(null)
   const dueInputRef = useRef<HTMLInputElement>(null)
   const priorityBtnRef = useRef<HTMLButtonElement>(null)
   const assigneeIds = task.assignees.map((assignee) => assignee.id)
 
   const getTriggerRect = () => {
-    const ref = openDropdown === 'assignee' ? assigneeBtnRef : priorityBtnRef
+    const ref =
+      openDropdown === 'status'
+        ? statusBtnRef
+        : openDropdown === 'assignee'
+          ? assigneeBtnRef
+          : priorityBtnRef
     return ref.current?.getBoundingClientRect() ?? null
   }
 
@@ -1760,6 +1833,55 @@ function TaskBoardCard({
 
       <div className="mt-3 border-t border-slate-100 pt-3 space-y-2" onClick={(event) => event.stopPropagation()}>
         <div className="flex min-w-0 flex-nowrap items-center gap-1.5">
+          {showStatusControl ? (
+            canUpdateStatus && onStatusChange ? (
+              <div className="relative inline-block">
+                <button
+                  ref={statusBtnRef}
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setOpenDropdown((open) => (open === 'status' ? null : 'status')) }}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30"
+                  title="Change status"
+                >
+                  <span className={`h-2 w-2 rounded-full ${TASK_STATUS_DOT_COLORS[task.status] ?? 'bg-slate-400'}`} />
+                  <span>{TASK_STATUS_LABELS[task.status] ?? task.status}</span>
+                </button>
+                {openDropdown === 'status' && dropdownRect && typeof document !== 'undefined' &&
+                  createPortal(
+                    <>
+                      <div className="fixed inset-0 z-[9998]" aria-hidden onClick={() => setOpenDropdown(null)} />
+                      <div
+                        data-board-card-dropdown
+                        className="fixed z-[9999] w-44 rounded-lg border border-slate-200 bg-white shadow-xl py-1"
+                        style={{ top: dropdownRect.top, left: dropdownRect.left }}
+                      >
+                        {TASK_STATUSES.map((status) => (
+                          <button
+                            key={status}
+                            type="button"
+                            onClick={() => {
+                              onStatusChange(task.id, status)
+                              setOpenDropdown(null)
+                            }}
+                            className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50 ${task.status === status ? 'bg-cyan-50/80' : ''}`}
+                          >
+                            <span className={`h-2 w-2 flex-shrink-0 rounded-full ${TASK_STATUS_DOT_COLORS[status] ?? 'bg-slate-400'}`} />
+                            <span>{TASK_STATUS_LABELS[status] ?? status}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </>,
+                    document.body
+                  )}
+              </div>
+            ) : (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-600">
+                <span className={`h-2 w-2 rounded-full ${TASK_STATUS_DOT_COLORS[task.status] ?? 'bg-slate-400'}`} />
+                <span>{TASK_STATUS_LABELS[task.status] ?? task.status}</span>
+              </span>
+            )
+          ) : null}
+
           {canEditTask ? (
             <div className="relative inline-block">
               <button
@@ -2428,6 +2550,8 @@ function TaskDetailPanel({
   const [activityPanelOpen, setActivityPanelOpen] = useState(false)
   const [detailDropdownOpen, setDetailDropdownOpen] = useState<'status' | 'assignee' | 'priority' | 'type' | null>(null)
   const [detailDropdownRect, setDetailDropdownRect] = useState<{ top: number; left: number } | null>(null)
+  const [isMobileViewport, setIsMobileViewport] = useState(false)
+  const [mobileDetailTab, setMobileDetailTab] = useState<'details' | 'comments'>('details')
   const commentAttachmentInputRef = useRef<HTMLInputElement>(null)
   const commentPreviewUrlsRef = useRef<Set<string>>(new Set())
   const detailStatusRef = useRef<HTMLButtonElement>(null)
@@ -2510,6 +2634,26 @@ function TaskDetailPanel({
   useEffect(() => {
     if (isCreateMode && defaultStatus) setCreateStatus(defaultStatus)
   }, [isCreateMode, defaultStatus])
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 767px)')
+    const handleViewportChange = () => {
+      setIsMobileViewport(mediaQuery.matches)
+    }
+
+    handleViewportChange()
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', handleViewportChange)
+      return () => mediaQuery.removeEventListener('change', handleViewportChange)
+    }
+
+    mediaQuery.addListener(handleViewportChange)
+    return () => mediaQuery.removeListener(handleViewportChange)
+  }, [])
+
+  useEffect(() => {
+    setMobileDetailTab('details')
+  }, [taskId])
 
   useEffect(() => {
     setPendingDescriptionHtml(null)
@@ -2664,11 +2808,11 @@ function TaskDetailPanel({
   const isCreateFlow = isCreateMode && !taskDetail && !detailLoading
   if (!isCreateFlow && (detailLoading || !taskDetail)) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-black/20">
-        <div className="flex flex-col w-full h-full max-h-full bg-white rounded-2xl shadow-xl overflow-hidden">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 p-0 sm:p-4 md:p-6">
+        <div className="flex h-full w-full max-h-full flex-col overflow-hidden rounded-none bg-white pt-[env(safe-area-inset-top)] shadow-xl sm:rounded-2xl sm:pt-0">
           {/* Skeleton header */}
           <header className="flex-shrink-0 bg-slate-50/50 border-b border-slate-200">
-            <div className="flex items-center justify-between px-5 py-3">
+            <div className="flex items-center justify-between px-3.5 py-3 sm:px-5">
               <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
                 <span className="h-3 w-24 rounded bg-slate-200 animate-pulse" />
                 <span className="h-5 flex-1 max-w-xs rounded bg-slate-200 animate-pulse" />
@@ -2683,7 +2827,7 @@ function TaskDetailPanel({
                 </button>
               </div>
             </div>
-            <div className="px-5 pb-4 pt-3 border-t border-slate-200/80">
+            <div className="border-t border-slate-200/80 px-3.5 pb-4 pt-3 sm:px-5">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="h-6 w-16 rounded-md bg-slate-200 animate-pulse" />
                 <span className="h-8 w-20 rounded-full bg-slate-200 animate-pulse" />
@@ -2695,7 +2839,7 @@ function TaskDetailPanel({
           </header>
           {/* Skeleton body: two-column layout */}
           <div className="flex-1 grid grid-cols-1 md:grid-cols-2 min-h-0 overflow-hidden">
-            <div className="overflow-y-auto p-5 md:p-6 border-b md:border-b-0 md:border-r border-slate-200 space-y-5">
+            <div className="overflow-y-auto border-b border-slate-200 p-3.5 md:border-b-0 md:border-r md:p-6 space-y-5">
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="h-4 w-4 rounded bg-slate-200 animate-pulse" />
@@ -2711,7 +2855,7 @@ function TaskDetailPanel({
                 <div className="h-[60px] rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50 animate-pulse" />
               </div>
             </div>
-            <div className="overflow-y-auto p-5 md:p-6 flex flex-col">
+            <div className="flex flex-col overflow-y-auto p-3.5 md:p-6">
               <div className="h-4 w-36 rounded bg-slate-200 animate-pulse mb-4" />
               <div className="space-y-3 flex-1">
                 <div className="h-16 rounded-xl bg-slate-100 animate-pulse" />
@@ -2762,11 +2906,10 @@ function TaskDetailPanel({
     }
   }
   const showHeaderSave = isCreateFlow || descriptionDirty
+  const commentCount = taskDetail?.comments.length ?? 0
 
-  const modalContent = (
-    <>
-      {/* Section 1: Description + Attachments (title is in top bar only) */}
-      <div className="overflow-y-auto p-5 md:p-6 border-b md:border-b-0 md:border-r border-slate-200 min-h-0">
+  const detailsSection = (
+    <div className="h-full min-h-0 overflow-y-auto p-3.5 md:border-r md:border-slate-200 md:p-6">
         {/* Description — full width with icon + label row */}
         <div className="mb-5">
           <div className="flex items-center gap-2 mb-2">
@@ -2991,18 +3134,19 @@ function TaskDetailPanel({
           )}
         </div>
       </div>
+  )
 
-      {/* Section 2: Comments — fills full right column; list scrolls, composer stays fixed at bottom */}
-      <div className="p-4 md:p-5 h-full min-h-0 overflow-hidden flex flex-col">
-        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider pb-3 border-b border-slate-200 mb-3 flex-shrink-0">
-          Comments
-        </h3>
-        {isCreateFlow ? (
-          <p className="text-sm text-slate-500 flex-shrink-0">Save the task to add comments.</p>
-        ) : (
-          <>
-            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden space-y-3">
-              {taskDetail!.comments.length === 0 ? (
+  const commentsSection = (
+    <div className="h-full min-h-0 overflow-hidden p-3.5 sm:p-4 md:p-5 flex flex-col">
+      <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider pb-3 border-b border-slate-200 mb-3 flex-shrink-0">
+        Comments
+      </h3>
+      {isCreateFlow ? (
+        <p className="text-sm text-slate-500 flex-shrink-0">Save the task to add comments.</p>
+      ) : (
+        <>
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden space-y-3">
+            {taskDetail!.comments.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center text-slate-500">
                   <svg className="h-10 w-10 text-slate-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -3010,24 +3154,24 @@ function TaskDetailPanel({
                   <p className="text-sm font-medium">No comments yet</p>
                   <p className="text-xs mt-0.5">Add a comment below to start the conversation.</p>
                 </div>
-              ) : null}
-              {taskDetail!.comments.map((c) => (
-                <CommentRow
-                  key={c.id}
-                  comment={c}
-                  currentUserId={currentUserId}
-                  taskId={taskId}
-                  onUpdateComment={onUpdateComment}
-                  onDeleteComment={onDeleteComment}
-                  onDeleteCommentAttachment={onDeleteCommentAttachment}
-                  getInitials={getInitials}
-                />
-              ))}
-            </div>
-            {userRole !== 'client' && (
-              <div className="flex-shrink-0 pt-3 mt-auto relative">
-                {/* Single comment container: typing area + toolbar (attachment + send) inside */}
-                <div className="rounded-xl border border-slate-200 focus-within:ring-2 focus-within:ring-[#06B6D4]/30 focus-within:border-[#06B6D4] bg-white flex flex-col min-h-[100px] max-h-[280px]">
+            ) : null}
+            {taskDetail!.comments.map((c) => (
+              <CommentRow
+                key={c.id}
+                comment={c}
+                currentUserId={currentUserId}
+                taskId={taskId}
+                onUpdateComment={onUpdateComment}
+                onDeleteComment={onDeleteComment}
+                onDeleteCommentAttachment={onDeleteCommentAttachment}
+                getInitials={getInitials}
+              />
+            ))}
+          </div>
+          {userRole !== 'client' && (
+            <div className="flex-shrink-0 pt-3 mt-auto relative">
+              {/* Single comment container: typing area + toolbar (attachment + send) inside */}
+              <div className="rounded-xl border border-slate-200 focus-within:ring-2 focus-within:ring-[#06B6D4]/30 focus-within:border-[#06B6D4] bg-white flex flex-col min-h-[100px] max-h-[280px]">
                   {/* Typing area */}
                   <div className="relative flex-1 min-h-[72px] overflow-hidden rounded-t-xl">
                     <div
@@ -3200,38 +3344,37 @@ function TaskDetailPanel({
                       </button>
                     </Tooltip>
                   </div>
-                </div>
-                {showMentionPicker && filteredMentionUsers.length > 0 && (
-                  <div className="absolute bottom-full left-0 right-0 mb-1 rounded-xl border border-slate-200 bg-white shadow-xl py-1 max-h-48 overflow-y-auto z-10">
-                    {filteredMentionUsers.map((u, idx) => (
-                      <button
-                        key={u.id}
-                        type="button"
-                        onClick={() => handleMentionSelect(u)}
-                        className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 ${idx === mentionHighlightIndex ? 'bg-cyan-50 ring-1 ring-cyan-200' : 'hover:bg-slate-50'}`}
-                      >
-                        <span className="h-7 w-7 rounded-full bg-cyan-100 text-cyan-800 flex items-center justify-center text-xs font-semibold">
-                          {getInitials(getUserName(u))}
-                        </span>
-                        <span className="truncate" title={getUserTagLabel(u)}>{getUserTagLabel(u)}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
-            )}
-          </>
-        )}
-      </div>
-    </>
+              {showMentionPicker && filteredMentionUsers.length > 0 && (
+                <div className="absolute bottom-full left-0 right-0 mb-1 rounded-xl border border-slate-200 bg-white shadow-xl py-1 max-h-48 overflow-y-auto z-10">
+                  {filteredMentionUsers.map((u, idx) => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => handleMentionSelect(u)}
+                      className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 ${idx === mentionHighlightIndex ? 'bg-cyan-50 ring-1 ring-cyan-200' : 'hover:bg-slate-50'}`}
+                    >
+                      <span className="h-7 w-7 rounded-full bg-cyan-100 text-cyan-800 flex items-center justify-center text-xs font-semibold">
+                        {getInitials(getUserName(u))}
+                      </span>
+                      <span className="truncate" title={getUserTagLabel(u)}>{getUserTagLabel(u)}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
   )
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-black/20" onClick={(e) => e.target === e.currentTarget && handleCloseRequest()}>
-      <div className="relative flex flex-col w-full h-full max-h-full bg-white rounded-2xl shadow-xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 p-0 sm:p-4 md:p-6" onClick={(e) => e.target === e.currentTarget && handleCloseRequest()}>
+      <div className="relative flex h-full w-full max-h-full flex-col overflow-hidden rounded-none bg-white pt-[env(safe-area-inset-top)] shadow-xl sm:rounded-2xl sm:pt-0" onClick={(e) => e.stopPropagation()}>
         {/* Header: Task details + title (editable) + actions */}
         <header className="flex-shrink-0 bg-slate-50/50 border-b border-slate-200">
-          <div className="flex items-center justify-between px-5 py-3">
+          <div className="flex items-center justify-between px-3.5 py-3 sm:px-5">
             <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
               {isCreateFlow && createSaving && (
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center" aria-hidden>
@@ -3324,7 +3467,7 @@ function TaskDetailPanel({
               </Tooltip>
             </div>
           </div>
-          <div className="px-5 pb-4 pt-3 border-t border-slate-200/80">
+          <div className="border-t border-slate-200/80 px-3.5 pb-4 pt-3 sm:px-5">
             {/* Same compact row as Task List View: Status | Assignees | Due date | Priority | Type */}
             {(() => {
               const metaStatus = isCreateFlow ? createStatus : (taskDetail?.status ?? 'todo')
@@ -3333,7 +3476,7 @@ function TaskDetailPanel({
               const metaPriority = isCreateFlow ? createPriority : (taskDetail?.priority ?? '')
               const metaType = isCreateFlow ? createType : (taskDetail?.task_type ?? '')
               return (
-            <div className="flex flex-wrap items-center gap-2 text-xs">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs sm:gap-y-2">
               <span className="font-medium text-slate-500">Status:</span>
               {/* Status — list row style */}
               {(canUpdateStatus || isCreateFlow) ? (
@@ -3370,7 +3513,7 @@ function TaskDetailPanel({
                   {TASK_STATUS_LABELS[metaStatus] ?? metaStatus}
                 </span>
               )}
-              <span className="text-slate-300">|</span>
+              <span className="hidden text-slate-300 sm:inline">|</span>
 
               <span className="font-medium text-slate-500">Assignee:</span>
               {/* Assignees — list row style (avatar stack + dropdown) */}
@@ -3487,7 +3630,7 @@ function TaskDetailPanel({
                   <span className="text-slate-400 text-xs">—</span>
                 )
               })()}
-              <span className="text-slate-300">|</span>
+              <span className="hidden text-slate-300 sm:inline">|</span>
 
               <span className="font-medium text-slate-500">Due Date:</span>
               {/* Due date — list row style */}
@@ -3525,7 +3668,7 @@ function TaskDetailPanel({
               ) : (
                 <span className="text-slate-600 text-xs">{metaDueDate ? formatDate(metaDueDate) : '—'}</span>
               )}
-              <span className="text-slate-300">|</span>
+              <span className="hidden text-slate-300 sm:inline">|</span>
 
               <span className="font-medium text-slate-500">Priority:</span>
               {/* Priority — list row style */}
@@ -3567,7 +3710,7 @@ function TaskDetailPanel({
                   {metaPriority ? TASK_PRIORITY_LABELS[metaPriority as TaskPriority] : '—'}
                 </span>
               )}
-              <span className="text-slate-300">|</span>
+              <span className="hidden text-slate-300 sm:inline">|</span>
 
               <span className="font-medium text-slate-500">Type:</span>
               {/* Type — same pill style as list (detail-only field) */}
@@ -3614,8 +3757,43 @@ function TaskDetailPanel({
             })()}
           </div>
         </header>
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 min-h-0 overflow-hidden">
-          {modalContent}
+        {isMobileViewport && (
+          <div className="flex items-center gap-2 border-b border-slate-200 bg-white px-3.5 py-2 sm:hidden">
+            <button
+              type="button"
+              onClick={() => setMobileDetailTab('details')}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                mobileDetailTab === 'details'
+                  ? 'bg-[#06B6D4] text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+              aria-pressed={mobileDetailTab === 'details'}
+            >
+              Details
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileDetailTab('comments')}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                mobileDetailTab === 'comments'
+                  ? 'bg-[#06B6D4] text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+              aria-pressed={mobileDetailTab === 'comments'}
+            >
+              Comments ({commentCount})
+            </button>
+          </div>
+        )}
+        <div className={isMobileViewport ? 'flex-1 min-h-0 overflow-hidden' : 'flex-1 grid min-h-0 grid-cols-1 overflow-hidden md:grid-cols-2'}>
+          {isMobileViewport ? (
+            mobileDetailTab === 'details' ? detailsSection : commentsSection
+          ) : (
+            <>
+              {detailsSection}
+              {commentsSection}
+            </>
+          )}
         </div>
 
         {/* Activity sliding panel (from right of modal) */}
@@ -4048,6 +4226,111 @@ function ActivityEntry({ entry }: { entry: TaskActivityLogEntry }) {
   )
 }
 
+function FilterDropdown({
+  value,
+  options,
+  onChange,
+  ariaLabel,
+  renderIcon,
+}: {
+  value: string
+  options: Array<{ value: string; label: string }>
+  onChange: (value: string) => void
+  ariaLabel: string
+  renderIcon?: (value: string) => ReactElement | null
+}) {
+  const [open, setOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const selectedOption = options.find((option) => option.value === value) ?? options[0]
+
+  useEffect(() => {
+    if (!open) return
+
+    const handleOutsideClick = (event: MouseEvent) => {
+      const target = event.target as Node
+      if (dropdownRef.current && !dropdownRef.current.contains(target)) {
+        setOpen(false)
+      }
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleOutsideClick)
+    document.addEventListener('keydown', handleEscape)
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [open])
+
+  return (
+    <div ref={dropdownRef} className="relative">
+      <button
+        type="button"
+        aria-label={ariaLabel}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        onClick={() => setOpen((prev) => !prev)}
+        className={`${FILTER_DROPDOWN_TRIGGER_CLASSES} flex w-full items-center gap-2 text-left`}
+      >
+        <span className="inline-flex min-w-0 items-center gap-1.5">
+          {renderIcon?.(selectedOption.value)}
+          <span className="truncate">{selectedOption.label}</span>
+        </span>
+        <svg
+          className={`ml-auto h-4 w-4 flex-shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full z-40 mt-1 min-w-full overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-xl">
+          <ul role="listbox" aria-label={ariaLabel} className="max-h-56 overflow-y-auto">
+            {options.map((option) => {
+              const isSelected = option.value === value
+              return (
+                <li key={option.value} role="option" aria-selected={isSelected}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChange(option.value)
+                      setOpen(false)
+                    }}
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                      isSelected
+                        ? 'bg-cyan-50/80 font-medium text-cyan-800'
+                        : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="inline-flex min-w-0 items-center gap-1.5">
+                      {renderIcon?.(option.value)}
+                      <span className="truncate">{option.label}</span>
+                    </span>
+                    {isSelected ? (
+                      <svg className="ml-auto h-4 w-4 text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : null}
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function AssigneeSelect({
   value,
   options,
@@ -4228,8 +4511,8 @@ function TaskFormModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
       <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-slate-900">New Task</h2>
+        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4">
+          <h2 className="text-lg font-semibold text-slate-900 sm:text-xl">New Task</h2>
           <button
             type="button"
             onClick={onClose}
@@ -4240,7 +4523,7 @@ function TaskFormModal({
             </svg>
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 space-y-4 sm:p-6">
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-1">Title *</label>
             <input
@@ -4273,7 +4556,7 @@ function TaskFormModal({
               </p>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div ref={typeDropdownRef} className="relative">
               <label className="block text-sm font-semibold text-slate-700 mb-1">Type</label>
               <button
@@ -4347,7 +4630,7 @@ function TaskFormModal({
               )}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div ref={statusDropdownRef} className="relative">
               <label className="block text-sm font-semibold text-slate-700 mb-1">Status</label>
               <button
