@@ -54,6 +54,30 @@ export type TaskAttachment = {
   created_at: string
 }
 
+export type TaskCommentAttachment = {
+  id: string
+  comment_id: string
+  task_id: string
+  project_id: string
+  file_name: string
+  mime_type: string
+  size_bytes: number
+  cloudinary_url: string
+  cloudinary_public_id: string
+  resource_type: string
+  created_by: string
+  created_at: string
+}
+
+export type TaskCommentAttachmentInput = {
+  file_name: string
+  mime_type: string
+  size_bytes: number
+  cloudinary_url: string
+  cloudinary_public_id: string
+  resource_type: string
+}
+
 export type TaskComment = {
   id: string
   task_id: string
@@ -66,6 +90,7 @@ export type TaskComment = {
   created_at: string
   updated_at: string
   mentioned_users: TaskAssignee[]
+  attachments: TaskCommentAttachment[]
 }
 
 export type TaskActivityLogEntry = {
@@ -252,6 +277,63 @@ function buildAssigneeList(rows: Array<{ user_id: string; users?: { full_name: s
   }))
 }
 
+function buildTaskUserMaps(
+  users: Array<{ id: string; full_name: string | null; email: string | null; role: string | null }> | null
+) {
+  const userNameMap = new Map<string, string>()
+  const userEmailMap = new Map<string, string | null>()
+  const userRoleMap = new Map<string, string | null>()
+
+  ;(users || []).forEach((user) => {
+    userNameMap.set(user.id, user.full_name || 'Unknown User')
+    userEmailMap.set(user.id, user.email)
+    userRoleMap.set(user.id, user.role ?? null)
+  })
+
+  return { userNameMap, userEmailMap, userRoleMap }
+}
+
+function mapTaskComment(
+  comment: {
+    id: string
+    task_id: string
+    comment_text: string
+    mentioned_user_ids: string[] | null
+    created_by: string
+    created_at: string
+    updated_at: string
+  },
+  maps: {
+    userNameMap: Map<string, string>
+    userEmailMap: Map<string, string | null>
+    userRoleMap: Map<string, string | null>
+  },
+  attachmentsByComment: Map<string, TaskCommentAttachment[]>
+): TaskComment {
+  const mentionList = comment.mentioned_user_ids || []
+  const mentionedUsers = mentionList.map((id) => ({
+    id,
+    full_name: maps.userNameMap.get(id) || 'Unknown User',
+    email: maps.userEmailMap.get(id) || null,
+    role: maps.userRoleMap.get(id) || null,
+  }))
+
+  return {
+    id: comment.id,
+    task_id: comment.task_id,
+    comment_text: comment.comment_text,
+    mentioned_user_ids: mentionList,
+    created_by: comment.created_by,
+    created_by_name: maps.userNameMap.get(comment.created_by) || 'Unknown User',
+    created_by_email: maps.userEmailMap.get(comment.created_by) || null,
+    created_by_role: maps.userRoleMap.get(comment.created_by) || null,
+    created_at: comment.created_at,
+    updated_at: comment.updated_at,
+    mentioned_users: mentionedUsers,
+    attachments: attachmentsByComment.get(comment.id) || [],
+  }
+}
+
 export async function getProjectTasks(
   projectId: string,
   filters: TaskFilters = {}
@@ -426,6 +508,12 @@ export async function getProjectTaskDetail(taskId: string): Promise<ActionResult
     .eq('task_id', taskId)
     .order('created_at', { ascending: true })
 
+  const { data: commentAttachments } = await (supabase as any)
+    .from('project_task_comment_attachments')
+    .select('*')
+    .eq('task_id', taskId)
+    .order('created_at', { ascending: true })
+
   const { data: activity } = await (supabase as any)
     .from('project_task_activity_log')
     .select('*')
@@ -447,38 +535,20 @@ export async function getProjectTaskDetail(taskId: string): Promise<ActionResult
     .select('id, full_name, email, role')
     .in('id', userIds)
 
-  const userNameMap = new Map<string, string>()
-  const userEmailMap = new Map<string, string | null>()
-  const userRoleMap = new Map<string, string | null>()
-  ;(users as Array<{ id: string; full_name: string | null; email: string | null; role: string | null }> | null)?.forEach(
-    (user) => {
-      userNameMap.set(user.id, user.full_name || 'Unknown User')
-      userEmailMap.set(user.id, user.email)
-      userRoleMap.set(user.id, user.role ?? null)
-    }
+  const { userNameMap, userEmailMap, userRoleMap } = buildTaskUserMaps(
+    (users as Array<{ id: string; full_name: string | null; email: string | null; role: string | null }> | null) || null
   )
 
-  const mappedComments: TaskComment[] = commentList.map((comment) => {
-    const mentioned = (comment.mentioned_user_ids || []).map((id: string) => ({
-      id,
-      full_name: userNameMap.get(id) || 'Unknown User',
-      email: userEmailMap.get(id) || null,
-      role: userRoleMap.get(id) || null,
-    }))
-    return {
-      id: comment.id,
-      task_id: comment.task_id,
-      comment_text: comment.comment_text,
-      mentioned_user_ids: comment.mentioned_user_ids || [],
-      created_by: comment.created_by,
-      created_by_name: userNameMap.get(comment.created_by) || 'Unknown User',
-      created_by_email: userEmailMap.get(comment.created_by) || null,
-      created_by_role: userRoleMap.get(comment.created_by) || null,
-      created_at: comment.created_at,
-      updated_at: comment.updated_at,
-      mentioned_users: mentioned,
-    }
+  const attachmentsByComment = new Map<string, TaskCommentAttachment[]>()
+  ;((commentAttachments as TaskCommentAttachment[] | null) || []).forEach((attachment) => {
+    const existing = attachmentsByComment.get(attachment.comment_id) || []
+    existing.push(attachment)
+    attachmentsByComment.set(attachment.comment_id, existing)
   })
+
+  const mappedComments: TaskComment[] = commentList.map((comment) =>
+    mapTaskComment(comment, { userNameMap, userEmailMap, userRoleMap }, attachmentsByComment)
+  )
 
   const mappedActivity: TaskActivityLogEntry[] = activityList.map((entry) => ({
     id: entry.id,
@@ -1046,7 +1116,8 @@ export async function deleteProjectTask(taskId: string): Promise<ActionResult<{ 
 export async function createTaskComment(
   taskId: string,
   commentText: string,
-  mentionIds: string[] = []
+  mentionIds: string[] = [],
+  attachments: TaskCommentAttachmentInput[] = []
 ): Promise<ActionResult<TaskComment>> {
   const currentUser = await getCurrentUser()
   if (!currentUser) {
@@ -1058,8 +1129,17 @@ export async function createTaskComment(
   }
 
   const trimmed = commentText.trim()
-  if (!trimmed) {
-    return { data: null, error: 'Comment cannot be empty.' }
+  if (!trimmed && attachments.length === 0) {
+    return { data: null, error: 'Please add comment text or at least one attachment.' }
+  }
+
+  for (const attachment of attachments) {
+    if (attachment.size_bytes > TASK_MAX_ATTACHMENT_SIZE_BYTES) {
+      return { data: null, error: 'One or more attachments exceed the 5MB limit.' }
+    }
+    if (!TASK_ALLOWED_MIME_TYPES.includes(attachment.mime_type as any)) {
+      return { data: null, error: 'One or more attachments are not an allowed file type.' }
+    }
   }
 
   const supabase = await createClient()
@@ -1086,7 +1166,7 @@ export async function createTaskComment(
     .from('project_task_comments')
     .insert({
       task_id: taskId,
-      comment_text: trimmed,
+      comment_text: trimmed || '',
       mentioned_user_ids: mentionList,
       created_by: currentUser.id,
     })
@@ -1098,15 +1178,59 @@ export async function createTaskComment(
     return { data: null, error: error?.message || 'Failed to add comment.' }
   }
 
+  let createdAttachments: TaskCommentAttachment[] = []
+  if (attachments.length > 0) {
+    const { data: insertedAttachments, error: attachmentError } = await (supabase as any)
+      .from('project_task_comment_attachments')
+      .insert(
+        attachments.map((attachment) => ({
+          comment_id: comment.id,
+          task_id: taskId,
+          project_id: task.project_id,
+          file_name: attachment.file_name,
+          mime_type: attachment.mime_type,
+          size_bytes: attachment.size_bytes,
+          cloudinary_url: attachment.cloudinary_url,
+          cloudinary_public_id: attachment.cloudinary_public_id,
+          resource_type: attachment.resource_type,
+          created_by: currentUser.id,
+        }))
+      )
+      .select('*')
+
+    if (attachmentError) {
+      console.error('Error creating task comment attachments:', attachmentError)
+      await deleteCloudinaryAssets(
+        attachments.map((attachment) => ({
+          publicId: attachment.cloudinary_public_id,
+          resourceType: attachment.resource_type,
+        }))
+      )
+      await (supabase as any).from('project_task_comments').delete().eq('id', comment.id)
+      return { data: null, error: attachmentError.message || 'Failed to add comment attachments.' }
+    }
+
+    createdAttachments = (insertedAttachments as TaskCommentAttachment[]) || []
+  }
+
   await insertTaskActivity(supabase, {
     taskId,
     projectId: task.project_id,
     eventType: 'comment_added',
-    eventMeta: { mentioned_user_ids: mentionList },
+    eventMeta: {
+      mentioned_user_ids: mentionList,
+      attachment_count: createdAttachments.length,
+    },
     createdBy: currentUser.id,
   })
 
   if (mentionList.length > 0) {
+    const notificationBody = trimmed
+      ? trimmed.slice(0, 120)
+      : createdAttachments.length > 0
+        ? `Added ${createdAttachments.length} attachment${createdAttachments.length > 1 ? 's' : ''}.`
+        : null
+
     await insertNotifications(
       supabase,
       mentionList
@@ -1117,7 +1241,7 @@ export async function createTaskComment(
           task_id: taskId,
           type: 'task_mention',
           title: 'You were mentioned',
-          body: trimmed.slice(0, 120),
+          body: notificationBody,
           meta: { comment_id: comment.id },
           created_by: currentUser.id,
         }))
@@ -1129,36 +1253,14 @@ export async function createTaskComment(
     .select('id, full_name, email, role')
     .in('id', uniqueIds([comment.created_by, ...mentionList]))
 
-  const userNameMap = new Map<string, string>()
-  const userEmailMap = new Map<string, string | null>()
-  const userRoleMap = new Map<string, string | null>()
-  ;(users as Array<{ id: string; full_name: string | null; email: string | null; role: string | null }> | null)?.forEach(
-    (user) => {
-      userNameMap.set(user.id, user.full_name || 'Unknown User')
-      userEmailMap.set(user.id, user.email)
-      userRoleMap.set(user.id, user.role ?? null)
-    }
+  const { userNameMap, userEmailMap, userRoleMap } = buildTaskUserMaps(
+    (users as Array<{ id: string; full_name: string | null; email: string | null; role: string | null }> | null) || null
   )
+  const attachmentsByComment = new Map<string, TaskCommentAttachment[]>()
+  attachmentsByComment.set(comment.id, createdAttachments)
 
   return {
-    data: {
-      id: comment.id,
-      task_id: comment.task_id,
-      comment_text: comment.comment_text,
-      mentioned_user_ids: comment.mentioned_user_ids || [],
-      created_by: comment.created_by,
-      created_by_name: userNameMap.get(comment.created_by) || 'Unknown User',
-      created_by_email: userEmailMap.get(comment.created_by) || null,
-      created_by_role: userRoleMap.get(comment.created_by) || null,
-      created_at: comment.created_at,
-      updated_at: comment.updated_at,
-      mentioned_users: mentionList.map((id) => ({
-        id,
-        full_name: userNameMap.get(id) || 'Unknown User',
-        email: userEmailMap.get(id) || null,
-        role: userRoleMap.get(id) || null,
-      })),
-    },
+    data: mapTaskComment(comment, { userNameMap, userEmailMap, userRoleMap }, attachmentsByComment),
     error: null,
   }
 }
@@ -1184,21 +1286,27 @@ export async function updateTaskComment(
     return { data: null, error: 'Comment not found.' }
   }
 
-  const canManage = isAdminManager(currentUser.role)
-  if (!canManage && existing.created_by !== currentUser.id) {
+  if (existing.created_by !== currentUser.id) {
     return { data: null, error: 'You can only edit your own comments.' }
   }
 
   const trimmed = commentText.trim()
   if (!trimmed) {
-    return { data: null, error: 'Comment cannot be empty.' }
+    const { count: attachmentCount } = await (supabase as any)
+      .from('project_task_comment_attachments')
+      .select('*', { count: 'exact', head: true })
+      .eq('comment_id', commentId)
+
+    if ((attachmentCount ?? 0) === 0) {
+      return { data: null, error: 'Please add comment text or keep at least one attachment.' }
+    }
   }
 
   const mentionList = uniqueIds(mentionIds)
 
   const { data: comment, error } = await (supabase as any)
     .from('project_task_comments')
-    .update({ comment_text: trimmed, mentioned_user_ids: mentionList })
+    .update({ comment_text: trimmed || '', mentioned_user_ids: mentionList })
     .eq('id', commentId)
     .select('*')
     .single()
@@ -1213,36 +1321,20 @@ export async function updateTaskComment(
     .select('id, full_name, email, role')
     .in('id', uniqueIds([comment.created_by, ...mentionList]))
 
-  const userNameMap = new Map<string, string>()
-  const userEmailMap = new Map<string, string | null>()
-  const userRoleMap = new Map<string, string | null>()
-  ;(users as Array<{ id: string; full_name: string | null; email: string | null; role: string | null }> | null)?.forEach(
-    (user) => {
-      userNameMap.set(user.id, user.full_name || 'Unknown User')
-      userEmailMap.set(user.id, user.email)
-      userRoleMap.set(user.id, user.role ?? null)
-    }
+  const { data: attachments } = await (supabase as any)
+    .from('project_task_comment_attachments')
+    .select('*')
+    .eq('comment_id', comment.id)
+    .order('created_at', { ascending: true })
+
+  const { userNameMap, userEmailMap, userRoleMap } = buildTaskUserMaps(
+    (users as Array<{ id: string; full_name: string | null; email: string | null; role: string | null }> | null) || null
   )
+  const attachmentsByComment = new Map<string, TaskCommentAttachment[]>()
+  attachmentsByComment.set(comment.id, (attachments as TaskCommentAttachment[]) || [])
 
   return {
-    data: {
-      id: comment.id,
-      task_id: comment.task_id,
-      comment_text: comment.comment_text,
-      mentioned_user_ids: comment.mentioned_user_ids || [],
-      created_by: comment.created_by,
-      created_by_name: userNameMap.get(comment.created_by) || 'Unknown User',
-      created_by_email: userEmailMap.get(comment.created_by) || null,
-      created_by_role: userRoleMap.get(comment.created_by) || null,
-      created_at: comment.created_at,
-      updated_at: comment.updated_at,
-      mentioned_users: mentionList.map((id) => ({
-        id,
-        full_name: userNameMap.get(id) || 'Unknown User',
-        email: userEmailMap.get(id) || null,
-        role: userRoleMap.get(id) || null,
-      })),
-    },
+    data: mapTaskComment(comment, { userNameMap, userEmailMap, userRoleMap }, attachmentsByComment),
     error: null,
   }
 }
@@ -1264,17 +1356,175 @@ export async function deleteTaskComment(commentId: string): Promise<ActionResult
     return { data: null, error: 'Comment not found.' }
   }
 
-  const canManage = isAdminManager(currentUser.role)
-  if (!canManage && existing.created_by !== currentUser.id) {
+  if (existing.created_by !== currentUser.id) {
     return { data: null, error: 'You can only delete your own comments.' }
   }
+
+  const { data: attachments } = await (supabase as any)
+    .from('project_task_comment_attachments')
+    .select('cloudinary_public_id, resource_type')
+    .eq('comment_id', commentId)
 
   const { error } = await (supabase as any).from('project_task_comments').delete().eq('id', commentId)
   if (error) {
     return { data: null, error: error.message || 'Failed to delete comment.' }
   }
 
+  const attachmentList =
+    (attachments as Array<{ cloudinary_public_id: string; resource_type: string }> | null) || []
+  if (attachmentList.length > 0) {
+    await deleteCloudinaryAssets(
+      attachmentList.map((attachment) => ({
+        publicId: attachment.cloudinary_public_id,
+        resourceType: attachment.resource_type,
+      }))
+    )
+  }
+
   return { data: { taskId: existing.task_id }, error: null }
+}
+
+export async function deleteTaskCommentAttachment(
+  attachmentId: string
+): Promise<ActionResult<{ taskId: string; commentId: string; deletedCommentId: string | null }>> {
+  const currentUser = await getCurrentUser()
+  if (!currentUser) {
+    return { data: null, error: 'You must be logged in to delete attachments.' }
+  }
+
+  if (currentUser.role === 'client') {
+    return { data: null, error: 'Clients cannot delete comment attachments.' }
+  }
+
+  const supabase = await createClient()
+  const { data: attachment } = await (supabase as any)
+    .from('project_task_comment_attachments')
+    .select('id, comment_id, task_id, project_id, cloudinary_public_id, resource_type')
+    .eq('id', attachmentId)
+    .single()
+
+  if (!attachment) {
+    return { data: null, error: 'Attachment not found.' }
+  }
+
+  const attachmentRow = attachment as {
+    id: string
+    comment_id: string
+    task_id: string
+    project_id: string
+    cloudinary_public_id: string
+    resource_type: string
+  }
+
+  const { data: comment } = await (supabase as any)
+    .from('project_task_comments')
+    .select('id, created_by, comment_text')
+    .eq('id', attachmentRow.comment_id)
+    .single()
+
+  if (!comment) {
+    return { data: null, error: 'Comment not found.' }
+  }
+
+  const commentRow = comment as { id: string; created_by: string; comment_text: string }
+  if (commentRow.created_by !== currentUser.id) {
+    return { data: null, error: 'You can only delete attachments from your own comments.' }
+  }
+
+  const { error: deleteError } = await (supabase as any)
+    .from('project_task_comment_attachments')
+    .delete()
+    .eq('id', attachmentId)
+
+  if (deleteError) {
+    return { data: null, error: deleteError.message || 'Failed to delete comment attachment.' }
+  }
+
+  await deleteCloudinaryAssets([
+    {
+      publicId: attachmentRow.cloudinary_public_id,
+      resourceType: attachmentRow.resource_type,
+    },
+  ])
+
+  let deletedCommentId: string | null = null
+  if (!(commentRow.comment_text || '').trim()) {
+    const { count } = await (supabase as any)
+      .from('project_task_comment_attachments')
+      .select('*', { count: 'exact', head: true })
+      .eq('comment_id', commentRow.id)
+
+    if ((count ?? 0) === 0) {
+      const { error: deleteCommentError } = await (supabase as any)
+        .from('project_task_comments')
+        .delete()
+        .eq('id', commentRow.id)
+      if (!deleteCommentError) {
+        deletedCommentId = commentRow.id
+      }
+    }
+  }
+
+  revalidatePath(`/dashboard/projects/${attachmentRow.project_id}`)
+
+  return {
+    data: {
+      taskId: attachmentRow.task_id,
+      commentId: commentRow.id,
+      deletedCommentId,
+    },
+    error: null,
+  }
+}
+
+export async function getTaskCommentUploadSignature(
+  taskId: string
+): Promise<ActionResult<CloudinaryUploadSignature>> {
+  const currentUser = await getCurrentUser()
+  if (!currentUser) {
+    return { data: null, error: 'You must be logged in to upload comment attachments.' }
+  }
+
+  if (currentUser.role === 'client') {
+    return { data: null, error: 'Clients cannot upload comment attachments.' }
+  }
+
+  const supabase = await createClient()
+  const { data: task } = await (supabase as any)
+    .from('project_tasks')
+    .select('project_id')
+    .eq('id', taskId)
+    .single()
+
+  if (!task) {
+    return { data: null, error: 'Task not found.' }
+  }
+
+  if (!isAdminManager(currentUser.role)) {
+    if (currentUser.role !== 'staff') {
+      return { data: null, error: 'You do not have permission to upload comment attachments.' }
+    }
+    const isAssigned = await isUserAssignedToProject(supabase, task.project_id, currentUser.id)
+    if (!isAssigned) {
+      return { data: null, error: 'You do not have permission to upload comment attachments.' }
+    }
+  }
+
+  const { cloudName, apiKey, apiSecret } = getCloudinaryConfig()
+  const timestamp = Math.floor(Date.now() / 1000)
+  const folder = TASK_CLOUDINARY_FOLDER
+  const signature = signCloudinaryParams({ timestamp, folder }, apiSecret)
+
+  return {
+    data: {
+      signature,
+      timestamp,
+      cloudName,
+      apiKey,
+      folder,
+    },
+    error: null,
+  }
 }
 
 export async function getTaskUploadSignature(

@@ -20,6 +20,7 @@ import {
   TASK_TYPES,
   TASK_TYPE_LABELS,
   TASK_MAX_ATTACHMENT_SIZE_BYTES,
+  TASK_ALLOWED_MIME_TYPES,
   TASK_ALLOWED_EXTENSIONS,
   TASK_EXTENSION_MIME_MAP,
   type TaskStatus,
@@ -37,6 +38,8 @@ import {
   createTaskComment,
   updateTaskComment,
   deleteTaskComment,
+  deleteTaskCommentAttachment,
+  getTaskCommentUploadSignature,
   getTaskUploadSignature,
   createTaskAttachments,
   deleteTaskAttachment,
@@ -44,6 +47,7 @@ import {
   type ProjectTaskListItem,
   type ProjectTaskDetail,
   type TaskComment,
+  type TaskCommentAttachmentInput,
   type TaskAttachment,
   type TaskActivityLogEntry,
   type TaskAssignee,
@@ -52,7 +56,118 @@ import {
 import type { StaffSelectOption } from '@/lib/users/actions'
 
 const MAX_FILE_MB = TASK_MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024)
-const ACCEPTED_EXT = TASK_ALLOWED_EXTENSIONS.map((e) => `.${e}`).join(',')
+const ACCEPTED_FILE_TYPES = Array.from(
+  new Set<string>([
+    ...TASK_ALLOWED_MIME_TYPES,
+    ...TASK_ALLOWED_EXTENSIONS.map((extension) => `.${extension}`),
+  ])
+).join(',')
+
+const TASK_ALLOWED_MIME_TYPE_SET = new Set<string>(TASK_ALLOWED_MIME_TYPES)
+
+type TaskAttachmentFileValidation =
+  | { ok: true; mimeType: string }
+  | { ok: false; title: string; message: string }
+
+function getTaskAttachmentFileExtension(fileName: string) {
+  const parts = fileName.split('.')
+  return parts.length > 1 ? parts.pop()!.toLowerCase() : ''
+}
+
+function normalizeTaskAttachmentMimeType(mimeType: string | null | undefined) {
+  if (!mimeType) return ''
+  const normalized = mimeType.trim().toLowerCase()
+  return normalized === 'image/jpg' ? 'image/jpeg' : normalized
+}
+
+function resolveTaskAttachmentMimeType(file: Pick<File, 'name' | 'type'>): string | null {
+  const normalizedMimeType = normalizeTaskAttachmentMimeType(file.type)
+  if (normalizedMimeType && TASK_ALLOWED_MIME_TYPE_SET.has(normalizedMimeType)) {
+    return normalizedMimeType
+  }
+
+  const extension = getTaskAttachmentFileExtension(file.name)
+  return TASK_EXTENSION_MIME_MAP[extension] ?? null
+}
+
+function validateTaskAttachmentFile(file: File): TaskAttachmentFileValidation {
+  if (file.size > TASK_MAX_ATTACHMENT_SIZE_BYTES) {
+    return {
+      ok: false,
+      title: 'File too large',
+      message: `${file.name} exceeds ${MAX_FILE_MB} MB.`,
+    }
+  }
+
+  const mimeType = resolveTaskAttachmentMimeType(file)
+  if (!mimeType) {
+    return {
+      ok: false,
+      title: 'File type not allowed',
+      message: `${file.name} is not a supported type.`,
+    }
+  }
+
+  return { ok: true, mimeType }
+}
+
+async function uploadTaskFilesToCloudinary(
+  files: File[],
+  signature: { apiKey: string; timestamp: number; signature: string; folder: string; cloudName: string }
+): Promise<
+  | {
+      ok: true
+      uploaded: TaskCommentAttachmentInput[]
+    }
+  | {
+      ok: false
+      errorTitle: string
+      errorMessage: string
+    }
+> {
+  const uploaded: TaskCommentAttachmentInput[] = []
+
+  for (const file of files) {
+    const validation = validateTaskAttachmentFile(file)
+    if (!validation.ok) {
+      return { ok: false, errorTitle: validation.title, errorMessage: validation.message }
+    }
+
+    const mimeType = validation.mimeType
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('api_key', signature.apiKey)
+    formData.append('timestamp', String(signature.timestamp))
+    formData.append('signature', signature.signature)
+    formData.append('folder', signature.folder)
+
+    try {
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${signature.cloudName}/auto/upload`,
+        { method: 'POST', body: formData }
+      )
+      if (!response.ok) throw new Error('Upload failed')
+      const data = await response.json()
+
+      uploaded.push({
+        file_name: file.name,
+        mime_type: mimeType,
+        size_bytes: file.size,
+        cloudinary_url: data.secure_url,
+        cloudinary_public_id: data.public_id,
+        resource_type: data.resource_type ?? (mimeType.startsWith('image/') ? 'image' : 'raw'),
+      })
+    } catch {
+      return {
+        ok: false,
+        errorTitle: 'Upload failed',
+        errorMessage: `Could not upload ${file.name}.`,
+      }
+    }
+  }
+
+  return { ok: true, uploaded }
+}
 /** When selectedTaskId is this value, Task Detail panel opens in creation mode (no popup). */
 const CREATE_TASK_SENTINEL = '__create__'
 
@@ -303,16 +418,12 @@ export function ProjectTasks({
       const signature = sigResult.data
       const uploaded: Array<{ file_name: string; mime_type: string; size_bytes: number; cloudinary_url: string; cloudinary_public_id: string; resource_type: string }> = []
       for (const file of initial_files) {
-        if (file.size > TASK_MAX_ATTACHMENT_SIZE_BYTES) {
-          showError('File too large', `${file.name} exceeds ${MAX_FILE_MB} MB.`)
+        const validation = validateTaskAttachmentFile(file)
+        if (!validation.ok) {
+          showError(validation.title, validation.message)
           break
         }
-        const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
-        const mime = TASK_EXTENSION_MIME_MAP[ext]
-        if (!mime) {
-          showError('File type not allowed', `${file.name} is not a supported type.`)
-          break
-        }
+        const mimeType = validation.mimeType
         const formData = new FormData()
         formData.append('file', file)
         formData.append('api_key', signature.apiKey)
@@ -325,11 +436,11 @@ export function ProjectTasks({
           const data = await res.json()
           uploaded.push({
             file_name: file.name,
-            mime_type: file.type,
+            mime_type: mimeType,
             size_bytes: file.size,
             cloudinary_url: data.secure_url,
             cloudinary_public_id: data.public_id,
-            resource_type: data.resource_type ?? 'raw',
+            resource_type: data.resource_type ?? (mimeType.startsWith('image/') ? 'image' : 'raw'),
           })
         } catch {
           showError('Upload failed', `Could not upload ${file.name}.`)
@@ -442,12 +553,36 @@ export function ProjectTasks({
   const handleAddComment = async (
     taskId: string,
     commentText: string,
-    mentionIds: string[]
-  ) => {
-    const result = await createTaskComment(taskId, commentText, mentionIds)
+    mentionIds: string[],
+    files: File[] = []
+  ): Promise<boolean> => {
+    const trimmed = commentText.trim()
+    if (!trimmed && files.length === 0) {
+      showError('Comment required', 'Add a comment or at least one attachment before posting.')
+      return false
+    }
+
+    let uploadedAttachments: TaskCommentAttachmentInput[] = []
+    if (files.length > 0) {
+      const signatureResult = await getTaskCommentUploadSignature(taskId)
+      if (signatureResult.error || !signatureResult.data) {
+        showError('Upload failed', signatureResult.error ?? 'Could not prepare upload.')
+        return false
+      }
+
+      const uploadResult = await uploadTaskFilesToCloudinary(files, signatureResult.data)
+      if (!uploadResult.ok) {
+        showError(uploadResult.errorTitle, uploadResult.errorMessage)
+        return false
+      }
+
+      uploadedAttachments = uploadResult.uploaded
+    }
+
+    const result = await createTaskComment(taskId, trimmed, mentionIds, uploadedAttachments)
     if (result.error) {
       showError('Comment failed', result.error)
-      return
+      return false
     }
     showSuccess('Comment added', '')
     if (result.data && taskDetail?.id === taskId) {
@@ -456,6 +591,7 @@ export function ProjectTasks({
       )
     }
     router.refresh()
+    return true
   }
 
   const handleUpdateComment = async (
@@ -495,6 +631,45 @@ export function ProjectTasks({
     router.refresh()
   }
 
+  const handleDeleteCommentAttachment = async (
+    taskId: string,
+    commentId: string,
+    attachmentId: string
+  ): Promise<void> => {
+    const result = await deleteTaskCommentAttachment(attachmentId)
+    if (result.error || !result.data) {
+      showError('Delete failed', result.error ?? 'Failed to delete attachment.')
+      return
+    }
+
+    if (taskDetail?.id === taskId) {
+      setTaskDetail((prev) => {
+        if (!prev) return prev
+        if (result.data?.deletedCommentId) {
+          return {
+            ...prev,
+            comments: prev.comments.filter((comment) => comment.id !== result.data!.deletedCommentId),
+          }
+        }
+
+        return {
+          ...prev,
+          comments: prev.comments.map((comment) =>
+            comment.id === commentId
+              ? {
+                  ...comment,
+                  attachments: comment.attachments.filter((attachment) => attachment.id !== attachmentId),
+                }
+              : comment
+          ),
+        }
+      })
+    }
+
+    showSuccess('Attachment removed', '')
+    router.refresh()
+  }
+
   const handleUploadAttachments = async (
     taskId: string,
     files: File[]
@@ -504,52 +679,13 @@ export function ProjectTasks({
       showError('Upload failed', sigResult.error ?? 'Could not prepare upload.')
       return false
     }
-    const signature = sigResult.data
-    const uploaded: Array<{
-      file_name: string
-      mime_type: string
-      size_bytes: number
-      cloudinary_url: string
-      cloudinary_public_id: string
-      resource_type: string
-    }> = []
-    for (const file of files) {
-      if (file.size > TASK_MAX_ATTACHMENT_SIZE_BYTES) {
-        showError('File too large', `${file.name} exceeds ${MAX_FILE_MB} MB.`)
-        return false
-      }
-      const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
-      const mime = TASK_EXTENSION_MIME_MAP[ext]
-      if (!mime) {
-        showError('File type not allowed', `${file.name} is not a supported type.`)
-        return false
-      }
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('api_key', signature.apiKey)
-      formData.append('timestamp', String(signature.timestamp))
-      formData.append('signature', signature.signature)
-      formData.append('folder', signature.folder)
-      try {
-        const res = await fetch(
-          `https://api.cloudinary.com/v1_1/${signature.cloudName}/auto/upload`,
-          { method: 'POST', body: formData }
-        )
-        if (!res.ok) throw new Error('Upload failed')
-        const data = await res.json()
-        uploaded.push({
-          file_name: file.name,
-          mime_type: file.type,
-          size_bytes: file.size,
-          cloudinary_url: data.secure_url,
-          cloudinary_public_id: data.public_id,
-          resource_type: data.resource_type ?? 'raw',
-        })
-      } catch {
-        showError('Upload failed', `Could not upload ${file.name}.`)
-        return false
-      }
+    const uploadResult = await uploadTaskFilesToCloudinary(files, sigResult.data)
+    if (!uploadResult.ok) {
+      showError(uploadResult.errorTitle, uploadResult.errorMessage)
+      return false
     }
+
+    const uploaded = uploadResult.uploaded
     const createResult = await createTaskAttachments(taskId, uploaded)
     if (createResult.error) {
       showError('Save failed', createResult.error)
@@ -994,6 +1130,7 @@ export function ProjectTasks({
             onAddComment={handleAddComment}
             onUpdateComment={handleUpdateComment}
             onDeleteComment={handleDeleteComment}
+            onDeleteCommentAttachment={handleDeleteCommentAttachment}
             onUploadAttachments={handleUploadAttachments}
             onRemoveAttachment={handleRemoveAttachment}
             onTaskDeleted={() => setSelectedTaskId(null)}
@@ -1677,6 +1814,7 @@ function TaskDetailPanel({
   onAddComment,
   onUpdateComment,
   onDeleteComment,
+  onDeleteCommentAttachment,
   onUploadAttachments,
   onRemoveAttachment,
   onTaskDeleted,
@@ -1724,9 +1862,10 @@ function TaskDetailPanel({
   ) => Promise<unknown>
   onRequestDelete: () => void
   onAssigneesChange: (taskId: string, assigneeIds: string[]) => void
-  onAddComment: (taskId: string, text: string, mentionIds: string[]) => void
+  onAddComment: (taskId: string, text: string, mentionIds: string[], files: File[]) => Promise<boolean>
   onUpdateComment: (taskId: string, commentId: string, text: string, mentionIds: string[]) => void
   onDeleteComment: (taskId: string, commentId: string) => void
+  onDeleteCommentAttachment: (taskId: string, commentId: string, attachmentId: string) => Promise<void>
   onUploadAttachments: (taskId: string, files: File[]) => Promise<boolean>
   onRemoveAttachment: (attachmentId: string) => void
   onTaskDeleted: () => void
@@ -1756,11 +1895,16 @@ function TaskDetailPanel({
   const [mentionSearch, setMentionSearch] = useState('')
   const [mentionAnchorIndex, setMentionAnchorIndex] = useState(-1)
   const [mentionHighlightIndex, setMentionHighlightIndex] = useState(0)
+  const [commentFiles, setCommentFiles] = useState<File[]>([])
+  const [commentFilePreviews, setCommentFilePreviews] = useState<Array<{ isImage: boolean; previewUrl: string | null }>>([])
+  const [commentSubmitting, setCommentSubmitting] = useState(false)
   const [fileInputKey, setFileInputKey] = useState(0)
   const [attachmentMenuOpenId, setAttachmentMenuOpenId] = useState<string | null>(null)
   const [activityPanelOpen, setActivityPanelOpen] = useState(false)
   const [detailDropdownOpen, setDetailDropdownOpen] = useState<'status' | 'assignee' | 'priority' | 'type' | null>(null)
   const [detailDropdownRect, setDetailDropdownRect] = useState<{ top: number; left: number } | null>(null)
+  const commentAttachmentInputRef = useRef<HTMLInputElement>(null)
+  const commentPreviewUrlsRef = useRef<Set<string>>(new Set())
   const detailStatusRef = useRef<HTMLButtonElement>(null)
   const detailAssigneeRef = useRef<HTMLButtonElement>(null)
   const detailPriorityRef = useRef<HTMLButtonElement>(null)
@@ -1888,6 +2032,63 @@ function TaskDetailPanel({
     return name.includes(search)
   }).slice(0, 8)
 
+  const validateSelectedAttachmentFiles = (files: File[]) => {
+    for (const file of files) {
+      const validation = validateTaskAttachmentFile(file)
+      if (!validation.ok) {
+        showError(validation.title, validation.message)
+        return false
+      }
+    }
+    return true
+  }
+
+  const clearSelectedCommentFiles = () => {
+    setCommentFiles([])
+    setCommentFilePreviews((prev) => {
+      prev.forEach((entry) => {
+        if (!entry.previewUrl) return
+        URL.revokeObjectURL(entry.previewUrl)
+        commentPreviewUrlsRef.current.delete(entry.previewUrl)
+      })
+      return []
+    })
+  }
+
+  useEffect(() => {
+    const previewUrlsRef = commentPreviewUrlsRef
+    return () => {
+      previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url))
+      previewUrlsRef.current.clear()
+    }
+  }, [])
+
+  const handleCommentAttachmentSelect = (files: File[]) => {
+    if (commentSubmitting || files.length === 0) return
+    if (!validateSelectedAttachmentFiles(files)) return
+    const previews = files.map((file) => {
+      const mimeType = resolveTaskAttachmentMimeType(file) || ''
+      const isImage = mimeType.startsWith('image/')
+      const previewUrl = isImage ? URL.createObjectURL(file) : null
+      if (previewUrl) commentPreviewUrlsRef.current.add(previewUrl)
+      return { isImage, previewUrl }
+    })
+    setCommentFiles((prev) => [...prev, ...files])
+    setCommentFilePreviews((prev) => [...prev, ...previews])
+  }
+
+  const handleCommentAttachmentRemove = (index: number) => {
+    setCommentFiles((prev) => prev.filter((_, fileIndex) => fileIndex !== index))
+    setCommentFilePreviews((prev) => {
+      const target = prev[index]
+      if (target?.previewUrl) {
+        URL.revokeObjectURL(target.previewUrl)
+        commentPreviewUrlsRef.current.delete(target.previewUrl)
+      }
+      return prev.filter((_, fileIndex) => fileIndex !== index)
+    })
+  }
+
   const handleCommentTextChange = (value: string) => {
     setCommentText(value)
     const lastAt = value.lastIndexOf('@')
@@ -1916,13 +2117,23 @@ function TaskDetailPanel({
     setMentionSearch('')
   }
 
-  const handleCommentSubmit = () => {
+  const handleCommentSubmit = async () => {
     const trimmed = commentText.trim()
-    if (!trimmed) return
-    onAddComment(taskId, trimmed, mentionIds)
+    if (!trimmed && commentFiles.length === 0) {
+      showError('Comment required', 'Add a comment or at least one attachment before posting.')
+      return
+    }
+
+    setCommentSubmitting(true)
+    const ok = await onAddComment(taskId, trimmed, mentionIds, commentFiles)
+    setCommentSubmitting(false)
+    if (!ok) return
+
     setCommentText('')
     setMentionIds([])
     setShowMentionPicker(false)
+    setMentionSearch('')
+    clearSelectedCommentFiles()
   }
 
   const isCreateFlow = isCreateMode && !taskDetail && !detailLoading
@@ -2096,11 +2307,15 @@ function TaskDetailPanel({
               <label className="flex items-center justify-center gap-2 h-[60px] min-h-[60px] rounded-xl border-2 border-dashed border-slate-300 bg-slate-50/50 px-4 cursor-pointer transition-colors hover:border-[#06B6D4]/50 hover:bg-slate-50 focus-within:ring-2 focus-within:ring-[#06B6D4]/30 focus-within:border-[#06B6D4]">
                 <input
                   type="file"
-                  accept={ACCEPTED_EXT}
+                  accept={ACCEPTED_FILE_TYPES}
                   multiple
                   className="sr-only"
                   onChange={(e) => {
                     const list = Array.from(e.target.files ?? [])
+                    if (list.length > 0 && !validateSelectedAttachmentFiles(list)) {
+                      e.target.value = ''
+                      return
+                    }
                     setCreateInitialFiles((prev) => [...prev, ...list])
                     e.target.value = ''
                   }}
@@ -2130,12 +2345,16 @@ function TaskDetailPanel({
               <input
                 key={fileInputKey}
                 type="file"
-                accept={ACCEPTED_EXT}
+                accept={ACCEPTED_FILE_TYPES}
                 multiple
                 className="sr-only"
                 onChange={async (e) => {
                   const files = Array.from(e.target.files ?? [])
                   if (files.length === 0) return
+                  if (!validateSelectedAttachmentFiles(files)) {
+                    e.target.value = ''
+                    return
+                  }
                   const ok = await onUploadAttachments(taskId, files)
                   if (ok) setFileInputKey((k) => k + 1)
                   e.target.value = ''
@@ -2275,6 +2494,7 @@ function TaskDetailPanel({
                   taskId={taskId}
                   onUpdateComment={onUpdateComment}
                   onDeleteComment={onDeleteComment}
+                  onDeleteCommentAttachment={onDeleteCommentAttachment}
                   getInitials={getInitials}
                 />
               ))}
@@ -2323,13 +2543,95 @@ function TaskDetailPanel({
                       rows={3}
                     />
                   </div>
+                  <input
+                    ref={commentAttachmentInputRef}
+                    type="file"
+                    accept={ACCEPTED_FILE_TYPES}
+                    multiple
+                    className="sr-only"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files ?? [])
+                      e.target.value = ''
+                      if (files.length === 0) return
+                      handleCommentAttachmentSelect(files)
+                    }}
+                  />
+                  {commentFiles.length > 0 && (
+                    <div className="border-t border-slate-200 px-3 py-2">
+                      <div className="flex flex-wrap gap-3 overflow-x-auto">
+                        {commentFiles.map((file, index) => {
+                          const preview = commentFilePreviews[index]
+                          const isImage = preview?.isImage ?? false
+                          const objectUrl = preview?.previewUrl ?? null
+                          const extension = getTaskAttachmentFileExtension(file.name)
+                          const isPdf = extension === 'pdf'
+
+                          return (
+                            <div
+                              key={`${file.name}-${index}`}
+                              className="relative w-[148px] flex-shrink-0"
+                            >
+                              <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm ring-1 ring-slate-100">
+                                <div className="h-20 w-full bg-slate-100">
+                                  {isImage && objectUrl ? (
+                                    <img
+                                      src={objectUrl}
+                                      alt={file.name}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="flex h-full w-full flex-col items-center justify-center gap-1 p-2">
+                                      <svg
+                                        className={`h-8 w-8 ${isPdf ? 'text-red-500' : 'text-slate-500'}`}
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                        strokeWidth={2}
+                                        aria-hidden
+                                      >
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m-6-8h6M7 20h10a2 2 0 002-2V8l-6-6H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                      </svg>
+                                      {extension ? (
+                                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase ${isPdf ? 'bg-rose-50 text-rose-600' : 'bg-slate-200 text-slate-600'}`}>
+                                          {extension}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="border-t border-slate-200/80 bg-white px-2 py-1.5">
+                                  <p className="truncate text-xs font-medium text-slate-700" title={file.name}>
+                                    {file.name}
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCommentAttachmentRemove(index)}
+                                  disabled={commentSubmitting}
+                                  className="absolute right-1.5 top-1.5 z-10 inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/90 bg-white text-rose-600 shadow-md transition-colors hover:bg-rose-50 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:ring-offset-1 disabled:opacity-50"
+                                  aria-label={`Remove ${file.name}`}
+                                  title="Remove attachment"
+                                >
+                                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.4}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
                   {/* Toolbar inside container: attachment + send only */}
                   <div className="flex-shrink-0 flex items-center justify-between gap-2 px-3 py-2 border-t border-slate-200 rounded-b-xl bg-slate-50/50">
                     <div className="flex items-center gap-1">
                       <Tooltip content="Attach file">
                         <button
                           type="button"
-                          className="p-2 rounded-lg text-slate-500 hover:bg-slate-200/60 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30"
+                          onClick={() => commentAttachmentInputRef.current?.click()}
+                          disabled={commentSubmitting}
+                          className="p-2 rounded-lg text-slate-500 hover:bg-slate-200/60 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30 disabled:opacity-50 disabled:hover:bg-transparent"
                           aria-label="Attach file"
                           title="Attach file"
                         >
@@ -2339,20 +2641,37 @@ function TaskDetailPanel({
                         </button>
                       </Tooltip>
                     </div>
-                    <Tooltip content={commentText.trim() ? 'Post comment' : 'Type a comment to post'}>
+                    <Tooltip
+                      content={
+                        commentSubmitting
+                          ? 'Posting comment…'
+                          : commentText.trim() || commentFiles.length > 0
+                            ? 'Post comment'
+                            : 'Type a comment or attach a file to post'
+                      }
+                    >
                       <button
                         type="button"
                         onClick={handleCommentSubmit}
-                        disabled={!commentText.trim()}
+                        disabled={commentSubmitting || (!commentText.trim() && commentFiles.length === 0)}
                         className={`flex-shrink-0 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30 disabled:opacity-50 disabled:hover:bg-transparent ${
-                          commentText.trim() ? 'text-[#06B6D4] hover:bg-cyan-50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200/60'
+                          commentText.trim() || commentFiles.length > 0
+                            ? 'text-[#06B6D4] hover:bg-cyan-50'
+                            : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200/60'
                         }`}
-                        aria-label="Post comment"
-                        title="Post comment"
+                        aria-label={commentSubmitting ? 'Posting comment' : 'Post comment'}
+                        title={commentSubmitting ? 'Posting comment' : 'Post comment'}
                       >
-                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                        </svg>
+                        {commentSubmitting ? (
+                          <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden>
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                          </svg>
+                        ) : (
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                          </svg>
+                        )}
                       </button>
                     </Tooltip>
                   </div>
@@ -2489,7 +2808,8 @@ function TaskDetailPanel({
               const metaPriority = isCreateFlow ? createPriority : (taskDetail?.priority ?? '')
               const metaType = isCreateFlow ? createType : (taskDetail?.task_type ?? '')
               return (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="font-medium text-slate-500">Status:</span>
               {/* Status — list row style */}
               {(canUpdateStatus || isCreateFlow) ? (
                 <div className="relative inline-block">
@@ -2525,7 +2845,9 @@ function TaskDetailPanel({
                   {TASK_STATUS_LABELS[metaStatus] ?? metaStatus}
                 </span>
               )}
+              <span className="text-slate-300">|</span>
 
+              <span className="font-medium text-slate-500">Assignee:</span>
               {/* Assignees — list row style (avatar stack + dropdown) */}
               {(() => {
                 const assigneeIds = Array.isArray(metaAssigneeIds) ? metaAssigneeIds : []
@@ -2640,7 +2962,9 @@ function TaskDetailPanel({
                   <span className="text-slate-400 text-xs">—</span>
                 )
               })()}
+              <span className="text-slate-300">|</span>
 
+              <span className="font-medium text-slate-500">Due Date:</span>
               {/* Due date — list row style */}
               {(canEditTask || isCreateFlow) ? (
                 <div className="relative inline-block">
@@ -2676,7 +3000,9 @@ function TaskDetailPanel({
               ) : (
                 <span className="text-slate-600 text-xs">{metaDueDate ? formatDate(metaDueDate) : '—'}</span>
               )}
+              <span className="text-slate-300">|</span>
 
+              <span className="font-medium text-slate-500">Priority:</span>
               {/* Priority — list row style */}
               {(canEditTask || isCreateFlow) ? (
                 <div className="relative inline-block">
@@ -2716,7 +3042,9 @@ function TaskDetailPanel({
                   {metaPriority ? TASK_PRIORITY_LABELS[metaPriority as TaskPriority] : '—'}
                 </span>
               )}
+              <span className="text-slate-300">|</span>
 
+              <span className="font-medium text-slate-500">Type:</span>
               {/* Type — same pill style as list (detail-only field) */}
               {(canEditTask || isCreateFlow) ? (
                 <div className="relative inline-block">
@@ -2868,6 +3196,7 @@ function CommentRow({
   taskId,
   onUpdateComment,
   onDeleteComment,
+  onDeleteCommentAttachment,
   getInitials,
 }: {
   comment: TaskComment
@@ -2875,23 +3204,54 @@ function CommentRow({
   taskId: string
   onUpdateComment: (taskId: string, commentId: string, text: string, mentionIds: string[]) => void
   onDeleteComment: (taskId: string, commentId: string) => void
+  onDeleteCommentAttachment: (taskId: string, commentId: string, attachmentId: string) => Promise<void>
   getInitials: (name: string | null) => string
 }) {
   const [editing, setEditing] = useState(false)
   const [editText, setEditText] = useState(comment.comment_text)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null)
+  const [attachmentMenuOpenId, setAttachmentMenuOpenId] = useState<string | null>(null)
   const isOwner = currentUserId !== undefined && comment.created_by === currentUserId
   useEffect(() => {
     setEditText(comment.comment_text)
     if (!editing) setDeleteConfirm(false)
   }, [comment.id, comment.comment_text, editing])
 
+  useEffect(() => {
+    if (!attachmentMenuOpenId) return
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target
+      if (!(target instanceof Element)) {
+        setAttachmentMenuOpenId(null)
+        return
+      }
+      if (target.closest(`[data-comment-attachment-menu-id="${attachmentMenuOpenId}"]`)) return
+      setAttachmentMenuOpenId(null)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [attachmentMenuOpenId])
+
+  useEffect(() => {
+    if (!attachmentMenuOpenId) return
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setAttachmentMenuOpenId(null)
+      }
+    }
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [attachmentMenuOpenId])
+
   const handleSaveEdit = () => {
     const trimmed = editText.trim()
-    if (!trimmed) return
+    if (!trimmed && comment.attachments.length === 0) return
     onUpdateComment(taskId, comment.id, trimmed, comment.mentioned_user_ids ?? [])
     setEditing(false)
   }
+
+  const hasText = Boolean(comment.comment_text?.trim())
 
   return (
     <div className="group rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow transition-shadow overflow-hidden">
@@ -2970,9 +3330,138 @@ function CommentRow({
               </div>
             </div>
           ) : (
-            <p className="mt-1 text-sm text-slate-700">
-              {renderCommentWithMentions(comment.comment_text, comment.mentioned_users)}
-            </p>
+            <>
+              {hasText ? (
+                <p className="mt-1 text-sm text-slate-700">
+                  {renderCommentWithMentions(comment.comment_text, comment.mentioned_users)}
+                </p>
+              ) : null}
+              {comment.attachments.length > 0 && (
+                <div className={`${hasText ? 'mt-2' : 'mt-1'} grid grid-cols-2 sm:grid-cols-3 gap-2`}>
+                  {comment.attachments.map((attachment) => {
+                    const isImage = isImageAttachment(attachment)
+                    const extension = getTaskAttachmentFileExtension(attachment.file_name)
+                    const isPdf = extension === 'pdf'
+                    const deletingThis = deletingAttachmentId === attachment.id
+
+                    return (
+                      <div
+                        key={attachment.id}
+                        data-comment-attachment-menu-id={attachment.id}
+                        className="group relative"
+                      >
+                        <a
+                          href={attachment.cloudinary_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block overflow-hidden rounded-lg border border-slate-200 bg-slate-50/50"
+                          aria-label={attachment.file_name}
+                          title={attachment.file_name}
+                        >
+                          <div className="h-24 bg-slate-100">
+                            {isImage ? (
+                              <img
+                                src={attachment.cloudinary_url}
+                                alt={attachment.file_name}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full flex-col items-center justify-center gap-1 p-2">
+                                <svg className={`h-7 w-7 ${isPdf ? 'text-red-500' : 'text-slate-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m-6-8h6M7 20h10a2 2 0 002-2V8l-6-6H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                </svg>
+                                {extension ? (
+                                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase ${isPdf ? 'bg-rose-50 text-rose-600' : 'bg-slate-200 text-slate-600'}`}>
+                                    {extension}
+                                  </span>
+                                ) : null}
+                              </div>
+                            )}
+                          </div>
+                          <div className="border-t border-slate-200/80 bg-white px-2 py-1.5">
+                            <p className="truncate text-xs font-medium text-slate-700" title={attachment.file_name}>
+                              {attachment.file_name}
+                            </p>
+                          </div>
+                        </a>
+                        <div
+                          className={`absolute right-1.5 top-1.5 z-10 transition-opacity ${
+                            attachmentMenuOpenId === attachment.id ? 'opacity-100' : 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100'
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              setAttachmentMenuOpenId((id) => (id === attachment.id ? null : attachment.id))
+                            }}
+                            className="rounded-md border border-slate-200 bg-white/95 p-1 text-slate-600 shadow-sm hover:bg-white"
+                            aria-label="Attachment actions"
+                            title="Attachment actions"
+                            aria-expanded={attachmentMenuOpenId === attachment.id}
+                            aria-haspopup="true"
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v.01M12 12v.01M12 19v.01" />
+                            </svg>
+                          </button>
+                          {attachmentMenuOpenId === attachment.id && (
+                            <div className="absolute right-0 top-full z-20 mt-1 w-40 rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+                              <a
+                                href={attachment.cloudinary_url}
+                                download={attachment.file_name}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                                onClick={() => setAttachmentMenuOpenId(null)}
+                                aria-label="Download attachment"
+                                title="Download attachment"
+                              >
+                                <svg className="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                                Download
+                              </a>
+                              {isOwner && (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    setDeletingAttachmentId(attachment.id)
+                                    try {
+                                      await onDeleteCommentAttachment(taskId, comment.id, attachment.id)
+                                      setAttachmentMenuOpenId(null)
+                                    } finally {
+                                      setDeletingAttachmentId(null)
+                                    }
+                                  }}
+                                  disabled={deletingThis}
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+                                  aria-label="Delete attachment"
+                                  title="Delete attachment"
+                                >
+                                  {deletingThis ? (
+                                    <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden>
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                                    </svg>
+                                  ) : (
+                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                  )}
+                                  Delete
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -3172,6 +3661,17 @@ function TaskFormModal({
     const doc = new DOMParser().parseFromString(html, 'text/html')
     const text = doc.body.textContent || ''
     return !text.trim()
+  }
+
+  const validateSelectedAttachmentFiles = (files: File[]) => {
+    for (const file of files) {
+      const validation = validateTaskAttachmentFile(file)
+      if (!validation.ok) {
+        showError(validation.title, validation.message)
+        return false
+      }
+    }
+    return true
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -3380,11 +3880,15 @@ function TaskFormModal({
             <label className="inline-flex items-center gap-2 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 cursor-pointer">
               <input
                 type="file"
-                accept={ACCEPTED_EXT}
+                accept={ACCEPTED_FILE_TYPES}
                 multiple
                 className="hidden"
                 onChange={(e) => {
                   const list = Array.from(e.target.files ?? [])
+                  if (list.length > 0 && !validateSelectedAttachmentFiles(list)) {
+                    e.target.value = ''
+                    return
+                  }
                   setInitialFiles((prev) => [...prev, ...list])
                   e.target.value = ''
                 }}
