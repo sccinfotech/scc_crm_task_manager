@@ -196,6 +196,11 @@ function formatDate(d: string | null) {
   return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+function formatShortDate(d: string | null) {
+  if (!d) return '—'
+  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
 function formatRelative(dateString: string) {
   const d = new Date(dateString)
   const now = new Date()
@@ -277,6 +282,86 @@ function TaskTypeIcon({ type, className }: { type: TaskType; className?: string 
   return <span className={className}>{TASK_TYPE_ICONS[type]}</span>
 }
 
+const TASK_BOARD_COLUMN_STYLES: Record<TaskStatus, string> = {
+  todo: 'border-slate-200 bg-slate-100/70',
+  in_progress: 'border-amber-200 bg-amber-100/55',
+  review: 'border-indigo-200 bg-indigo-100/55',
+  done: 'border-cyan-200 bg-cyan-100/55',
+  completed: 'border-emerald-200 bg-emerald-100/55',
+}
+
+const TASK_BOARD_HEADER_STYLES: Record<TaskStatus, string> = TASK_STATUS_HEADER_BG
+
+function stripHtmlToText(html: string | null | undefined) {
+  if (!html) return ''
+  return html
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function getTaskDescriptionPreview(html: string | null | undefined, maxLength = 120) {
+  const plain = stripHtmlToText(html)
+  if (!plain) return ''
+  if (plain.length <= maxLength) return plain
+  return `${plain.slice(0, maxLength).trimEnd()}…`
+}
+
+function parseLocalDate(dateString: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateString)
+  if (!match) return new Date(dateString)
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+}
+
+function getTaskDueDateMeta(dueDate: string | null): { label: string; className: string } {
+  if (!dueDate) {
+    return {
+      label: 'No date',
+      className: 'border-slate-200 bg-slate-100 text-slate-500',
+    }
+  }
+
+  const due = parseLocalDate(dueDate)
+  if (Number.isNaN(due.getTime())) {
+    return {
+      label: formatShortDate(dueDate),
+      className: 'border-slate-200 bg-slate-100 text-slate-600',
+    }
+  }
+
+  const today = new Date()
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
+  const diffDays = Math.round((dueDay.getTime() - todayStart.getTime()) / (24 * 60 * 60 * 1000))
+
+  if (diffDays < 0) {
+    return {
+      label: formatShortDate(dueDate),
+      className: 'border-rose-200 bg-rose-50 text-rose-700',
+    }
+  }
+
+  if (diffDays === 0) {
+    return {
+      label: 'Today',
+      className: 'border-amber-200 bg-amber-50 text-amber-700',
+    }
+  }
+
+  if (diffDays === 1) {
+    return {
+      label: 'Tomorrow',
+      className: 'border-orange-200 bg-orange-50 text-orange-700',
+    }
+  }
+
+  return {
+    label: formatShortDate(dueDate),
+    className: diffDays <= 3 ? 'border-sky-200 bg-sky-50 text-sky-700' : 'border-slate-200 bg-white text-slate-600',
+  }
+}
+
 interface ProjectTasksProps {
   projectId: string
   canManageTasks: boolean
@@ -316,6 +401,8 @@ export function ProjectTasks({
   )
   const [deleteConfirmTaskId, setDeleteConfirmTaskId] = useState<string | null>(null)
   const [mentionableUsers, setMentionableUsers] = useState<TaskAssignee[]>([])
+  const [boardDragState, setBoardDragState] = useState<{ taskId: string; fromStatus: TaskStatus } | null>(null)
+  const [boardDragOverStatus, setBoardDragOverStatus] = useState<TaskStatus | null>(null)
   /** All active users (any role) for assignee dropdowns; same shape as StaffSelectOption */
   const assignableUsers: StaffSelectOption[] = mentionableUsers
 
@@ -384,6 +471,85 @@ export function ProjectTasks({
     }
     router.refresh()
   }
+
+  const handleBoardDragStart = useCallback(
+    (taskId: string, fromStatus: TaskStatus, event: React.DragEvent<HTMLElement>) => {
+      if (!canUpdateStatus) {
+        event.preventDefault()
+        return
+      }
+      setBoardDragState({ taskId, fromStatus })
+      setBoardDragOverStatus(fromStatus)
+      event.dataTransfer.effectAllowed = 'move'
+      event.dataTransfer.setData('text/plain', taskId)
+    },
+    [canUpdateStatus]
+  )
+
+  const resetBoardDragState = useCallback(() => {
+    setBoardDragState(null)
+    setBoardDragOverStatus(null)
+  }, [])
+
+  const handleBoardDragEnd = useCallback(() => {
+    resetBoardDragState()
+  }, [resetBoardDragState])
+
+  const handleBoardColumnDragOver = useCallback(
+    (status: TaskStatus, event: React.DragEvent<HTMLElement>) => {
+      if (!boardDragState || !canUpdateStatus) return
+      event.preventDefault()
+      event.dataTransfer.dropEffect = 'move'
+      if (boardDragOverStatus !== status) {
+        setBoardDragOverStatus(status)
+      }
+    },
+    [boardDragOverStatus, boardDragState, canUpdateStatus]
+  )
+
+  const handleBoardColumnDrop = useCallback(
+    async (nextStatus: TaskStatus, event: React.DragEvent<HTMLElement>) => {
+      if (!canUpdateStatus) return
+      event.preventDefault()
+      event.stopPropagation()
+      const fallbackTaskId = event.dataTransfer.getData('text/plain')
+      const draggedTaskId = boardDragState?.taskId || fallbackTaskId
+      if (!draggedTaskId) {
+        resetBoardDragState()
+        return
+      }
+      const currentTask = tasks.find((task) => task.id === draggedTaskId)
+      const fromStatus = boardDragState?.fromStatus ?? currentTask?.status
+      resetBoardDragState()
+      if (!fromStatus) return
+
+      if (fromStatus === nextStatus) return
+
+      setTasks((prev) => prev.map((task) => (task.id === draggedTaskId ? { ...task, status: nextStatus } : task)))
+      if (taskDetail?.id === draggedTaskId) {
+        setTaskDetail((prev) => (prev ? { ...prev, status: nextStatus } : null))
+      }
+
+      const result = await updateTaskStatus(draggedTaskId, nextStatus)
+      if (result.error) {
+        setTasks((prev) => prev.map((task) => (task.id === draggedTaskId ? { ...task, status: fromStatus } : task)))
+        if (taskDetail?.id === draggedTaskId) {
+          setTaskDetail((prev) => (prev ? { ...prev, status: fromStatus } : null))
+        }
+        showError('Update failed', result.error)
+        return
+      }
+
+      if (result.data) {
+        setTasks((prev) => prev.map((task) => (task.id === draggedTaskId ? result.data! : task)))
+        if (taskDetail?.id === draggedTaskId) {
+          setTaskDetail((prev) => (prev ? { ...prev, ...result.data! } : null))
+        }
+      }
+      router.refresh()
+    },
+    [boardDragState, canUpdateStatus, resetBoardDragState, router, showError, taskDetail?.id, tasks]
+  )
 
   const handleCreateTask = async (payload: {
     title: string
@@ -726,6 +892,10 @@ export function ProjectTasks({
     },
     {} as Record<TaskStatus, ProjectTaskListItem[]>
   )
+  const deleteConfirmTaskTitle = deleteConfirmTaskId
+    ? tasks.find((task) => task.id === deleteConfirmTaskId)?.title ??
+      (taskDetail?.id === deleteConfirmTaskId ? taskDetail.title : null)
+    : null
 
   return (
     <div className={`flex h-full flex-col ${className}`}>
@@ -871,10 +1041,10 @@ export function ProjectTasks({
       )}
 
       {/* Main content: list or board; task detail opens in modal overlay */}
-      <div className="flex-1 min-h-0 flex flex-col mt-3 overflow-hidden">
-        <div className="flex-1 min-h-0 min-w-0 rounded-xl border border-slate-200 bg-slate-50/30 overflow-y-auto overflow-x-hidden">
+      <div className="flex-1 min-h-0 flex flex-col mt-2 overflow-hidden">
+        <div className={`flex-1 min-h-0 min-w-0 ${viewMode === 'board' ? 'overflow-hidden' : 'overflow-y-auto overflow-x-hidden'}`}>
           {loading ? (
-            <div className="p-3 space-y-4">
+            <div className="px-0.5 py-2 space-y-3">
               {[1, 2, 3].map((section) => (
                 <div key={section} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
                   <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-200 bg-slate-50/80">
@@ -922,7 +1092,7 @@ export function ProjectTasks({
               ))}
             </div>
           ) : viewMode === 'list' ? (
-            <div className="p-3 space-y-4">
+            <div className="px-0.5 py-2 space-y-3">
               {tasks.length === 0 ? (
                 <div className="p-8">
                   <EmptyState
@@ -1020,87 +1190,106 @@ export function ProjectTasks({
               )}
             </div>
           ) : (
-            <div className="p-3 flex gap-3 overflow-x-auto h-full min-h-[400px]">
-              {TASK_STATUSES.map((status) => (
-                <div
-                  key={status}
-                  className="flex-shrink-0 w-72 rounded-xl bg-slate-100/80 border border-slate-200 flex flex-col"
-                >
-                  <div className="px-3 py-2 border-b border-slate-200 flex items-center justify-between">
-                    <span
-                      className={`text-xs font-semibold rounded-full px-2 py-1 border ${TASK_STATUS_STYLES[status]}`}
+            <div className="h-full min-h-[420px] overflow-y-hidden px-0.5 py-2">
+              <div className="grid h-full grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+                {TASK_STATUSES.map((status) => {
+                  const statusTasks = tasksByStatus[status]
+                  const isDragOverColumn =
+                    boardDragState !== null &&
+                    boardDragOverStatus === status &&
+                    boardDragState.fromStatus !== status
+                  return (
+                    <section
+                      key={status}
+                      onDragOver={(event) => handleBoardColumnDragOver(status, event)}
+                      onDrop={(event) => { void handleBoardColumnDrop(status, event) }}
+                      className={`flex min-h-0 flex-col overflow-hidden rounded-2xl border transition-colors ${
+                        TASK_BOARD_COLUMN_STYLES[status]
+                      } ${isDragOverColumn ? 'border-cyan-300 ring-2 ring-cyan-200/80 ring-inset' : ''}`}
                     >
-                      {TASK_STATUS_LABELS[status]}
-                    </span>
-                    <span className="text-xs text-slate-500">
-                      {tasksByStatus[status].length}
-                    </span>
-                  </div>
-                  <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                    {tasksByStatus[status].map((task) => (
-                      <div
-                        key={task.id}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => setSelectedTaskId(task.id)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault()
-                            setSelectedTaskId(task.id)
-                          }
-                        }}
-                        className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm hover:shadow cursor-pointer text-left"
-                      >
-                        <p className="font-medium text-slate-900 text-sm line-clamp-2">
-                          {task.title}
-                        </p>
-                        <div className="flex items-center gap-2 mt-2 flex-wrap">
-                          {task.priority && (
-                            <span
-                              className={`text-[10px] font-medium rounded px-1.5 py-0.5 border ${TASK_PRIORITY_STYLES[task.priority]}`}
-                            >
-                              {TASK_PRIORITY_LABELS[task.priority]}
-                            </span>
-                          )}
-                          {task.due_date && (
-                            <span className="text-[10px] text-slate-500">
-                              {formatDate(task.due_date)}
-                            </span>
-                          )}
-                          <div className="flex -space-x-1.5 ml-auto">
-                            {task.assignees.slice(0, 2).map((a) => (
-                              <div
-                                key={a.id}
-                                className="h-6 w-6 rounded-full bg-cyan-100 text-cyan-800 flex items-center justify-center text-[10px] font-semibold border-2 border-white"
-                                title={a.full_name ?? a.email ?? ''}
-                              >
-                                {getInitials(a.full_name ?? a.email)}
-                              </div>
-                            ))}
-                          </div>
+                      <div className={`flex items-center justify-between gap-2 border-b border-white/70 px-3 py-2 ${TASK_BOARD_HEADER_STYLES[status]}`}>
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${TASK_STATUS_DOT_COLORS[status]}`} />
+                          <span className="truncate text-sm font-semibold text-slate-700">
+                            {TASK_STATUS_LABELS[status]}
+                          </span>
+                          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-200/70 px-1.5 text-[11px] font-semibold text-slate-600">
+                            {statusTasks.length}
+                          </span>
                         </div>
-                        {canUpdateStatus && (
-                          <select
-                            value={task.status}
-                            onChange={(e) => {
-                              e.stopPropagation()
-                              handleStatusChange(task.id, e.target.value as TaskStatus)
+                        {canManageTasks && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCreateModalDefaultStatus(status)
+                              setSelectedTaskId(CREATE_TASK_SENTINEL)
                             }}
-                            onClick={(e) => e.stopPropagation()}
-                            className="mt-2 w-full rounded border border-slate-200 text-xs py-1 px-2"
+                            className="inline-flex h-7 items-center rounded-lg border border-cyan-200 bg-white/95 px-2.5 text-xs font-semibold text-cyan-700 transition-colors hover:bg-cyan-50"
                           >
-                            {TASK_STATUSES.map((s) => (
-                              <option key={s} value={s}>
-                                {TASK_STATUS_LABELS[s]}
-                              </option>
-                            ))}
-                          </select>
+                            + Task
+                          </button>
                         )}
                       </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                      <div className="flex-1 space-y-3 overflow-y-auto p-2">
+                        {statusTasks.length === 0 ? (
+                          <div className="rounded-xl border border-dashed border-slate-300/80 bg-white/70 px-3 py-7 text-center">
+                            <p className="text-xs font-medium text-slate-500">
+                              No tasks in {TASK_STATUS_LABELS[status]}.
+                            </p>
+                            {canManageTasks && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setCreateModalDefaultStatus(status)
+                                  setSelectedTaskId(CREATE_TASK_SENTINEL)
+                                }}
+                                className="mt-2 text-xs font-semibold text-cyan-700 hover:text-cyan-800"
+                              >
+                                Add the first task
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <>
+                            {statusTasks.map((task) => (
+                              <TaskBoardCard
+                                key={task.id}
+                                task={task}
+                                canEditTask={canEditTask}
+                                canDrag={canUpdateStatus}
+                                isDragging={boardDragState?.taskId === task.id}
+                                onOpenTask={() => setSelectedTaskId(task.id)}
+                                onDragStart={handleBoardDragStart}
+                                onDragEnd={handleBoardDragEnd}
+                                onAssigneesChange={handleAssigneesChange}
+                                onDueDateChange={handleDueDateChange}
+                                onPriorityChange={handlePriorityChange}
+                                onRequestDelete={() => setDeleteConfirmTaskId(task.id)}
+                                assignableUsers={assignableUsers}
+                                getAssigneeColor={getAssigneeColor}
+                                staffInitials={staffInitials}
+                                staffLabel={staffLabel}
+                              />
+                            ))}
+                            {canManageTasks && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setCreateModalDefaultStatus(status)
+                                  setSelectedTaskId(CREATE_TASK_SENTINEL)
+                                }}
+                                className="w-full rounded-lg px-2 py-1.5 text-left text-sm font-medium text-cyan-700 transition-colors hover:bg-cyan-50"
+                              >
+                                + Add Task
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </section>
+                  )
+                })}
+              </div>
             </div>
           )}
         </div>
@@ -1149,7 +1338,8 @@ export function ProjectTasks({
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
             <h3 className="text-lg font-semibold text-slate-900">Delete task?</h3>
             <p className="mt-2 text-sm text-slate-600">
-              This action cannot be undone.
+              Are you sure you want to delete{' '}
+              <span className="font-semibold text-slate-900">"{deleteConfirmTaskTitle ?? 'this task'}"</span>? This action cannot be undone.
             </p>
             <div className="mt-4 flex gap-2 justify-end">
               <button
@@ -1423,6 +1613,341 @@ function AssigneeSearchSelect({
           document.body
         )}
     </div>
+  )
+}
+
+function TaskBoardCard({
+  task,
+  canEditTask,
+  canDrag,
+  isDragging,
+  onOpenTask,
+  onDragStart,
+  onDragEnd,
+  onAssigneesChange,
+  onDueDateChange,
+  onPriorityChange,
+  onRequestDelete,
+  assignableUsers,
+  getAssigneeColor,
+  staffInitials,
+  staffLabel,
+}: {
+  task: ProjectTaskListItem
+  canEditTask: boolean
+  canDrag: boolean
+  isDragging: boolean
+  onOpenTask: () => void
+  onDragStart: (taskId: string, status: TaskStatus, event: React.DragEvent<HTMLElement>) => void
+  onDragEnd: () => void
+  onAssigneesChange: (taskId: string, assigneeIds: string[]) => void
+  onDueDateChange: (taskId: string, dueDate: string | null) => void
+  onPriorityChange: (taskId: string, priority: TaskPriority | null) => void
+  onRequestDelete: () => void
+  assignableUsers: StaffSelectOption[]
+  getAssigneeColor: (id: string) => { bg: string; text: string }
+  staffInitials: (o: StaffSelectOption) => string
+  staffLabel: (o: StaffSelectOption) => string
+}) {
+  const [openDropdown, setOpenDropdown] = useState<'assignee' | 'priority' | null>(null)
+  const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number; right?: number } | null>(null)
+  const cardRef = useRef<HTMLElement>(null)
+  const suppressOpenRef = useRef(false)
+  const assigneeBtnRef = useRef<HTMLButtonElement>(null)
+  const dueInputRef = useRef<HTMLInputElement>(null)
+  const priorityBtnRef = useRef<HTMLButtonElement>(null)
+  const assigneeIds = task.assignees.map((assignee) => assignee.id)
+
+  const getTriggerRect = () => {
+    const ref = openDropdown === 'assignee' ? assigneeBtnRef : priorityBtnRef
+    return ref.current?.getBoundingClientRect() ?? null
+  }
+
+  useEffect(() => {
+    if (!openDropdown) {
+      setDropdownRect(null)
+      return
+    }
+    const update = () => {
+      const rect = getTriggerRect()
+      if (rect) setDropdownRect({ top: rect.bottom + 4, left: rect.left, right: rect.right })
+    }
+    update()
+    window.addEventListener('scroll', update, true)
+    window.addEventListener('resize', update)
+    return () => {
+      window.removeEventListener('scroll', update, true)
+      window.removeEventListener('resize', update)
+    }
+  }, [openDropdown])
+
+  useEffect(() => {
+    const handleClick = (event: MouseEvent) => {
+      if (!openDropdown) return
+      const target = event.target as Node
+      if (cardRef.current?.contains(target)) return
+      if (target instanceof Element && target.closest('[data-board-card-dropdown]')) return
+      setOpenDropdown(null)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [openDropdown])
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && openDropdown) setOpenDropdown(null)
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [openDropdown])
+
+  const descriptionPreview = getTaskDescriptionPreview(task.description_html)
+  const dueMeta = getTaskDueDateMeta(task.due_date)
+  const assigneeOptions = task.assignees
+    .map((a) => assignableUsers.find((m) => m.id === a.id) ?? { id: a.id, full_name: a.full_name, email: a.email, role: a.role })
+    .filter(Boolean) as StaffSelectOption[]
+  const assigneeNamesTooltip = assigneeOptions.length > 0 ? assigneeOptions.map((option) => staffLabel(option)).join(', ') : 'No assignees'
+  const primaryAssignee = assigneeOptions[0] ?? null
+  const extraCount = Math.max(assigneeOptions.length - 1, 0)
+  const extraAssigneesTooltip = extraCount > 0 ? assigneeOptions.slice(1).map((option) => staffLabel(option)).join(', ') : ''
+
+  return (
+    <article
+      ref={cardRef}
+      role="button"
+      tabIndex={0}
+      draggable={canDrag}
+      onDragStart={(event) => {
+        if (!canDrag) {
+          event.preventDefault()
+          return
+        }
+        suppressOpenRef.current = true
+        onDragStart(task.id, task.status, event)
+      }}
+      onDragEnd={() => {
+        window.setTimeout(() => {
+          suppressOpenRef.current = false
+        }, 0)
+        onDragEnd()
+      }}
+      onClick={() => {
+        if (suppressOpenRef.current) return
+        onOpenTask()
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          onOpenTask()
+        }
+      }}
+      className={`group rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm transition-all duration-150 hover:border-slate-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60 focus-visible:ring-offset-2 ${
+        canDrag ? 'cursor-grab active:cursor-grabbing' : ''
+      } ${isDragging ? 'scale-[0.99] opacity-75' : ''}`}
+    >
+      <h4 className="line-clamp-2 text-sm font-semibold leading-5 text-slate-900 transition-colors duration-150 group-hover:text-cyan-700">
+        {task.title}
+      </h4>
+
+      {descriptionPreview && (
+        <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-400">
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M4 12h10M4 17h8" />
+          </svg>
+          <span className="line-clamp-1">{descriptionPreview}</span>
+        </div>
+      )}
+
+      <div className="mt-3 border-t border-slate-100 pt-3 space-y-2" onClick={(event) => event.stopPropagation()}>
+        <div className="flex min-w-0 flex-nowrap items-center gap-1.5">
+          {canEditTask ? (
+            <div className="relative inline-block">
+              <button
+                ref={assigneeBtnRef}
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setOpenDropdown((open) => (open === 'assignee' ? null : 'assignee')) }}
+                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-white px-1 py-0.5 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30"
+                title={assigneeOptions.length === 0 ? 'Change assignee' : assigneeNamesTooltip}
+              >
+                {primaryAssignee ? (
+                  <>
+                    <span
+                      title={staffLabel(primaryAssignee)}
+                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${getAssigneeColor(primaryAssignee.id).bg} ${getAssigneeColor(primaryAssignee.id).text}`}
+                    >
+                      {staffInitials(primaryAssignee)}
+                    </span>
+                    {extraCount > 0 && (
+                      <span title={extraAssigneesTooltip} className="text-[11px] font-medium text-slate-600">
+                        +{extraCount}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </span>
+                )}
+              </button>
+              {openDropdown === 'assignee' && dropdownRect && typeof document !== 'undefined' &&
+                createPortal(
+                  <>
+                    <div className="fixed inset-0 z-[9998]" aria-hidden onClick={() => setOpenDropdown(null)} />
+                    <div
+                      data-board-card-dropdown
+                      className="fixed z-[9999] w-56 max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl py-1"
+                      style={{ top: dropdownRect.top, left: dropdownRect.left }}
+                    >
+                      {assignableUsers.map((option) => {
+                        const isSelected = assigneeIds.includes(option.id)
+                        const color = getAssigneeColor(option.id)
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            onClick={() => {
+                              onAssigneesChange(task.id, isSelected ? assigneeIds.filter((id) => id !== option.id) : [...assigneeIds, option.id])
+                              setOpenDropdown(null)
+                            }}
+                            className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-slate-50 ${isSelected ? 'bg-cyan-50/80' : ''}`}
+                          >
+                            <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${color.bg} ${color.text}`}>
+                              {staffInitials(option)}
+                            </span>
+                            <span className="text-sm truncate">{staffLabel(option)}</span>
+                            {isSelected && (
+                              <svg className="h-4 w-4 ml-auto text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </>,
+                  document.body
+                )}
+            </div>
+          ) : primaryAssignee ? (
+            <span
+              title={staffLabel(primaryAssignee)}
+              className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold ${getAssigneeColor(primaryAssignee.id).bg} ${getAssigneeColor(primaryAssignee.id).text}`}
+            >
+              {staffInitials(primaryAssignee)}
+            </span>
+          ) : (
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </span>
+          )}
+
+          <div className="relative inline-block">
+            <input
+              ref={dueInputRef}
+              type="date"
+              value={task.due_date ?? ''}
+              onChange={(e) => onDueDateChange(task.id, e.target.value || null)}
+              className="absolute left-0 top-0 w-full h-full opacity-0 cursor-pointer pointer-events-none"
+              aria-hidden
+              tabIndex={-1}
+            />
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                if (canEditTask && dueInputRef.current) {
+                  try {
+                    dueInputRef.current.showPicker?.()
+                  } catch {
+                    dueInputRef.current.focus()
+                  }
+                }
+              }}
+              disabled={!canEditTask}
+              className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${dueMeta.className} ${
+                canEditTask ? 'hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30' : ''
+              }`}
+              title="Select due date"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              {dueMeta.label}
+            </button>
+          </div>
+
+          {canEditTask ? (
+            <div className="relative inline-block">
+              <button
+                ref={priorityBtnRef}
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setOpenDropdown((open) => (open === 'priority' ? null : 'priority')) }}
+                className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30 ${
+                  task.priority
+                    ? `border-slate-200/80 ${TASK_PRIORITY_STYLES[task.priority]}`
+                    : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+                }`}
+                title="Change priority"
+              >
+                <PriorityFlagIcon className={`h-3.5 w-3.5 flex-shrink-0 ${task.priority ? TASK_PRIORITY_FLAG_COLORS[task.priority] : 'text-slate-400'}`} />
+                <span>{task.priority ? TASK_PRIORITY_LABELS[task.priority] : 'Priority'}</span>
+              </button>
+              {openDropdown === 'priority' && dropdownRect && typeof document !== 'undefined' &&
+                createPortal(
+                  <>
+                    <div className="fixed inset-0 z-[9998]" aria-hidden onClick={() => setOpenDropdown(null)} />
+                    <div
+                      data-board-card-dropdown
+                      className="fixed z-[9999] w-44 rounded-lg border border-slate-200 bg-white shadow-xl py-1"
+                      style={{ top: dropdownRect.top, left: dropdownRect.left }}
+                    >
+                      {TASK_PRIORITIES.map((priority) => (
+                        <button
+                          key={priority}
+                          type="button"
+                          onClick={() => {
+                            onPriorityChange(task.id, priority)
+                            setOpenDropdown(null)
+                          }}
+                          className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-sky-50 ${task.priority === priority ? 'bg-sky-50' : ''}`}
+                        >
+                          <PriorityFlagIcon className={`h-4 w-4 flex-shrink-0 ${TASK_PRIORITY_FLAG_COLORS[priority]}`} />
+                          <span>{TASK_PRIORITY_LABELS[priority]}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>,
+                  document.body
+                )}
+            </div>
+          ) : task.priority ? (
+            <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${TASK_PRIORITY_STYLES[task.priority]}`}>
+              <PriorityFlagIcon className={`h-3.5 w-3.5 ${TASK_PRIORITY_FLAG_COLORS[task.priority]}`} />
+              {TASK_PRIORITY_LABELS[task.priority]}
+            </span>
+          ) : null}
+
+          {canEditTask && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onRequestDelete() }}
+              className="ml-auto inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 focus:outline-none focus:ring-2 focus:ring-rose-500/30"
+              aria-label="Delete task"
+              title="Delete task"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2m-7 0v12a1 1 0 001 1h6a1 1 0 001-1V6" />
+              </svg>
+            </button>
+          )}
+        </div>
+
+      </div>
+    </article>
   )
 }
 
