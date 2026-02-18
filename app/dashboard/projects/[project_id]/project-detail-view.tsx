@@ -218,6 +218,26 @@ function formatWorkSeconds(seconds: number): string {
   return rh > 0 ? `${d}d ${rh}h` : `${d}d`
 }
 
+function getMemberTodayWorkSeconds(member: ProjectTeamMember, nowMs = Date.now()): number {
+  const todayKey = new Date().toISOString().slice(0, 10)
+  const todayBreakdown = member.work_day_breakdown?.find((entry) => entry.date === todayKey)?.seconds ?? 0
+  const status = member.work_status ?? 'not_started'
+  const runningSince = member.work_running_since
+
+  if (status !== 'start' || !runningSince) {
+    return todayBreakdown
+  }
+
+  const runningStartMs = new Date(runningSince).getTime()
+  if (Number.isNaN(runningStartMs)) {
+    return todayBreakdown
+  }
+
+  const todayStartMs = new Date(`${todayKey}T00:00:00.000Z`).getTime()
+  const runningSegmentTodaySeconds = Math.max(0, (nowMs - Math.max(runningStartMs, todayStartMs)) / 1000)
+  return todayBreakdown + runningSegmentTodaySeconds
+}
+
 function parseLinks(value: string | null) {
   if (!value) return []
   return value
@@ -309,12 +329,6 @@ export function ProjectDetailView({
     }
   }, [showRequirementsAndPayments, activeTab])
 
-  const canUpdateOwnWork = Boolean(
-    currentUserId &&
-      userRole !== 'client' &&
-      project.team_members?.some((m) => m.id === currentUserId)
-  )
-
   const handleMyWorkStatus = async (eventType: 'start' | 'hold' | 'resume' | 'end', note?: string) => {
     if (!currentUserId || myWorkStatusUpdating) return
     if (eventType === 'start') {
@@ -339,6 +353,7 @@ export function ProjectDetailView({
   const canDelete = canManageProject
   const canEditClientStatus = userRole === 'admin' || userRole === 'manager'
   const canEditLinks = userRole === 'admin' || userRole === 'manager'
+  const canViewTeamMembers = userRole === 'admin' || userRole === 'manager'
 
   const openLinksModal = () => {
     setEditWebsiteLinks(project.website_links?.split(',').map((s) => s.trim()).filter(Boolean).join('\n') ?? '')
@@ -722,8 +737,7 @@ export function ProjectDetailView({
             </div>
           )}
 
-          {/* Admin/Manager: Team Members. Staff: no "Your work" section (actions are in Work history tab). */}
-          {userRole !== 'staff' && (
+          {canViewTeamMembers && (
             <div className="rounded-2xl bg-white shadow-sm border border-slate-200 p-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-[#1E1B4B]">Team Members</h3>
@@ -732,14 +746,7 @@ export function ProjectDetailView({
                 <div className="space-y-4">
                   {project.team_members.map((member: ProjectTeamMember) => {
                     const status = member.work_status ?? 'not_started'
-                    const isMe = currentUserId === member.id
-                    const totalSec = member.total_work_seconds ?? 0
-                    const runningSince = member.work_running_since
-                    const isRunning = status === 'start' && runningSince
-                    const currentMs = Date.now()
-                    const elapsedSec = isRunning && runningSince
-                      ? (currentMs - new Date(runningSince).getTime()) / 1000 + totalSec
-                      : totalSec
+                    const todayWorkSeconds = getMemberTodayWorkSeconds(member)
                     const statusStyles: Record<string, string> = {
                       not_started: 'bg-slate-100 text-slate-600 border-slate-200',
                       start: 'bg-cyan-100 text-cyan-800 border-cyan-200',
@@ -761,72 +768,13 @@ export function ProjectDetailView({
                               {formatWorkStatus(status)}
                             </span>
                           </div>
-                          <div className="text-sm font-medium text-slate-700 tabular-nums">
-                            {status === 'not_started'
-                              ? '--'
-                              : formatWorkSeconds(elapsedSec) + (isRunning ? ' (in progress)' : '')}
+                          <div className="text-sm text-slate-500">
+                            Today Spent:
+                            <span className="ml-2 font-semibold text-slate-700 tabular-nums">
+                              {formatWorkSeconds(todayWorkSeconds)}
+                            </span>
                           </div>
                         </div>
-                        {status === 'end' && member.work_done_notes && (
-                          <div className="rounded-lg bg-white border border-slate-100 p-2 text-xs text-slate-600">
-                            <span className="font-semibold text-slate-500">Done points: </span>
-                            {member.work_done_notes}
-                          </div>
-                        )}
-                        {canUpdateOwnWork && isMe && (
-                          <div className="flex flex-wrap gap-2 pt-1">
-                            {(status === 'not_started' || status === 'end') && (
-                              <button
-                                type="button"
-                                onClick={() => handleMyWorkStatus('start')}
-                                disabled={myWorkStatusUpdating}
-                                className="rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-cyan-700 disabled:opacity-50 cursor-pointer transition-colors"
-                              >
-                                {status === 'end' ? 'Start again' : 'Start'}
-                              </button>
-                            )}
-                            {status === 'start' && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => handleMyWorkStatus('hold')}
-                                  disabled={myWorkStatusUpdating}
-                                  className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50 cursor-pointer transition-colors"
-                                >
-                                  Hold
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setEndWorkModalOpen(true)}
-                                  disabled={myWorkStatusUpdating}
-                                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 cursor-pointer transition-colors"
-                                >
-                                  End
-                                </button>
-                              </>
-                            )}
-                            {status === 'hold' && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => handleMyWorkStatus('resume')}
-                                  disabled={myWorkStatusUpdating}
-                                  className="rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-cyan-700 disabled:opacity-50 cursor-pointer transition-colors"
-                                >
-                                  Resume
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setEndWorkModalOpen(true)}
-                                  disabled={myWorkStatusUpdating}
-                                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 cursor-pointer transition-colors"
-                                >
-                                  End
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        )}
                       </div>
                     )
                   })}

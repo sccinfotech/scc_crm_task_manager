@@ -65,7 +65,7 @@ const ACCEPTED_FILE_TYPES = Array.from(
 
 const TASK_ALLOWED_MIME_TYPE_SET = new Set<string>(TASK_ALLOWED_MIME_TYPES)
 const FILTER_DROPDOWN_TRIGGER_CLASSES =
-  'h-10 min-w-[9rem] rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.05)] transition-all duration-200 hover:border-slate-300 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/20'
+  'h-9 min-w-[7rem] rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-medium text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.05)] transition-all duration-200 hover:border-slate-300 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/20'
 
 type TaskAttachmentFileValidation =
   | { ok: true; mimeType: string }
@@ -984,19 +984,22 @@ export function ProjectTasks({
 
       {/* Collapsible filters */}
       {filtersOpen && (
-        <div className="mt-3 p-4 rounded-xl border border-slate-200 bg-slate-50/60 flex flex-wrap gap-4">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={filters.mine_only ?? false}
-              onChange={(e) =>
-                setFilters((f) => ({ ...f, mine_only: e.target.checked }))
-              }
-              className="rounded border-slate-300 text-[#06B6D4] focus:ring-[#06B6D4]"
-            />
-            <span className="text-sm font-medium text-slate-700">My tasks only</span>
-          </label>
-          <div className="flex items-center gap-2">
+        <div className="mt-3 p-2.5 rounded-xl border border-slate-200 bg-slate-50/60 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <button
+            type="button"
+            onClick={() =>
+              setFilters((f) => ({ ...f, mine_only: !(f.mine_only ?? false) }))
+            }
+            aria-pressed={filters.mine_only ?? false}
+            className={`h-9 rounded-lg border px-2.5 text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/20 cursor-pointer ${
+              filters.mine_only
+                ? 'border-[#06B6D4] bg-[#06B6D4]/10 text-[#0891b2]'
+                : 'border-slate-200 bg-white text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.05)] hover:border-slate-300 focus:border-[#06B6D4]'
+            }`}
+          >
+            Assigned me
+          </button>
+          <div className="flex items-center gap-1.5">
             <span className="text-sm font-medium text-slate-600">Status</span>
             <FilterDropdown
               value={selectedStatusFilter}
@@ -1018,7 +1021,7 @@ export function ProjectTasks({
               }
             />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <span className="text-sm font-medium text-slate-600">Priority</span>
             <FilterDropdown
               value={selectedPriorityFilter}
@@ -1043,7 +1046,7 @@ export function ProjectTasks({
               }
             />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <span className="text-sm font-medium text-slate-600">Type</span>
             <FilterDropdown
               value={selectedTypeFilter}
@@ -1123,9 +1126,11 @@ export function ProjectTasks({
               ))}
             </div>
           ) : effectiveViewMode === 'list' ? (
-            <div className="px-0.5 py-2 space-y-3">
+            <div
+              className={`px-0.5 py-2 ${tasks.length === 0 ? 'flex-1 min-h-0 flex items-center justify-center' : 'space-y-3'}`}
+            >
               {tasks.length === 0 ? (
-                <div className="p-8">
+                <div className="p-4">
                   <EmptyState
                     title="No tasks"
                     description="Create a task or adjust filters."
@@ -2794,7 +2799,16 @@ function TaskDetailPanel({
     }
 
     setCommentSubmitting(true)
-    const ok = await onAddComment(taskId, trimmed, mentionIds, commentFiles)
+    let targetTaskId = taskId
+    if (isCreateFlow) {
+      const newTaskId = await handleCreateSave()
+      if (!newTaskId) {
+        setCommentSubmitting(false)
+        return
+      }
+      targetTaskId = newTaskId
+    }
+    const ok = await onAddComment(targetTaskId, trimmed, mentionIds, commentFiles)
     setCommentSubmitting(false)
     if (!ok) return
 
@@ -2875,22 +2889,22 @@ function TaskDetailPanel({
     const doc = new DOMParser().parseFromString(html, 'text/html')
     return !(doc.body.textContent || '').trim()
   }
-  const handleCreateSave = async () => {
-    if (!onCreateTask) return
+  const handleCreateSave = async (): Promise<string | undefined> => {
+    if (!onCreateTask) return undefined
     setCreateDescriptionError(null)
     const t = titleValue.trim()
     if (!t) {
       showError('Validation', 'Title is required.')
-      return
+      return undefined
     }
     const desc = isCreateFlow ? createDescriptionHtml : (pendingDescriptionHtml ?? taskDetail?.description_html ?? '')
     if (isCreateFlow && isDescriptionEmpty(desc)) {
       setCreateDescriptionError('Description is required.')
-      return
+      return undefined
     }
     if (isCreateFlow) {
       setCreateSaving(true)
-      await onCreateTask({
+      const result = await onCreateTask({
         title: t,
         description_html: desc || null,
         task_type: createType || null,
@@ -2901,8 +2915,10 @@ function TaskDetailPanel({
         initial_files: createInitialFiles.length > 0 ? createInitialFiles : undefined,
       })
       setCreateSaving(false)
+      return result?.data?.id
     } else {
       await handleSaveDescription()
+      return undefined
     }
   }
   const showHeaderSave = isCreateFlow || descriptionDirty
@@ -3141,34 +3157,35 @@ function TaskDetailPanel({
       <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider pb-3 border-b border-slate-200 mb-3 flex-shrink-0">
         Comments
       </h3>
-      {isCreateFlow ? (
-        <p className="text-sm text-slate-500 flex-shrink-0">Save the task to add comments.</p>
-      ) : (
-        <>
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden space-y-3">
-            {taskDetail!.comments.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center text-slate-500">
-                  <svg className="h-10 w-10 text-slate-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
-                  <p className="text-sm font-medium">No comments yet</p>
-                  <p className="text-xs mt-0.5">Add a comment below to start the conversation.</p>
-                </div>
-            ) : null}
-            {taskDetail!.comments.map((c) => (
-              <CommentRow
-                key={c.id}
-                comment={c}
-                currentUserId={currentUserId}
-                taskId={taskId}
-                onUpdateComment={onUpdateComment}
-                onDeleteComment={onDeleteComment}
-                onDeleteCommentAttachment={onDeleteCommentAttachment}
-                getInitials={getInitials}
-              />
-            ))}
-          </div>
-          {userRole !== 'client' && (
+      {isCreateFlow && (
+        <p className="text-sm text-slate-500 flex-shrink-0 mb-3">Add a comment below. The task will be saved when you post.</p>
+      )}
+      {!isCreateFlow && (
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden space-y-3">
+          {taskDetail!.comments.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center text-slate-500">
+                <svg className="h-10 w-10 text-slate-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                <p className="text-sm font-medium">No comments yet</p>
+                <p className="text-xs mt-0.5">Add a comment below to start the conversation.</p>
+              </div>
+          ) : null}
+          {taskDetail!.comments.map((c) => (
+            <CommentRow
+              key={c.id}
+              comment={c}
+              currentUserId={currentUserId}
+              taskId={taskId}
+              onUpdateComment={onUpdateComment}
+              onDeleteComment={onDeleteComment}
+              onDeleteCommentAttachment={onDeleteCommentAttachment}
+              getInitials={getInitials}
+            />
+          ))}
+        </div>
+      )}
+      {userRole !== 'client' && (
             <div className="flex-shrink-0 pt-3 mt-auto relative">
               {/* Single comment container: typing area + toolbar (attachment + send) inside */}
               <div className="rounded-xl border border-slate-200 focus-within:ring-2 focus-within:ring-[#06B6D4]/30 focus-within:border-[#06B6D4] bg-white flex flex-col min-h-[100px] max-h-[280px]">
@@ -3364,8 +3381,6 @@ function TaskDetailPanel({
               )}
             </div>
           )}
-        </>
-      )}
     </div>
   )
 
@@ -3757,7 +3772,7 @@ function TaskDetailPanel({
             })()}
           </div>
         </header>
-        {isMobileViewport && (
+        {isMobileViewport && !isCreateFlow && (
           <div className="flex items-center gap-2 border-b border-slate-200 bg-white px-3.5 py-2 sm:hidden">
             <button
               type="button"
@@ -3787,7 +3802,7 @@ function TaskDetailPanel({
         )}
         <div className={isMobileViewport ? 'flex-1 min-h-0 overflow-hidden' : 'flex-1 grid min-h-0 grid-cols-1 overflow-hidden md:grid-cols-2'}>
           {isMobileViewport ? (
-            mobileDetailTab === 'details' ? detailsSection : commentsSection
+            isCreateFlow ? detailsSection : (mobileDetailTab === 'details' ? detailsSection : commentsSection)
           ) : (
             <>
               {detailsSection}

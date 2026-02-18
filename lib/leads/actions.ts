@@ -118,7 +118,7 @@ export async function updateLead(leadId: string, formData: LeadFormData): Promis
   // Check if lead exists (RLS will handle access, but we check for better error messages)
   const { data: existingLead, error: fetchError } = await supabase
     .from('leads')
-    .select('id')
+    .select('id, follow_up_date')
     .eq('id', leadId)
     .single()
 
@@ -140,6 +140,11 @@ export async function updateLead(leadId: string, formData: LeadFormData): Promis
   // Update lead with optional next_follow_up_date
   // Note: This sets the lead's next_follow_up_date directly, does NOT create a follow-up record
   // If follow-up records exist, they will override this on next follow-up creation/update
+  const resolvedFollowUpDate =
+    formData.follow_up_date === undefined
+      ? ((existingLead as { follow_up_date: string | null }).follow_up_date ?? null)
+      : formData.follow_up_date || null
+
   const { data, error } = await supabase
     .from('leads')
     .update({
@@ -148,7 +153,7 @@ export async function updateLead(leadId: string, formData: LeadFormData): Promis
       phone: formData.phone,
       source: formData.source || null,
       status: formData.status,
-      follow_up_date: formData.follow_up_date || null, // Sets next_follow_up_date directly
+      follow_up_date: resolvedFollowUpDate, // Preserve existing date if omitted from edit payload
       notes: formData.notes || null,
     } as never)
     .eq('id', leadId)

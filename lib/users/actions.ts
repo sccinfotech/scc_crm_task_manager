@@ -6,6 +6,11 @@ import { Database } from '@/types/supabase'
 import { getCurrentUser, hasPermission } from '@/lib/auth/utils'
 import { MODULE_PERMISSION_IDS } from '@/lib/permissions'
 import { createAdminClient } from '@/lib/supabase/admin'
+import {
+    EMAIL_VALIDATION_MESSAGE,
+    isValidEmailFormat,
+    normalizeRequiredEmail,
+} from '@/lib/validation/email'
 
 export type UserRole = Database['public']['Enums']['user_role']
 export type ModulePermissions = Record<string, 'read' | 'write' | 'none'>
@@ -172,13 +177,22 @@ export async function createUser(formData: CreateUserFormData) {
         return { error: 'You do not have permission to create users' }
     }
 
+    const email = normalizeRequiredEmail(formData.email)
+    if (!email) {
+        return { error: 'Email is required' }
+    }
+
+    if (!isValidEmailFormat(email)) {
+        return { error: EMAIL_VALIDATION_MESSAGE }
+    }
+
     const supabaseAdmin = createAdminClient()
 
     // 1. Create user in Supabase Auth
     // We pass NO metadata initially to make the trigger as "light" as possible
     // This prevents the trigger from trying to cast roles that might not exist yet.
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        email: formData.email,
+        email,
         password: formData.password,
         email_confirm: true,
     })
@@ -201,7 +215,7 @@ export async function createUser(formData: CreateUserFormData) {
         .from('users')
         .upsert({
             id: authData.user.id,
-            email: formData.email,
+            email,
             role: formData.role,
             module_permissions: formData.module_permissions as any,
             full_name: formData.full_name,

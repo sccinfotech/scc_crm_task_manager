@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient as createSupabaseClient } from '@/lib/supabase/server'
 import { getCurrentUser, hasPermission } from '@/lib/auth/utils'
 import { MODULE_PERMISSION_IDS } from '@/lib/permissions'
+import { EMAIL_VALIDATION_MESSAGE, isValidEmailFormat, normalizeOptionalEmail } from '@/lib/validation/email'
 
 export type ClientStatus = 'active' | 'inactive'
 
@@ -171,6 +172,13 @@ export async function createClient(formData: ClientFormData): Promise<ClientActi
       data: null,
     }
   }
+  const email = normalizeOptionalEmail(formData.email)
+  if (email && !isValidEmailFormat(email)) {
+    return {
+      error: EMAIL_VALIDATION_MESSAGE,
+      data: null,
+    }
+  }
 
   const { data, error } = await supabase
     .from('clients')
@@ -178,7 +186,7 @@ export async function createClient(formData: ClientFormData): Promise<ClientActi
       name: formData.name,
       company_name: formData.company_name || null,
       phone: formData.phone,
-      email: formData.email || null,
+      email,
       status: formData.status,
       remark: formData.remark || null,
       lead_id: formData.lead_id || null,
@@ -266,6 +274,13 @@ export async function updateClient(clientId: string, formData: ClientFormData): 
       data: null,
     }
   }
+  const email = normalizeOptionalEmail(formData.email)
+  if (email && !isValidEmailFormat(email)) {
+    return {
+      error: EMAIL_VALIDATION_MESSAGE,
+      data: null,
+    }
+  }
 
   const { data, error } = await supabase
     .from('clients')
@@ -273,7 +288,7 @@ export async function updateClient(clientId: string, formData: ClientFormData): 
       name: formData.name,
       company_name: formData.company_name || null,
       phone: formData.phone,
-      email: formData.email || null,
+      email,
       status: formData.status,
       remark: formData.remark || null,
     } as never)

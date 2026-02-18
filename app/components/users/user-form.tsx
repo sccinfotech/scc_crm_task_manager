@@ -1,9 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { UserRole, CreateUserFormData, UpdateUserFormData, ModulePermissions } from '@/lib/users/actions'
+import { UserRole, ModulePermissions } from '@/lib/users/actions'
 import { MODULES } from '@/lib/constants'
+import {
+    EMAIL_INPUT_PATTERN,
+    EMAIL_VALIDATION_MESSAGE,
+    isValidEmailFormat,
+    normalizeRequiredEmail,
+} from '@/lib/validation/email'
 
 type UserFormProps = {
     initialData?: {
@@ -21,7 +26,6 @@ type UserFormProps = {
 }
 
 export function UserForm({ initialData, mode, onSubmit, onCancel, readOnly = false }: UserFormProps) {
-    const router = useRouter()
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
@@ -75,8 +79,22 @@ export function UserForm({ initialData, mode, onSubmit, onCancel, readOnly = fal
             return
         }
 
+        let payload = formData
+        if (mode === 'create') {
+            const normalizedEmail = normalizeRequiredEmail(formData.email)
+            if (!normalizedEmail || !isValidEmailFormat(normalizedEmail)) {
+                setError(EMAIL_VALIDATION_MESSAGE)
+                setLoading(false)
+                return
+            }
+            payload = {
+                ...formData,
+                email: normalizedEmail,
+            }
+        }
+
         try {
-            const result = await onSubmit(formData)
+            const result = await onSubmit(payload)
             if (result.error) {
                 setError(result.error)
             }
@@ -131,6 +149,8 @@ export function UserForm({ initialData, mode, onSubmit, onCancel, readOnly = fal
                         <input
                             type="email"
                             name="email"
+                            pattern={EMAIL_INPUT_PATTERN}
+                            title={EMAIL_VALIDATION_MESSAGE}
                             required
                             disabled={mode === 'edit' || readOnly}
                             value={formData.email}

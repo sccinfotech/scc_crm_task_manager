@@ -48,27 +48,6 @@ export function Header({
             </button>
           )}
 
-          {/* Sidebar collapse/expand arrow - left of module title, desktop only */}
-          {onSidebarToggle && (
-            <button
-              type="button"
-              onClick={onSidebarToggle}
-              className="hidden lg:flex h-10 w-10 min-w-[40px] min-h-[40px] items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-[#06B6D4] transition-colors duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-offset-2"
-              aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            >
-              {isSidebarCollapsed ? (
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
-              ) : (
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                </svg>
-              )}
-            </button>
-          )}
-
           {breadcrumb ? (
             <div className="flex items-center">{breadcrumb}</div>
           ) : (

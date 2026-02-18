@@ -138,19 +138,6 @@ function getInitials(name: string) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
-function parseWebsiteLinks(value: string | null) {
-  if (!value) return []
-  return value
-    .split(',')
-    .map((link) => link.trim())
-    .filter(Boolean)
-}
-
-function normalizeLink(url: string) {
-  if (/^https?:\/\//i.test(url)) return url
-  return `https://${url}`
-}
-
 export function ProjectsTable({
   projects,
   canWrite,
@@ -227,7 +214,7 @@ export function ProjectsTable({
         <thead className="sticky top-0 z-10 bg-white">
           <tr className="bg-gray-50/50">
             <th
-              className="group w-[32%] sm:w-[22%] px-4 sm:px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-colors"
+              className="group w-[36%] min-w-[140px] sm:w-[28%] md:w-[26%] px-4 sm:px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-colors"
               onClick={() => handleSort('name')}
             >
               <div className="flex items-center">
@@ -236,12 +223,12 @@ export function ProjectsTable({
               </div>
             </th>
             {showClientColumn && (
-              <th className="hidden sm:table-cell sm:w-[18%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <th className="hidden sm:table-cell sm:w-[16%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                 Client
               </th>
             )}
             <th
-              className="group w-[16%] sm:w-[12%] px-4 sm:px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-colors"
+              className="group w-[14%] sm:w-[10%] px-4 sm:px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-colors"
               onClick={() => handleSort('status')}
             >
               <div className="flex items-center">
@@ -250,7 +237,7 @@ export function ProjectsTable({
               </div>
             </th>
             <th
-              className="group hidden md:table-cell md:w-[13%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
+              className="group hidden md:table-cell md:w-[11%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
               onClick={() => handleSort('start_date')}
             >
               <div className="flex items-center">
@@ -259,7 +246,7 @@ export function ProjectsTable({
               </div>
             </th>
             <th
-              className="group hidden md:table-cell md:w-[12%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
+              className="group hidden md:table-cell md:w-[11%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
               onClick={() => handleSort('developer_deadline_date')}
             >
               <div className="flex items-center">
@@ -268,7 +255,7 @@ export function ProjectsTable({
               </div>
             </th>
             <th
-              className="group hidden lg:table-cell lg:w-[12%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
+              className="group hidden lg:table-cell lg:w-[10%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
               onClick={() => handleSort('follow_up_date')}
             >
               <div className="flex items-center">
@@ -277,7 +264,7 @@ export function ProjectsTable({
               </div>
             </th>
             <th
-              className="group hidden xl:table-cell xl:w-[12%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
+              className="group hidden xl:table-cell xl:w-[10%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
               onClick={() => handleSort('created_at')}
             >
               <div className="flex items-center">
@@ -286,11 +273,11 @@ export function ProjectsTable({
               </div>
             </th>
             {showWorkActions && (
-              <th className="w-[140px] px-4 sm:px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <th className="w-[120px] sm:w-[100px] px-4 sm:px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                 Work
               </th>
             )}
-            <th className="w-[14%] sm:w-[12%] px-4 sm:px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 transition-all duration-200">
+            <th className="w-[12%] sm:w-[10%] px-4 sm:px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 transition-all duration-200">
               {canWrite ? 'Actions' : 'View'}
             </th>
           </tr>
@@ -300,7 +287,6 @@ export function ProjectsTable({
             const canEdit = canWrite
             const canDelete = canWrite
             const clientLabel = project.client_name || project.client_company_name || '--'
-            const websiteLinks = parseWebsiteLinks(project.website_links)
 
             return (
               <tr
@@ -324,8 +310,8 @@ export function ProjectsTable({
                         {getInitials(project.name)}
                       </div>
                     )}
-                    <div className="flex flex-col min-w-0">
-                      <span className="truncate text-sm sm:text-base font-semibold text-gray-900 leading-tight" title={project.name}>
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span className="line-clamp-2 break-words text-sm sm:text-base font-semibold text-gray-900 leading-snug" title={project.name}>
                         {project.name}
                       </span>
                     </div>
@@ -471,22 +457,6 @@ export function ProjectsTable({
                 )}
                 <td className="px-4 sm:px-6 py-3 text-right text-sm">
                   <div className="flex items-center justify-end gap-2">
-                    {websiteLinks.length > 0 &&
-                      websiteLinks.map((link, index) => (
-                        <Tooltip key={`${link}-${index}`} content={link} position="left">
-                          <a
-                            href={normalizeLink(link)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-cyan-50 hover:text-cyan-600"
-                          >
-                            <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0L6 12.343a4 4 0 105.657 5.657l1.414-1.414" />
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M10.172 13.828a4 4 0 005.656 0L18 11.657a4 4 0 10-5.657-5.657l-1.414 1.414" />
-                            </svg>
-                          </a>
-                        </Tooltip>
-                      ))}
                     {canEdit && (
                       <Tooltip content="Edit project" position="left">
                         <button

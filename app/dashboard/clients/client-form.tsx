@@ -2,6 +2,12 @@
 
 import { useActionState } from 'react'
 import { ClientFormData, ClientStatus } from '@/lib/clients/actions'
+import {
+  EMAIL_INPUT_PATTERN,
+  EMAIL_VALIDATION_MESSAGE,
+  isValidEmailFormat,
+  normalizeOptionalEmail,
+} from '@/lib/validation/email'
 
 interface ClientFormProps {
   initialData?: Partial<ClientFormData>
@@ -25,11 +31,16 @@ export function ClientForm({
 }: ClientFormProps) {
   const [state, formAction] = useActionState(
     async (_prevState: { error: string | null } | null, formData: FormData) => {
+      const email = normalizeOptionalEmail(formData.get('email') as string)
+      if (email && !isValidEmailFormat(email)) {
+        return { error: EMAIL_VALIDATION_MESSAGE }
+      }
+
       const clientData: ClientFormData = {
         name: formData.get('name') as string,
         company_name: formData.get('company_name') as string,
         phone: formData.get('phone') as string,
-        email: formData.get('email') as string,
+        email: email || undefined,
         status: formData.get('status') as ClientStatus,
         remark: formData.get('remark') as string,
         lead_id: formData.get('lead_id') as string,
@@ -132,6 +143,8 @@ export function ClientForm({
               type="email"
               id="email"
               name="email"
+              pattern={EMAIL_INPUT_PATTERN}
+              title={EMAIL_VALIDATION_MESSAGE}
               defaultValue={initialData?.email || ''}
               className={inputClasses}
               placeholder="john@example.com"

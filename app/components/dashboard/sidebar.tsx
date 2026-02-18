@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { logout } from '@/lib/auth/actions'
 import { canReadModule, MODULE_PERMISSION_IDS, ModulePermissions } from '@/lib/permissions'
+import { Tooltip } from '@/app/components/ui/tooltip'
 
 interface SidebarProps {
   isMobileOpen: boolean
@@ -164,30 +165,57 @@ export function Sidebar({
         </div>
 
         <div className="flex h-full flex-col relative">
-          {/* Logo Section - Colored Box */}
+          {/* Logo Section - Colored Box. Collapse/expand arrow lives in sidebar panel for both desktop and mobile */}
           <div className={`transition-all duration-300 ${isCollapsed ? 'mx-2 mt-2' : 'mx-4 mt-4'}`}>
             <div className="rounded-xl bg-gradient-to-r from-[#06B6D4] to-[#0891b2] shadow-md shadow-[#06B6D4]/20 p-4">
-              <div className={`flex items-center justify-between transition-all duration-300 ${isCollapsed ? 'justify-center' : ''}`}>
-                <div className={`flex items-center transition-all duration-300 ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20 backdrop-blur-sm flex-shrink-0">
-                    <svg
-                      className="h-6 w-6 text-white"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                      />
+              <div className={`flex items-center transition-all duration-300 ${isCollapsed ? 'justify-center' : 'justify-between gap-3'}`}>
+                {isCollapsed ? (
+                  /* Collapsed: show expand arrow in sidebar panel on all breakpoints */
+                  <button
+                    type="button"
+                    onClick={() => setIsCollapsed(false)}
+                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-white/20 backdrop-blur-sm text-white transition-colors duration-200 hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white/50"
+                    aria-label="Expand sidebar"
+                    title="Expand sidebar"
+                  >
+                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                     </svg>
-                  </div>
-                  {!isCollapsed && (
-                    <h1 className="text-lg font-bold text-white whitespace-nowrap">CRM Pro</h1>
-                  )}
-                </div>
+                  </button>
+                ) : (
+                  /* Expanded: App icon + name with collapse arrow in sidebar panel on all breakpoints */
+                  <>
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-white/20 backdrop-blur-sm">
+                        <svg
+                          className="h-6 w-6 text-white"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                          />
+                        </svg>
+                      </div>
+                      <h1 className="text-lg font-bold text-white whitespace-nowrap truncate">CRM Pro</h1>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsCollapsed(true)}
+                      className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-white transition-colors duration-200 hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/50"
+                      aria-label="Collapse sidebar"
+                      title="Collapse sidebar"
+                    >
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                      </svg>
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -285,24 +313,23 @@ export function Sidebar({
                   const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
                   return (
                     <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        onClick={() => {
-                          if (window.innerWidth < 1024) setIsMobileOpen(false)
-                        }}
-                        className={`
-                          group relative flex items-center rounded-xl text-sm font-medium transition-all duration-200
-                          justify-center px-2 py-3.5
-                          ${isActive ? 'bg-[#06B6D4]/10 text-[#06B6D4] shadow-sm' : 'text-[#1E1B4B] hover:bg-[#06B6D4]/5'}
-                        `}
-                      >
-                        <span className={`flex-shrink-0 ${isActive ? 'text-[#06B6D4]' : 'text-gray-500 group-hover:text-[#06B6D4]'}`}>
-                          <Icon />
-                        </span>
-                        <span className="absolute left-full ml-3 px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-900 text-white opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none whitespace-nowrap z-50 shadow-xl before:content-[''] before:absolute before:right-full before:top-1/2 before:-translate-y-1/2 before:border-4 before:border-transparent before:border-r-gray-900">
-                          {item.name}
-                        </span>
-                      </Link>
+                      <Tooltip content={item.name} position="right" wrapperClassName="w-full">
+                        <Link
+                          href={item.href}
+                          onClick={() => {
+                            if (window.innerWidth < 1024) setIsMobileOpen(false)
+                          }}
+                          className={`
+                            group relative flex items-center rounded-xl text-sm font-medium transition-all duration-200
+                            justify-center px-2 py-3.5
+                            ${isActive ? 'bg-[#06B6D4]/10 text-[#06B6D4] shadow-sm' : 'text-[#1E1B4B] hover:bg-[#06B6D4]/5'}
+                          `}
+                        >
+                          <span className={`flex-shrink-0 ${isActive ? 'text-[#06B6D4]' : 'text-gray-500 group-hover:text-[#06B6D4]'}`}>
+                            <Icon />
+                          </span>
+                        </Link>
+                      </Tooltip>
                     </li>
                   )
                 }
@@ -317,40 +344,61 @@ export function Sidebar({
 
                 return (
                   <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      onClick={() => {
-                        if (window.innerWidth < 1024) setIsMobileOpen(false)
-                      }}
-                      className={`
-                        group relative flex items-center rounded-xl text-sm font-medium transition-all duration-200
-                        ${isCollapsed ? 'justify-center px-2 py-3.5' : 'gap-3 px-4 py-3.5'}
-                        ${isActive
-                          ? 'bg-[#06B6D4]/10 text-[#06B6D4] shadow-sm'
-                          : 'text-[#1E1B4B] hover:bg-[#06B6D4]/5'
-                        }
-                      `}
-                    >
-                      {isActive && !isCollapsed && (
-                        <span className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-[#06B6D4]"></span>
-                      )}
-                      <span
+                    {isCollapsed ? (
+                      <Tooltip content={item.name} position="right" wrapperClassName="w-full">
+                        <Link
+                          href={item.href}
+                          onClick={() => {
+                            if (window.innerWidth < 1024) setIsMobileOpen(false)
+                          }}
+                          className={`
+                            group relative flex items-center rounded-xl text-sm font-medium transition-all duration-200
+                            justify-center px-2 py-3.5
+                            ${isActive
+                              ? 'bg-[#06B6D4]/10 text-[#06B6D4] shadow-sm'
+                              : 'text-[#1E1B4B] hover:bg-[#06B6D4]/5'
+                            }
+                          `}
+                        >
+                          <span
+                            className={`
+                              flex items-center justify-center flex-shrink-0
+                              ${isActive ? 'text-[#06B6D4]' : 'text-gray-500 group-hover:text-[#06B6D4]'}
+                            `}
+                          >
+                            <Icon />
+                          </span>
+                        </Link>
+                      </Tooltip>
+                    ) : (
+                      <Link
+                        href={item.href}
+                        onClick={() => {
+                          if (window.innerWidth < 1024) setIsMobileOpen(false)
+                        }}
                         className={`
-                          flex items-center justify-center flex-shrink-0
-                          ${isActive ? 'text-[#06B6D4]' : 'text-gray-500 group-hover:text-[#06B6D4]'}
+                          group relative flex items-center rounded-xl text-sm font-medium transition-all duration-200
+                          gap-3 px-4 py-3.5
+                          ${isActive
+                            ? 'bg-[#06B6D4]/10 text-[#06B6D4] shadow-sm'
+                            : 'text-[#1E1B4B] hover:bg-[#06B6D4]/5'
+                          }
                         `}
                       >
-                        <Icon />
-                      </span>
-                      {!isCollapsed && (
-                        <span className="whitespace-nowrap font-medium">{item.name}</span>
-                      )}
-                      {isCollapsed && (
-                        <span className="absolute left-full ml-3 px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-900 text-white opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none whitespace-nowrap z-50 shadow-xl before:content-[''] before:absolute before:right-full before:top-1/2 before:-translate-y-1/2 before:border-4 before:border-transparent before:border-r-gray-900">
-                          {item.name}
+                        {isActive && (
+                          <span className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-[#06B6D4]"></span>
+                        )}
+                        <span
+                          className={`
+                            flex items-center justify-center flex-shrink-0
+                            ${isActive ? 'text-[#06B6D4]' : 'text-gray-500 group-hover:text-[#06B6D4]'}
+                          `}
+                        >
+                          <Icon />
                         </span>
-                      )}
-                    </Link>
+                        <span className="whitespace-nowrap font-medium">{item.name}</span>
+                      </Link>
+                    )}
                   </li>
                 )
               })}
@@ -362,26 +410,28 @@ export function Sidebar({
             {isCollapsed ? (
               /* Collapsed - Logout Button Directly */
               <form action={logout}>
-                <button
-                  type="button"
-                  onClick={() => setShowLogoutConfirm(true)}
-                  className="w-full flex items-center justify-center rounded-xl bg-red-500 px-2 py-3.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-red-600 active:bg-red-700 shadow-sm"
-                  aria-label="Logout"
-                >
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
+                <Tooltip content="Logout" position="right" wrapperClassName="w-full">
+                  <button
+                    type="button"
+                    onClick={() => setShowLogoutConfirm(true)}
+                    className="w-full flex items-center justify-center rounded-xl bg-red-500 px-2 py-3.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-red-600 active:bg-red-700 shadow-sm"
+                    aria-label="Logout"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                    />
-                  </svg>
-                </button>
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                      />
+                    </svg>
+                  </button>
+                </Tooltip>
               </form>
             ) : (
               /* Expanded Profile Section */

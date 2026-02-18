@@ -7,9 +7,10 @@ interface TooltipProps {
     content: string
     children: React.ReactNode
     position?: 'top' | 'bottom' | 'left' | 'right'
+    wrapperClassName?: string
 }
 
-export function Tooltip({ children, content, position = 'top' }: TooltipProps) {
+export function Tooltip({ children, content, position = 'top', wrapperClassName = '' }: TooltipProps) {
     const [active, setActive] = useState(false)
     const [coords, setCoords] = useState({ top: 0, left: 0 })
     const targetRef = useRef<HTMLDivElement>(null)
@@ -65,7 +66,7 @@ export function Tooltip({ children, content, position = 'top' }: TooltipProps) {
             ref={targetRef}
             onMouseEnter={showTooltip}
             onMouseLeave={hideTooltip}
-            className="inline-block"
+            className={`inline-block ${wrapperClassName}`.trim()}
         >
             {children}
             {mounted && active && createPortal(

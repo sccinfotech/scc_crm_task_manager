@@ -2,6 +2,7 @@
 
 import { useActionState } from 'react'
 import { login } from '@/lib/auth/actions'
+import { EMAIL_INPUT_PATTERN, EMAIL_VALIDATION_MESSAGE } from '@/lib/validation/email'
 
 export function LoginForm({ error: initialError }: { error?: string }) {
   const [state, formAction] = useActionState(login, { error: initialError || null })
@@ -58,6 +59,8 @@ export function LoginForm({ error: initialError }: { error?: string }) {
             id="email"
             name="email"
             type="email"
+            pattern={EMAIL_INPUT_PATTERN}
+            title={EMAIL_VALIDATION_MESSAGE}
             autoComplete="email"
             required
             className="block w-full rounded-xl border border-gray-200 bg-white pl-12 pr-4 py-3.5 text-[#1E1B4B] placeholder-gray-400 shadow-sm transition-all duration-200 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-opacity-20 focus:shadow-[0_0_0_4px_rgba(6,182,212,0.1)] sm:text-sm"
@@ -114,4 +117,3 @@ export function LoginForm({ error: initialError }: { error?: string }) {
     </form>
   )
 }
-

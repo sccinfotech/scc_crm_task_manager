@@ -772,31 +772,55 @@ export async function updateProject(projectId: string, formData: ProjectFormData
     }
   }
 
-  const teamMemberIds = Array.from(new Set(formData.team_member_ids ?? [])).filter(Boolean)
-  const { error: deleteTeamError } = await supabase
-    .from('project_team_members')
-    .delete()
-    .eq('project_id', projectId)
-
-  if (deleteTeamError) {
-    console.error('Error clearing project team members:', deleteTeamError)
-    return { data: null, error: deleteTeamError.message || 'Failed to update project team members' }
-  }
-
-  if (teamMemberIds.length > 0) {
-    const teamRows = teamMemberIds.map((memberId) => ({
-      project_id: projectId,
-      user_id: memberId,
-      created_by: currentUser.id,
-    }))
-
-    const { error: teamError } = await supabase
+  // Preserve existing member work state (status/timestamps/notes) for unchanged members.
+  // Only remove de-selected users and insert newly selected users.
+  if (formData.team_member_ids !== undefined) {
+    const nextTeamMemberIds = Array.from(new Set(formData.team_member_ids)).filter(Boolean)
+    const { data: existingTeamRows, error: existingTeamError } = await supabase
       .from('project_team_members')
-      .insert(teamRows as never)
+      .select('user_id')
+      .eq('project_id', projectId)
 
-    if (teamError) {
-      console.error('Error updating project team members:', teamError)
-      return { data: null, error: teamError.message || 'Failed to update project team members' }
+    if (existingTeamError) {
+      console.error('Error fetching existing project team members:', existingTeamError)
+      return { data: null, error: existingTeamError.message || 'Failed to read project team members' }
+    }
+
+    const existingTeamMemberIds = new Set(
+      ((existingTeamRows as Array<{ user_id: string }> | null) ?? []).map((row) => row.user_id)
+    )
+    const nextTeamMemberIdSet = new Set(nextTeamMemberIds)
+    const teamMemberIdsToDelete = Array.from(existingTeamMemberIds).filter((memberId) => !nextTeamMemberIdSet.has(memberId))
+    const teamMemberIdsToInsert = nextTeamMemberIds.filter((memberId) => !existingTeamMemberIds.has(memberId))
+
+    if (teamMemberIdsToDelete.length > 0) {
+      const { error: deleteTeamError } = await supabase
+        .from('project_team_members')
+        .delete()
+        .eq('project_id', projectId)
+        .in('user_id', teamMemberIdsToDelete)
+
+      if (deleteTeamError) {
+        console.error('Error removing project team members:', deleteTeamError)
+        return { data: null, error: deleteTeamError.message || 'Failed to update project team members' }
+      }
+    }
+
+    if (teamMemberIdsToInsert.length > 0) {
+      const teamRows = teamMemberIdsToInsert.map((memberId) => ({
+        project_id: projectId,
+        user_id: memberId,
+        created_by: currentUser.id,
+      }))
+
+      const { error: teamError } = await supabase
+        .from('project_team_members')
+        .insert(teamRows as never)
+
+      if (teamError) {
+        console.error('Error adding project team members:', teamError)
+        return { data: null, error: teamError.message || 'Failed to update project team members' }
+      }
     }
   }
 
