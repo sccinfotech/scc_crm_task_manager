@@ -126,6 +126,127 @@ function SortIcon({ direction }: { direction: 'asc' | 'desc' | null }) {
   )
 }
 
+// Memoized table row component to prevent unnecessary re-renders
+const LeadTableRow = memo(function LeadTableRow({
+  lead,
+  canWrite,
+  canConvert,
+  onView,
+  onEdit,
+  onDelete,
+  onConvert,
+}: {
+  lead: Lead
+  canWrite: boolean
+  canConvert: boolean
+  onView: (leadId: string) => void
+  onEdit: (leadId: string) => void
+  onDelete: (leadId: string, leadName: string) => void
+  onConvert?: (leadId: string) => void
+}) {
+  const canEdit = canWrite
+  const canDelete = canWrite
+  
+  // Memoize formatted dates
+  const formattedCreatedAt = useMemo(() => formatDate(lead.created_at), [lead.created_at])
+  const formattedFollowUpDate = useMemo(() => formatFollowUpDate(lead.follow_up_date), [lead.follow_up_date])
+  const followUpDateColor = useMemo(() => getFollowUpDateColor(lead.follow_up_date), [lead.follow_up_date])
+
+  return (
+    <tr
+      className="group transition-all duration-200 hover:bg-slate-50 cursor-pointer relative"
+    >
+      <td className="px-4 sm:px-6 py-3">
+        <Link
+          href={`/dashboard/leads/${lead.id}`}
+          prefetch
+          className="flex items-center gap-2 sm:gap-3 no-underline text-inherit"
+        >
+          <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 text-xs sm:text-sm font-bold text-white shadow-sm flex-shrink-0 ring-2 ring-white">
+            {lead.name.substring(0, 2).toUpperCase()}
+          </div>
+          <div className="flex flex-col min-w-0">
+            <span className="truncate text-sm sm:text-base font-semibold text-gray-900 leading-tight" title={lead.name}>
+              {lead.name}
+            </span>
+          </div>
+        </Link>
+      </td>
+      <td className="hidden px-6 py-3 sm:table-cell">
+        <div className="truncate text-sm text-gray-500" title={lead.company_name || '—'}>
+          {lead.company_name || '—'}
+        </div>
+      </td>
+      <td className="px-4 sm:px-6 py-3">
+        <Link href={`/dashboard/leads/${lead.id}`} prefetch className="block truncate text-sm text-gray-500 font-medium no-underline text-inherit" title={lead.phone}>
+          {lead.phone}
+        </Link>
+      </td>
+      <td className="px-4 sm:px-6 py-3">
+        <Link href={`/dashboard/leads/${lead.id}`} prefetch className="block no-underline text-inherit">
+          <StatusPill status={lead.status} />
+        </Link>
+      </td>
+      <td className="hidden px-6 py-3 text-sm md:table-cell">
+        <Link href={`/dashboard/leads/${lead.id}`} prefetch className="block no-underline text-inherit">
+          {lead.follow_up_date ? (
+            <span className={followUpDateColor}>
+              {formattedFollowUpDate}
+            </span>
+          ) : (
+            <span className="text-gray-400">—</span>
+          )}
+        </Link>
+      </td>
+      <td className="hidden px-6 py-3 text-sm text-gray-500 lg:table-cell">
+        <Link href={`/dashboard/leads/${lead.id}`} prefetch className="block no-underline text-inherit">
+          {formattedCreatedAt}
+        </Link>
+      </td>
+      <td className="px-4 sm:px-6 py-3 text-right text-sm">
+        <div className="flex items-center justify-end gap-2">
+          {canConvert && onConvert && lead.status !== 'converted' && (
+            <Tooltip content="Convert to client" position="left">
+              <button
+                onClick={() => onConvert(lead.id)}
+                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600"
+              >
+                <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </button>
+            </Tooltip>
+          )}
+          {canEdit && (
+            <Tooltip content="Edit lead details" position="left">
+              <button
+                onClick={() => onEdit(lead.id)}
+                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+              >
+                <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+            </Tooltip>
+          )}
+          {canDelete && (
+            <Tooltip content="Remove lead record" position="left">
+              <button
+                onClick={() => onDelete(lead.id, lead.name)}
+                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+              >
+                <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </Tooltip>
+          )}
+        </div>
+      </td>
+    </tr>
+  )
+})
+
 export const LeadsTable = memo(function LeadsTable({
   leads,
   canWrite,
@@ -247,129 +368,4 @@ export const LeadsTable = memo(function LeadsTable({
       </table>
     </div>
   )
-}
-
-// Memoized table row component to prevent unnecessary re-renders
-const LeadTableRow = memo(function LeadTableRow({
-  lead,
-  canWrite,
-  canConvert,
-  onView,
-  onEdit,
-  onDelete,
-  onConvert,
-}: {
-  lead: Lead
-  canWrite: boolean
-  canConvert: boolean
-  onView: (leadId: string) => void
-  onEdit: (leadId: string) => void
-  onDelete: (leadId: string, leadName: string) => void
-  onConvert?: (leadId: string) => void
-}) {
-  const canEdit = canWrite
-  const canDelete = canWrite
-  
-  // Memoize formatted dates
-  const formattedCreatedAt = useMemo(() => formatDate(lead.created_at), [lead.created_at])
-  const formattedFollowUpDate = useMemo(() => formatFollowUpDate(lead.follow_up_date), [lead.follow_up_date])
-  const followUpDateColor = useMemo(() => getFollowUpDateColor(lead.follow_up_date), [lead.follow_up_date])
-
-  return (
-    <tr
-      className="group transition-all duration-200 hover:bg-slate-50 cursor-pointer relative"
-    >
-                <td className="px-4 sm:px-6 py-3">
-                  <Link
-                    href={`/dashboard/leads/${lead.id}`}
-                    prefetch
-                    className="flex items-center gap-2 sm:gap-3 no-underline text-inherit"
-                  >
-                    <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 text-xs sm:text-sm font-bold text-white shadow-sm flex-shrink-0 ring-2 ring-white">
-                      {lead.name.substring(0, 2).toUpperCase()}
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="truncate text-sm sm:text-base font-semibold text-gray-900 leading-tight" title={lead.name}>
-                        {lead.name}
-                      </span>
-                    </div>
-                  </Link>
-                </td>
-                <td className="hidden px-6 py-3 sm:table-cell">
-                  <div className="truncate text-sm text-gray-500" title={lead.company_name || '—'}>
-                    {lead.company_name || '—'}
-                  </div>
-                </td>
-                <td className="px-4 sm:px-6 py-3">
-                  <Link href={`/dashboard/leads/${lead.id}`} prefetch className="block truncate text-sm text-gray-500 font-medium no-underline text-inherit" title={lead.phone}>
-                    {lead.phone}
-                  </Link>
-                </td>
-                <td className="px-4 sm:px-6 py-3">
-                  <Link href={`/dashboard/leads/${lead.id}`} prefetch className="block no-underline text-inherit">
-                    <StatusPill status={lead.status} />
-                  </Link>
-                </td>
-                <td className="hidden px-6 py-3 text-sm md:table-cell">
-                  <Link href={`/dashboard/leads/${lead.id}`} prefetch className="block no-underline text-inherit">
-                    {lead.follow_up_date ? (
-                      <span className={followUpDateColor}>
-                        {formattedFollowUpDate}
-                      </span>
-                    ) : (
-                      <span className="text-gray-400">—</span>
-                    )}
-                  </Link>
-                </td>
-                <td className="hidden px-6 py-3 text-sm text-gray-500 lg:table-cell">
-                  <Link href={`/dashboard/leads/${lead.id}`} prefetch className="block no-underline text-inherit">
-                    {formattedCreatedAt}
-                  </Link>
-                </td>
-                <td className="px-4 sm:px-6 py-3 text-right text-sm">
-                  <div className="flex items-center justify-end gap-2">
-                    {canConvert && onConvert && lead.status !== 'converted' && (
-                      <Tooltip content="Convert to client" position="left">
-                        <button
-                          onClick={() => onConvert(lead.id)}
-                          className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600"
-                        >
-                          <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        </button>
-                      </Tooltip>
-                    )}
-                    {canEdit && (
-                      <Tooltip content="Edit lead details" position="left">
-                        <button
-                          onClick={() => onEdit(lead.id)}
-                          className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
-                        >
-                          <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
-                      </Tooltip>
-                    )}
-                    {canDelete && (
-                      <Tooltip content="Remove lead record" position="left">
-                        <button
-                          onClick={() => onDelete(lead.id, lead.name)}
-                          className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-                        >
-                          <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </Tooltip>
-                    )}
-                  </div>
-                </td>
-              </tr>
-  )
 })
-      </table>
-    </div>
-  )
-}

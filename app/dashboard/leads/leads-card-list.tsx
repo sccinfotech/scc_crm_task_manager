@@ -63,6 +63,113 @@ const getFollowUpDateColor = (dateString: string | null): string => {
   return 'text-gray-900 font-medium'
 }
 
+// Memoized card component to prevent unnecessary re-renders
+const LeadCard = memo(function LeadCard({
+  lead,
+  canWrite,
+  canConvert,
+  onView,
+  onEdit,
+  onDelete,
+  onConvert,
+}: {
+  lead: LeadListItem
+  canWrite: boolean
+  canConvert: boolean
+  onView: (leadId: string) => void
+  onEdit: (leadId: string) => void
+  onDelete: (leadId: string, leadName: string) => void
+  onConvert?: (leadId: string) => void
+}) {
+  // Memoize formatted dates
+  const formattedCreatedAt = useMemo(() => formatDate(lead.created_at), [lead.created_at])
+  const formattedFollowUpDate = useMemo(() => formatFollowUpDate(lead.follow_up_date), [lead.follow_up_date])
+  const followUpDateColor = useMemo(() => getFollowUpDateColor(lead.follow_up_date), [lead.follow_up_date])
+
+  return (
+    <article
+      className="rounded-xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-cyan-500 focus-within:ring-offset-2"
+    >
+      <Link
+        href={`/dashboard/leads/${lead.id}`}
+        prefetch
+        className="block no-underline text-inherit outline-none"
+      >
+        <div className="flex items-start gap-3 p-4">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 text-sm font-bold text-white shadow-sm ring-2 ring-white">
+            {lead.name.substring(0, 2).toUpperCase()}
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-base font-semibold text-gray-900">{lead.name}</h3>
+            {lead.company_name && (
+              <p className="mt-0.5 truncate text-sm text-gray-500">{lead.company_name}</p>
+            )}
+            <p className="mt-1 text-sm font-medium text-gray-600">{lead.phone}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <StatusPill status={lead.status} />
+              {lead.follow_up_date && (
+                <span className={`text-xs ${followUpDateColor}`}>
+                  Follow-up: {formattedFollowUpDate}
+                </span>
+              )}
+              <span className="text-xs text-gray-400">
+                Created {formattedCreatedAt}
+              </span>
+            </div>
+          </div>
+        </div>
+      </Link>
+      <div className="flex items-center justify-end gap-1 border-t border-gray-100 px-4 py-2">
+        {canConvert && onConvert && lead.status !== 'converted' && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault()
+              onConvert(lead.id)
+            }}
+            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600"
+            aria-label="Convert to client"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </button>
+        )}
+        {canWrite && (
+          <>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault()
+                onEdit(lead.id)
+              }}
+              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+              aria-label="Edit lead"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault()
+                onDelete(lead.id, lead.name)
+              }}
+              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+              aria-label="Delete lead"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </>
+        )}
+      </div>
+    </article>
+  )
+})
+
 export interface LeadsCardListProps {
   leads: LeadListItem[]
   canWrite: boolean
@@ -80,6 +187,7 @@ export interface LeadsCardListProps {
 export const LeadsCardList = memo(function LeadsCardList({
   leads,
   canWrite,
+  onView,
   onEdit,
   onDelete,
   onConvert,
@@ -148,112 +256,5 @@ export const LeadsCardList = memo(function LeadsCardList({
         </div>
       )}
     </div>
-  )
-}
-
-// Memoized card component to prevent unnecessary re-renders
-const LeadCard = memo(function LeadCard({
-  lead,
-  canWrite,
-  canConvert,
-  onView,
-  onEdit,
-  onDelete,
-  onConvert,
-}: {
-  lead: LeadListItem
-  canWrite: boolean
-  canConvert: boolean
-  onView: (leadId: string) => void
-  onEdit: (leadId: string) => void
-  onDelete: (leadId: string, leadName: string) => void
-  onConvert?: (leadId: string) => void
-}) {
-  // Memoize formatted dates
-  const formattedCreatedAt = useMemo(() => formatDate(lead.created_at), [lead.created_at])
-  const formattedFollowUpDate = useMemo(() => formatFollowUpDate(lead.follow_up_date), [lead.follow_up_date])
-  const followUpDateColor = useMemo(() => getFollowUpDateColor(lead.follow_up_date), [lead.follow_up_date])
-
-  return (
-    <article
-      className="rounded-xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-cyan-500 focus-within:ring-offset-2"
-    >
-          <Link
-            href={`/dashboard/leads/${lead.id}`}
-            prefetch
-            className="block no-underline text-inherit outline-none"
-          >
-            <div className="flex items-start gap-3 p-4">
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 text-sm font-bold text-white shadow-sm ring-2 ring-white">
-                {lead.name.substring(0, 2).toUpperCase()}
-              </div>
-              <div className="min-w-0 flex-1">
-                <h3 className="truncate text-base font-semibold text-gray-900">{lead.name}</h3>
-                {lead.company_name && (
-                  <p className="mt-0.5 truncate text-sm text-gray-500">{lead.company_name}</p>
-                )}
-                <p className="mt-1 text-sm font-medium text-gray-600">{lead.phone}</p>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <StatusPill status={lead.status} />
-                  {lead.follow_up_date && (
-                    <span className={`text-xs ${followUpDateColor}`}>
-                      Follow-up: {formattedFollowUpDate}
-                    </span>
-                  )}
-                  <span className="text-xs text-gray-400">
-                    Created {formattedCreatedAt}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </Link>
-          <div className="flex items-center justify-end gap-1 border-t border-gray-100 px-4 py-2">
-            {canConvert && onConvert && lead.status !== 'converted' && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault()
-                  onConvert(lead.id)
-                }}
-                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600"
-                aria-label="Convert to client"
-              >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
-            )}
-            {canWrite && (
-              <>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    onEdit(lead.id)
-                  }}
-                  className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
-                  aria-label="Edit lead"
-                >
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    onDelete(lead.id, lead.name)
-                  }}
-                  className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-                  aria-label="Delete lead"
-                >
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-              </>
-            )}
-          </div>
-        </article>
   )
 })

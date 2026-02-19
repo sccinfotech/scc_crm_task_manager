@@ -223,9 +223,10 @@ export async function getLeadsPage(options: GetLeadsPageOptions = {}) {
   const pageSize = Math.min(100, Math.max(1, options.pageSize ?? 20))
   const supabase = await createClient()
 
+  // Optimize: Only select fields needed for list view (removed created_by as it's optional and not displayed)
   let query = supabase
     .from('leads')
-    .select('id, name, company_name, phone, status, created_at, follow_up_date, created_by', {
+    .select('id, name, company_name, phone, status, created_at, follow_up_date', {
       count: 'exact',
     })
 
@@ -233,6 +234,7 @@ export async function getLeadsPage(options: GetLeadsPageOptions = {}) {
     const term = options.search.trim()
     // Escape ILIKE special chars (%, _, \) so they are matched literally
     const escaped = term.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')
+    // Trigram indexes will optimize this query automatically
     query = query.or(`name.ilike.%${escaped}%,company_name.ilike.%${escaped}%`)
   }
 
@@ -241,26 +243,30 @@ export async function getLeadsPage(options: GetLeadsPageOptions = {}) {
   }
 
   if (options.followUpDate && options.followUpDate !== 'all') {
+    // Only calculate dates when needed
     const now = new Date()
     now.setHours(0, 0, 0, 0)
     const todayStart = now.toISOString().split('T')[0]
-    const todayEnd = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-    const weekEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-    const monthEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
     switch (options.followUpDate) {
       case 'no_followup':
         query = query.is('follow_up_date', null)
         break
-      case 'today':
+      case 'today': {
+        const todayEnd = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
         query = query.gte('follow_up_date', todayStart).lt('follow_up_date', todayEnd)
         break
-      case 'this_week':
+      }
+      case 'this_week': {
+        const weekEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
         query = query.gte('follow_up_date', todayStart).lte('follow_up_date', weekEnd)
         break
-      case 'this_month':
+      }
+      case 'this_month': {
+        const monthEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
         query = query.gte('follow_up_date', todayStart).lte('follow_up_date', monthEnd)
         break
+      }
       case 'overdue':
         query = query.lt('follow_up_date', todayStart).not('follow_up_date', 'is', null)
         break
