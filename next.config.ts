@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   // Allow local network access during development
   // Add your local network IP addresses here
   allowedDevOrigins: [
-    '192.168.1.2', // Your current local network IP
+    '192.168.1.3', // Your current local network IP
     '192.168.1.22', // Add your IP address
     // Add more IPs if needed, e.g.:
     // '192.168.1.3',
