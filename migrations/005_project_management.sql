@@ -172,7 +172,89 @@ CREATE TRIGGER update_technology_tools_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
--- 4. Project <-> Technology Tools Join Table
+-- 4. Project Team Members (with work tracking) — must exist before project_technology_tools RLS references it
+CREATE TABLE IF NOT EXISTS public.project_team_members (
+  project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  created_by UUID NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  work_status TEXT NOT NULL DEFAULT 'not_started',
+  work_started_at TIMESTAMP WITH TIME ZONE,
+  work_ended_at TIMESTAMP WITH TIME ZONE,
+  work_done_notes TEXT,
+  PRIMARY KEY (project_id, user_id),
+  CONSTRAINT project_team_members_work_status_check CHECK (work_status IN ('not_started', 'start', 'hold', 'end'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_project_team_members_project_id ON public.project_team_members(project_id);
+CREATE INDEX IF NOT EXISTS idx_project_team_members_user_id ON public.project_team_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_project_team_members_work_status ON public.project_team_members(work_status);
+
+ALTER TABLE public.project_team_members ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can read project team members" ON public.project_team_members;
+DROP POLICY IF EXISTS "Users can insert project team members" ON public.project_team_members;
+DROP POLICY IF EXISTS "Users can delete project team members" ON public.project_team_members;
+DROP POLICY IF EXISTS "Assigned staff can update own work status" ON public.project_team_members;
+
+CREATE POLICY "Users can read project team members"
+  ON public.project_team_members
+  FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.users u
+      WHERE u.id = auth.uid()
+        AND (
+          u.role IN ('admin', 'manager')
+          OR COALESCE(u.module_permissions->>'projects', 'none') IN ('read', 'write')
+          OR project_team_members.user_id = auth.uid()
+        )
+    )
+  );
+
+CREATE POLICY "Users can insert project team members"
+  ON public.project_team_members
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    auth.uid() = created_by
+    AND EXISTS (
+      SELECT 1
+      FROM public.users u
+      WHERE u.id = auth.uid()
+        AND (
+          u.role IN ('admin', 'manager')
+          OR COALESCE(u.module_permissions->>'projects', 'none') = 'write'
+        )
+    )
+  );
+
+CREATE POLICY "Users can delete project team members"
+  ON public.project_team_members
+  FOR DELETE
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.users u
+      WHERE u.id = auth.uid()
+        AND (
+          u.role IN ('admin', 'manager')
+          OR COALESCE(u.module_permissions->>'projects', 'none') = 'write'
+        )
+    )
+  );
+
+CREATE POLICY "Assigned staff can update own work status"
+  ON public.project_team_members
+  FOR UPDATE
+  TO authenticated
+  USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
+
+-- 5. Project <-> Technology Tools Join Table (RLS references project_team_members)
 CREATE TABLE IF NOT EXISTS public.project_technology_tools (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
@@ -273,88 +355,6 @@ CREATE POLICY "Users can delete project technology tools"
         )
     )
   );
-
--- 5. Project Team Members (with work tracking)
-CREATE TABLE IF NOT EXISTS public.project_team_members (
-  project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-  created_by UUID NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
-  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-  work_status TEXT NOT NULL DEFAULT 'not_started',
-  work_started_at TIMESTAMP WITH TIME ZONE,
-  work_ended_at TIMESTAMP WITH TIME ZONE,
-  work_done_notes TEXT,
-  PRIMARY KEY (project_id, user_id),
-  CONSTRAINT project_team_members_work_status_check CHECK (work_status IN ('not_started', 'start', 'hold', 'end'))
-);
-
-CREATE INDEX IF NOT EXISTS idx_project_team_members_project_id ON public.project_team_members(project_id);
-CREATE INDEX IF NOT EXISTS idx_project_team_members_user_id ON public.project_team_members(user_id);
-CREATE INDEX IF NOT EXISTS idx_project_team_members_work_status ON public.project_team_members(work_status);
-
-ALTER TABLE public.project_team_members ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Users can read project team members" ON public.project_team_members;
-DROP POLICY IF EXISTS "Users can insert project team members" ON public.project_team_members;
-DROP POLICY IF EXISTS "Users can delete project team members" ON public.project_team_members;
-DROP POLICY IF EXISTS "Assigned staff can update own work status" ON public.project_team_members;
-
-CREATE POLICY "Users can read project team members"
-  ON public.project_team_members
-  FOR SELECT
-  TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1
-      FROM public.users u
-      WHERE u.id = auth.uid()
-        AND (
-          u.role IN ('admin', 'manager')
-          OR COALESCE(u.module_permissions->>'projects', 'none') IN ('read', 'write')
-          OR project_team_members.user_id = auth.uid()
-        )
-    )
-  );
-
-CREATE POLICY "Users can insert project team members"
-  ON public.project_team_members
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (
-    auth.uid() = created_by
-    AND EXISTS (
-      SELECT 1
-      FROM public.users u
-      WHERE u.id = auth.uid()
-        AND (
-          u.role IN ('admin', 'manager')
-          OR COALESCE(u.module_permissions->>'projects', 'none') = 'write'
-        )
-    )
-  );
-
-CREATE POLICY "Users can delete project team members"
-  ON public.project_team_members
-  FOR DELETE
-  TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1
-      FROM public.users u
-      WHERE u.id = auth.uid()
-        AND (
-          u.role IN ('admin', 'manager')
-          OR COALESCE(u.module_permissions->>'projects', 'none') = 'write'
-        )
-    )
-  );
-
-CREATE POLICY "Assigned staff can update own work status"
-  ON public.project_team_members
-  FOR UPDATE
-  TO authenticated
-  USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid());
 
 -- Projects RLS (depends on project_team_members)
 ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
