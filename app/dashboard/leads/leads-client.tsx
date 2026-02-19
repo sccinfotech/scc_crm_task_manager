@@ -63,11 +63,12 @@ export function LeadsClient({
   const [mobilePage, setMobilePage] = useState(page)
   const [loadingMore, setLoadingMore] = useState(false)
 
-  // Sync mobile list when filters/sort/page change (e.g. new search from server)
+  // Sync mobile list when leads or page change (e.g. new search from server)
+  // Only depend on leads and page - filter/sort changes are already reflected in leads
   useEffect(() => {
     setMobileLeads(leads)
     setMobilePage(page)
-  }, [leads, page, initialSearch, initialStatus, initialFollowUpDate, initialSortField, initialSortDirection])
+  }, [leads, page])
 
   const buildSearchParams = useCallback(
     (updates: {

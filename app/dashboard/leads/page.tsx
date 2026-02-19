@@ -19,16 +19,19 @@ export default async function LeadsPage({
   }>
 }) {
   const user = await requireAuth()
-  const canRead = await hasPermission(user, MODULE_PERMISSION_IDS.leads, 'read')
+  
+  // Parallelize permission checks and search params parsing
+  const [canRead, canWrite, canCreateClient, params] = await Promise.all([
+    hasPermission(user, MODULE_PERMISSION_IDS.leads, 'read'),
+    hasPermission(user, MODULE_PERMISSION_IDS.leads, 'write'),
+    hasPermission(user, MODULE_PERMISSION_IDS.clients, 'write'),
+    searchParams,
+  ])
 
   if (!canRead) {
     redirect('/dashboard?error=unauthorized')
   }
 
-  const canWrite = await hasPermission(user, MODULE_PERMISSION_IDS.leads, 'write')
-  const canCreateClient = await hasPermission(user, MODULE_PERMISSION_IDS.clients, 'write')
-
-  const params = await searchParams
   const page = Math.max(1, parseInt(params.page ?? '1', 10) || 1)
   const result = await getLeadsPage({
     search: params.search,

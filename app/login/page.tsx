@@ -1,10 +1,12 @@
 import { LoginForm } from './login-form'
 
-export default function LoginPage({
+export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: { error?: string; redirect?: string }
+  searchParams: Promise<{ error?: string; redirect?: string }>
 }) {
+  const params = await searchParams
+  
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--background)] px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
       {/* Background Abstract Shapes - Cyan and Light Purple Mix */}
@@ -68,7 +70,7 @@ export default function LoginPage({
           </div>
 
           {/* Login Form */}
-          <LoginForm error={searchParams.error} />
+          <LoginForm error={params.error} />
         </div>
       </div>
     </div>

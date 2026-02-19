@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { memo, useMemo } from 'react'
 import { EmptyState } from '@/app/components/empty-state'
 import { Tooltip } from '@/app/components/ui/tooltip'
 
@@ -59,7 +60,8 @@ function StatusPill({ status }: { status: Lead['status'] }) {
   )
 }
 
-function formatDate(dateString: string) {
+// Memoized date formatting functions
+const formatDate = (dateString: string) => {
   const date = new Date(dateString)
   return date.toLocaleDateString('en-US', {
     year: 'numeric',
@@ -68,7 +70,7 @@ function formatDate(dateString: string) {
   })
 }
 
-function formatFollowUpDate(dateString: string | null) {
+const formatFollowUpDate = (dateString: string | null) => {
   if (!dateString) return null
   const date = new Date(dateString)
   return date.toLocaleDateString('en-US', {
@@ -78,7 +80,7 @@ function formatFollowUpDate(dateString: string | null) {
   })
 }
 
-function getFollowUpDateColor(dateString: string | null): string {
+const getFollowUpDateColor = (dateString: string | null): string => {
   if (!dateString) return 'text-gray-500'
 
   const followUpDate = new Date(dateString)
@@ -124,7 +126,7 @@ function SortIcon({ direction }: { direction: 'asc' | 'desc' | null }) {
   )
 }
 
-export function LeadsTable({
+export const LeadsTable = memo(function LeadsTable({
   leads,
   canWrite,
   onView,
@@ -229,15 +231,54 @@ export function LeadsTable({
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-50 bg-white">
-          {leads.map((lead) => {
-            const canEdit = canWrite
-            const canDelete = canWrite
+          {leads.map((lead) => (
+            <LeadTableRow
+              key={lead.id}
+              lead={lead}
+              canWrite={canWrite}
+              canConvert={canConvert}
+              onView={onView}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onConvert={onConvert}
+            />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
 
-            return (
-              <tr
-                key={lead.id}
-                className="group transition-all duration-200 hover:bg-slate-50 cursor-pointer relative"
-              >
+// Memoized table row component to prevent unnecessary re-renders
+const LeadTableRow = memo(function LeadTableRow({
+  lead,
+  canWrite,
+  canConvert,
+  onView,
+  onEdit,
+  onDelete,
+  onConvert,
+}: {
+  lead: Lead
+  canWrite: boolean
+  canConvert: boolean
+  onView: (leadId: string) => void
+  onEdit: (leadId: string) => void
+  onDelete: (leadId: string, leadName: string) => void
+  onConvert?: (leadId: string) => void
+}) {
+  const canEdit = canWrite
+  const canDelete = canWrite
+  
+  // Memoize formatted dates
+  const formattedCreatedAt = useMemo(() => formatDate(lead.created_at), [lead.created_at])
+  const formattedFollowUpDate = useMemo(() => formatFollowUpDate(lead.follow_up_date), [lead.follow_up_date])
+  const followUpDateColor = useMemo(() => getFollowUpDateColor(lead.follow_up_date), [lead.follow_up_date])
+
+  return (
+    <tr
+      className="group transition-all duration-200 hover:bg-slate-50 cursor-pointer relative"
+    >
                 <td className="px-4 sm:px-6 py-3">
                   <Link
                     href={`/dashboard/leads/${lead.id}`}
@@ -272,8 +313,8 @@ export function LeadsTable({
                 <td className="hidden px-6 py-3 text-sm md:table-cell">
                   <Link href={`/dashboard/leads/${lead.id}`} prefetch className="block no-underline text-inherit">
                     {lead.follow_up_date ? (
-                      <span className={getFollowUpDateColor(lead.follow_up_date)}>
-                        {formatFollowUpDate(lead.follow_up_date)}
+                      <span className={followUpDateColor}>
+                        {formattedFollowUpDate}
                       </span>
                     ) : (
                       <span className="text-gray-400">—</span>
@@ -282,7 +323,7 @@ export function LeadsTable({
                 </td>
                 <td className="hidden px-6 py-3 text-sm text-gray-500 lg:table-cell">
                   <Link href={`/dashboard/leads/${lead.id}`} prefetch className="block no-underline text-inherit">
-                    {formatDate(lead.created_at)}
+                    {formattedCreatedAt}
                   </Link>
                 </td>
                 <td className="px-4 sm:px-6 py-3 text-right text-sm">
@@ -326,9 +367,8 @@ export function LeadsTable({
                   </div>
                 </td>
               </tr>
-            )
-          })}
-        </tbody>
+  )
+})
       </table>
     </div>
   )

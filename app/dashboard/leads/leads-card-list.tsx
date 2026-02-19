@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, memo, useMemo } from 'react'
 import Link from 'next/link'
 import { EmptyState } from '@/app/components/empty-state'
 import type { LeadListItem } from '@/lib/leads/actions'
 
-function StatusPill({ status }: { status: LeadListItem['status'] }) {
+// Memoized StatusPill component
+const StatusPill = memo(function StatusPill({ status }: { status: LeadListItem['status'] }) {
   const styles = {
     new: { bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-600', ring: 'ring-blue-600/20' },
     contacted: { bg: 'bg-purple-50', text: 'text-purple-700', dot: 'bg-purple-600', ring: 'ring-purple-600/20' },
@@ -29,9 +30,10 @@ function StatusPill({ status }: { status: LeadListItem['status'] }) {
       {labels[status]}
     </span>
   )
-}
+})
 
-function formatDate(dateString: string) {
+// Memoized date formatting functions
+const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
@@ -39,7 +41,7 @@ function formatDate(dateString: string) {
   })
 }
 
-function formatFollowUpDate(dateString: string | null) {
+const formatFollowUpDate = (dateString: string | null) => {
   if (!dateString) return null
   return new Date(dateString).toLocaleDateString('en-US', {
     year: 'numeric',
@@ -48,7 +50,7 @@ function formatFollowUpDate(dateString: string | null) {
   })
 }
 
-function getFollowUpDateColor(dateString: string | null): string {
+const getFollowUpDateColor = (dateString: string | null): string => {
   if (!dateString) return 'text-gray-500'
   const followUpDate = new Date(dateString)
   const today = new Date()
@@ -75,7 +77,7 @@ export interface LeadsCardListProps {
   onLoadMore: () => void
 }
 
-export function LeadsCardList({
+export const LeadsCardList = memo(function LeadsCardList({
   leads,
   canWrite,
   onEdit,
@@ -127,10 +129,55 @@ export function LeadsCardList({
   return (
     <div className="flex flex-col gap-3 bg-white p-4 pb-8">
       {leads.map((lead) => (
-        <article
+        <LeadCard
           key={lead.id}
-          className="rounded-xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-cyan-500 focus-within:ring-offset-2"
-        >
+          lead={lead}
+          canWrite={canWrite}
+          canConvert={canConvert}
+          onView={onView}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onConvert={onConvert}
+        />
+      ))}
+      {/* Sentinel for infinite scroll */}
+      <div ref={sentinelRef} className="h-4 w-full" aria-hidden />
+      {loadingMore && (
+        <div className="flex justify-center py-4">
+          <span className="text-sm text-gray-500">Loading more…</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Memoized card component to prevent unnecessary re-renders
+const LeadCard = memo(function LeadCard({
+  lead,
+  canWrite,
+  canConvert,
+  onView,
+  onEdit,
+  onDelete,
+  onConvert,
+}: {
+  lead: LeadListItem
+  canWrite: boolean
+  canConvert: boolean
+  onView: (leadId: string) => void
+  onEdit: (leadId: string) => void
+  onDelete: (leadId: string, leadName: string) => void
+  onConvert?: (leadId: string) => void
+}) {
+  // Memoize formatted dates
+  const formattedCreatedAt = useMemo(() => formatDate(lead.created_at), [lead.created_at])
+  const formattedFollowUpDate = useMemo(() => formatFollowUpDate(lead.follow_up_date), [lead.follow_up_date])
+  const followUpDateColor = useMemo(() => getFollowUpDateColor(lead.follow_up_date), [lead.follow_up_date])
+
+  return (
+    <article
+      className="rounded-xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-cyan-500 focus-within:ring-offset-2"
+    >
           <Link
             href={`/dashboard/leads/${lead.id}`}
             prefetch
@@ -149,12 +196,12 @@ export function LeadsCardList({
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <StatusPill status={lead.status} />
                   {lead.follow_up_date && (
-                    <span className={`text-xs ${getFollowUpDateColor(lead.follow_up_date)}`}>
-                      Follow-up: {formatFollowUpDate(lead.follow_up_date)}
+                    <span className={`text-xs ${followUpDateColor}`}>
+                      Follow-up: {formattedFollowUpDate}
                     </span>
                   )}
                   <span className="text-xs text-gray-400">
-                    Created {formatDate(lead.created_at)}
+                    Created {formattedCreatedAt}
                   </span>
                 </div>
               </div>
@@ -208,14 +255,5 @@ export function LeadsCardList({
             )}
           </div>
         </article>
-      ))}
-      {/* Sentinel for infinite scroll */}
-      <div ref={sentinelRef} className="h-4 w-full" aria-hidden />
-      {loadingMore && (
-        <div className="flex justify-center py-4">
-          <span className="text-sm text-gray-500">Loading more…</span>
-        </div>
-      )}
-    </div>
   )
-}
+})
