@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { usePathname } from 'next/navigation';
 import { Sidebar } from '@/app/components/dashboard/sidebar';
 import { Header } from '@/app/components/dashboard/header';
@@ -16,13 +16,47 @@ interface DashboardShellProps {
 }
 
 const SIDEBAR_STATE_KEY = 'sidebar-collapsed';
+const SIDEBAR_STATE_EVENT = 'sidebar-collapsed-change';
 
-function getInitialSidebarState(): boolean {
+function getServerSidebarState(): boolean {
+    return false;
+}
+
+function getClientSidebarState(): boolean {
     if (typeof window === 'undefined') return false;
     try {
-        return localStorage.getItem(SIDEBAR_STATE_KEY) === 'true';
+        return window.localStorage.getItem(SIDEBAR_STATE_KEY) === 'true';
     } catch {
         return false;
+    }
+}
+
+function subscribeSidebarState(callback: () => void): () => void {
+    if (typeof window === 'undefined') return () => {};
+
+    const onStorage = (event: StorageEvent) => {
+        if (event.key === SIDEBAR_STATE_KEY) {
+            callback();
+        }
+    };
+    const onLocalChange = () => callback();
+
+    window.addEventListener('storage', onStorage);
+    window.addEventListener(SIDEBAR_STATE_EVENT, onLocalChange);
+
+    return () => {
+        window.removeEventListener('storage', onStorage);
+        window.removeEventListener(SIDEBAR_STATE_EVENT, onLocalChange);
+    };
+}
+
+function setClientSidebarState(collapsed: boolean): void {
+    if (typeof window === 'undefined') return;
+    try {
+        window.localStorage.setItem(SIDEBAR_STATE_KEY, String(collapsed));
+        window.dispatchEvent(new Event(SIDEBAR_STATE_EVENT));
+    } catch {
+        // Ignore localStorage access failures.
     }
 }
 
@@ -35,18 +69,11 @@ export function DashboardShell({
 }: DashboardShellProps) {
     const pathname = usePathname();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => getInitialSidebarState());
-    const [isHydrated, setIsHydrated] = useState(false);
-
-    useEffect(() => {
-        setIsHydrated(true);
-    }, []);
-
-    useEffect(() => {
-        if (isHydrated && typeof window !== 'undefined') {
-            localStorage.setItem(SIDEBAR_STATE_KEY, String(isSidebarCollapsed));
-        }
-    }, [isSidebarCollapsed, isHydrated]);
+    const isSidebarCollapsed = useSyncExternalStore(
+        subscribeSidebarState,
+        getClientSidebarState,
+        getServerSidebarState
+    );
 
     // Pages that render their own in-content headers or intentionally hide the global header
     // For these pages, we hide the global header to prevent duplicates or flickering
@@ -72,7 +99,7 @@ export function DashboardShell({
     return (
         <SidebarProvider
             isSidebarCollapsed={isSidebarCollapsed}
-            onSidebarToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            onSidebarToggle={() => setClientSidebarState(!isSidebarCollapsed)}
             isMobileMenuOpen={isMobileMenuOpen}
             onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         >
@@ -81,7 +108,7 @@ export function DashboardShell({
                     isMobileOpen={isMobileMenuOpen}
                     setIsMobileOpen={setIsMobileMenuOpen}
                     isCollapsed={isSidebarCollapsed}
-                    setIsCollapsed={setIsSidebarCollapsed}
+                    setIsCollapsed={setClientSidebarState}
                     userEmail={userEmail}
                     userFullName={userFullName}
                     userRole={userRole}
@@ -95,7 +122,7 @@ export function DashboardShell({
                             isMobileMenuOpen={isMobileMenuOpen}
                             onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                             isSidebarCollapsed={isSidebarCollapsed}
-                            onSidebarToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                            onSidebarToggle={() => setClientSidebarState(!isSidebarCollapsed)}
                         />
                     )}
 

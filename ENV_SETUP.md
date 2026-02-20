@@ -25,6 +25,22 @@ PROJECT_AMOUNT_ENCRYPTION_KEY=your-32-byte-key-as-hex-or-base64
 - **Generate a key (hex):** `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
 - If not set, amounts are stored as plain text (app works normally; add the key when you want encryption)
 
+## Optional: Google Bootstrap Auto-Create (Controlled)
+
+Use this only when you need one controlled self-provision login via Google (for example, first admin bootstrap).
+
+```env
+ALLOW_GOOGLE_AUTO_CREATE=false
+GOOGLE_AUTO_CREATE_EMAIL=your-email@company.com
+GOOGLE_AUTO_CREATE_ROLE=admin
+```
+
+- `ALLOW_GOOGLE_AUTO_CREATE`: set `true` to enable bootstrap self-provision.
+- `GOOGLE_AUTO_CREATE_EMAIL`: only this exact Google email can auto-create.
+- `GOOGLE_AUTO_CREATE_ROLE`: optional (`admin` | `manager` | `staff` | `client`), defaults to `admin`.
+- When disabled (`false`), the system stays strict: only pre-added emails can log in.
+- After bootstrap is done, set `ALLOW_GOOGLE_AUTO_CREATE=false` again.
+
 ## Where to Find Values
 
 1. Go to https://supabase.com/dashboard

@@ -1,340 +1,557 @@
 'use server'
 
+import crypto from 'node:crypto'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { Database } from '@/types/supabase'
 import { getCurrentUser, hasPermission } from '@/lib/auth/utils'
-import { MODULE_PERMISSION_IDS } from '@/lib/permissions'
+import {
+  MODULE_PERMISSION_IDS,
+  type ModulePermissions as PermissionMap,
+  type AccessLevel,
+} from '@/lib/permissions'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
-    EMAIL_VALIDATION_MESSAGE,
-    isValidEmailFormat,
-    normalizeRequiredEmail,
+  EMAIL_VALIDATION_MESSAGE,
+  isValidEmailFormat,
+  normalizeRequiredEmail,
 } from '@/lib/validation/email'
 
 export type UserRole = Database['public']['Enums']['user_role']
-export type ModulePermissions = Record<string, 'read' | 'write' | 'none'>
+export type ModulePermissions = PermissionMap
+type UserRow = Database['public']['Tables']['users']['Row']
+type UserInsert = Database['public']['Tables']['users']['Insert']
+type UserUpdate = Database['public']['Tables']['users']['Update']
 
 export type UserData = {
-    id: string
-    email: string
-    full_name: string | null
-    role: UserRole
-    is_active: boolean
-    module_permissions: ModulePermissions
-    created_at: string
-    deleted_at?: string | null
+  id: string
+  email: string
+  full_name: string | null
+  designation: string | null
+  joining_date: string | null
+  personal_email: string | null
+  personal_mobile_no: string | null
+  home_mobile_no: string | null
+  address: string | null
+  date_of_birth: string | null
+  photo_url: string | null
+  role: UserRole
+  is_active: boolean
+  module_permissions: ModulePermissions
+  created_at: string
+  deleted_at?: string | null
 }
 
 export type StaffSelectOption = {
-    id: string
-    full_name: string | null
-    email: string | null
-    role?: string | null
+  id: string
+  full_name: string | null
+  email: string | null
+  role?: string | null
 }
 
 export type CreateUserFormData = {
-    email: string
-    password: string
-    full_name: string
-    role: UserRole
-    module_permissions: ModulePermissions
+  email: string
+  full_name: string
+  designation: string
+  joining_date: string
+  role: UserRole
+  is_active: boolean
+  personal_email?: string
+  personal_mobile_no: string
+  home_mobile_no?: string
+  address?: string
+  date_of_birth?: string
+  photo_url?: string
 }
 
 export type UpdateUserFormData = {
-    full_name?: string
-    role?: UserRole
-    is_active?: boolean
-    module_permissions?: ModulePermissions
-    password?: string // Optional password update
+  full_name: string
+  designation: string
+  joining_date: string
+  role: UserRole
+  is_active: boolean
+  personal_email?: string
+  personal_mobile_no: string
+  home_mobile_no?: string
+  address?: string
+  date_of_birth?: string
+  photo_url?: string
 }
 
 export type GetUsersOptions = {
-    search?: string
-    role?: string
-    status?: string
-    page?: number
-    pageSize?: number
+  search?: string
+  role?: string
+  status?: string
+  page?: number
+  pageSize?: number
+}
+
+type CloudinaryUploadSignature = {
+  signature: string
+  timestamp: number
+  cloudName: string
+  apiKey: string
+  folder: string
 }
 
 const DEFAULT_PAGE_SIZE = 20
+const USER_ROLES: UserRole[] = ['admin', 'manager', 'staff', 'client']
+const VALID_ACCESS_LEVELS: AccessLevel[] = ['none', 'read', 'write']
+const MANAGED_MODULE_IDS = Object.values(MODULE_PERMISSION_IDS)
+const USER_PHOTO_CLOUDINARY_FOLDER = 'scc-crm/user-photos'
+
+function getEnvVar(name: string, isPublic = false): string {
+  const value = process.env[name]
+  if (!value) {
+    const visibility = isPublic ? 'public' : 'server-only'
+    throw new Error(
+      `Missing required ${visibility} environment variable: ${name}. Add it to .env.local and restart the dev server.`
+    )
+  }
+
+  return value
+}
+
+function getCloudinaryConfig() {
+  const cloudName = getEnvVar('NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME', true)
+  const apiKey = getEnvVar('NEXT_PUBLIC_CLOUDINARY_API_KEY', true)
+  const apiSecret = getEnvVar('CLOUDINARY_API_SECRET', false)
+
+  return { cloudName, apiKey, apiSecret }
+}
+
+function signCloudinaryParams(params: Record<string, string | number>, apiSecret: string) {
+  const sorted = Object.keys(params)
+    .sort()
+    .map((key) => `${key}=${params[key]}`)
+    .join('&')
+
+  return crypto.createHash('sha1').update(sorted + apiSecret).digest('hex')
+}
+
+export async function getUserPhotoUploadSignature(): Promise<{
+  data: CloudinaryUploadSignature | null
+  error: string | null
+}> {
+  const currentUser = await getCurrentUser()
+  if (!currentUser) {
+    return { data: null, error: 'You must be logged in to upload a photo.' }
+  }
+
+  const canWrite = await hasPermission(currentUser, MODULE_PERMISSION_IDS.users, 'write')
+  if (!canWrite) {
+    return { data: null, error: 'You do not have permission to upload user photos.' }
+  }
+
+  try {
+    const { cloudName, apiKey, apiSecret } = getCloudinaryConfig()
+    const timestamp = Math.floor(Date.now() / 1000)
+    const folder = USER_PHOTO_CLOUDINARY_FOLDER
+    const signature = signCloudinaryParams({ timestamp, folder }, apiSecret)
+
+    return {
+      data: {
+        signature,
+        timestamp,
+        cloudName,
+        apiKey,
+        folder,
+      },
+      error: null,
+    }
+  } catch (error) {
+    console.error('Error preparing user photo upload signature:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to prepare photo upload.',
+    }
+  }
+}
+
+function normalizeTextInput(value: string | undefined | null): string | null {
+  if (!value) return null
+  const normalized = value.trim()
+  return normalized.length > 0 ? normalized : null
+}
+
+function normalizeDateInput(value: string | undefined | null): string | null {
+  const normalized = normalizeTextInput(value)
+  if (!normalized) return null
+  return normalized
+}
+
+function isValidUserRole(value: string): value is UserRole {
+  return USER_ROLES.includes(value as UserRole)
+}
+
+function normalizePermissions(input?: Record<string, unknown> | null): ModulePermissions {
+  const normalized: ModulePermissions = {}
+
+  MANAGED_MODULE_IDS.forEach((moduleId) => {
+    const raw = input?.[moduleId]
+    if (VALID_ACCESS_LEVELS.includes(raw as AccessLevel)) {
+      normalized[moduleId] = raw as AccessLevel
+      return
+    }
+    normalized[moduleId] = 'none'
+  })
+
+  return normalized
+}
+
+function getDefaultPermissions(): ModulePermissions {
+  return normalizePermissions({})
+}
+
+function toUserData(row: UserRow): UserData {
+  return {
+    ...row,
+    module_permissions: normalizePermissions(row.module_permissions as Record<string, unknown> | null),
+  }
+}
+
+function validateCommonUserFields(formData: {
+  full_name?: string
+  designation?: string
+  joining_date?: string
+  role?: string
+  personal_mobile_no?: string
+  personal_email?: string
+}) {
+  const fullName = normalizeTextInput(formData.full_name)
+  if (!fullName) {
+    return { error: 'Full name is required' }
+  }
+
+  const designation = normalizeTextInput(formData.designation)
+  if (!designation) {
+    return { error: 'Designation is required' }
+  }
+
+  const joiningDate = normalizeDateInput(formData.joining_date)
+  if (!joiningDate) {
+    return { error: 'Joining date is required' }
+  }
+
+  const personalMobileNo = normalizeTextInput(formData.personal_mobile_no)
+  if (!personalMobileNo) {
+    return { error: 'Personal mobile number is required' }
+  }
+
+  const role = normalizeTextInput(formData.role)
+  if (!role || !isValidUserRole(role)) {
+    return { error: 'Role is required' }
+  }
+
+  const personalEmail = normalizeRequiredEmail(formData.personal_email || '') || null
+  if (personalEmail && !isValidEmailFormat(personalEmail)) {
+    return { error: `Personal email: ${EMAIL_VALIDATION_MESSAGE}` }
+  }
+
+  return {
+    data: {
+      fullName,
+      designation,
+      joiningDate,
+      personalMobileNo,
+      role,
+      personalEmail,
+    },
+  }
+}
 
 export async function getUsers(filters?: GetUsersOptions) {
-    const currentUser = await getCurrentUser()
+  const currentUser = await getCurrentUser()
 
-    if (!currentUser) {
-        return { error: 'You must be logged in to view users' }
-    }
+  if (!currentUser) {
+    return { error: 'You must be logged in to view users' }
+  }
 
-    const canRead = await hasPermission(currentUser, MODULE_PERMISSION_IDS.users, 'read')
-    if (!canRead) {
-        return { error: 'You do not have permission to view users' }
-    }
+  const canRead = await hasPermission(currentUser, MODULE_PERMISSION_IDS.users, 'read')
+  if (!canRead) {
+    return { error: 'You do not have permission to view users' }
+  }
 
-    const supabase = await createClient()
-    const page = Math.max(1, filters?.page ?? 1)
-    const pageSize = Math.min(100, Math.max(1, filters?.pageSize ?? DEFAULT_PAGE_SIZE))
+  const supabase = await createClient()
+  const page = Math.max(1, filters?.page ?? 1)
+  const pageSize = Math.min(100, Math.max(1, filters?.pageSize ?? DEFAULT_PAGE_SIZE))
 
-    let query = (supabase
-        .from('users')
-        .select('*', { count: 'exact' })
-        .is('deleted_at', null)
-        .order('created_at', { ascending: false }) as any)
+  let query = supabase
+    .from('users')
+    .select('*', { count: 'exact' })
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
 
-    if (filters?.search) {
-        query = query.or(`full_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%`)
-    }
+  if (filters?.search) {
+    query = query.or(`full_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%`)
+  }
 
-    if (filters?.role && filters.role !== 'all') {
-        query = query.eq('role', filters.role)
-    }
+  if (filters?.role && filters.role !== 'all') {
+    query = query.eq('role', filters.role)
+  }
 
-    if (filters?.status && filters.status !== 'all') {
-        query = query.eq('is_active', filters.status === 'active')
-    }
+  if (filters?.status && filters.status !== 'all') {
+    query = query.eq('is_active', filters.status === 'active')
+  }
 
-    const from = (page - 1) * pageSize
-    const to = from + pageSize - 1
-    const { data: users, error, count } = await query.range(from, to)
+  const from = (page - 1) * pageSize
+  const to = from + pageSize - 1
+  const { data: users, error, count } = await query.range(from, to)
 
-    if (error) {
-        console.error('Error fetching users:', error)
-        return { error: 'Failed to fetch users' }
-    }
+  if (error) {
+    console.error('Error fetching users:', error)
+    return { error: 'Failed to fetch users' }
+  }
 
-    return { data: users as UserData[], totalCount: count ?? 0 }
+  const normalizedUsers = (users || []).map((row) => toUserData(row))
+  return { data: normalizedUsers, totalCount: count ?? 0 }
 }
 
 export async function getStaffForSelect(): Promise<{ data: StaffSelectOption[]; error: string | null }> {
-    const currentUser = await getCurrentUser()
+  const currentUser = await getCurrentUser()
 
-    if (!currentUser) {
-        return { data: [], error: 'You must be logged in to view staff' }
-    }
+  if (!currentUser) {
+    return { data: [], error: 'You must be logged in to view staff' }
+  }
 
-    const isAdminManager = currentUser.role === 'admin' || currentUser.role === 'manager'
-    const canWriteProjects = await hasPermission(currentUser, MODULE_PERMISSION_IDS.projects, 'write')
+  const isAdminManager = currentUser.role === 'admin' || currentUser.role === 'manager'
+  const canWriteProjects = await hasPermission(currentUser, MODULE_PERMISSION_IDS.projects, 'write')
 
-    if (!isAdminManager && !canWriteProjects) {
-        return { data: [], error: 'You do not have permission to view staff' }
-    }
+  if (!isAdminManager && !canWriteProjects) {
+    return { data: [], error: 'You do not have permission to view staff' }
+  }
 
-    const supabase = await createClient()
-    const { data, error } = await (supabase
-        .from('users')
-        .select('id, full_name, email, role')
-        .eq('role', 'staff')
-        .eq('is_active', true)
-        .is('deleted_at', null)
-        .order('full_name', { ascending: true }) as any)
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, full_name, email, role')
+    .eq('role', 'staff')
+    .eq('is_active', true)
+    .is('deleted_at', null)
+    .order('full_name', { ascending: true })
 
-    if (error) {
-        console.error('Error fetching staff list:', error)
-        return { data: [], error: error.message || 'Failed to fetch staff list' }
-    }
+  if (error) {
+    console.error('Error fetching staff list:', error)
+    return { data: [], error: error.message || 'Failed to fetch staff list' }
+  }
 
-    return { data: (data || []) as StaffSelectOption[], error: null }
+  return { data: (data || []) as StaffSelectOption[], error: null }
 }
 
 export async function getUser(id: string) {
-    const currentUser = await getCurrentUser()
+  const currentUser = await getCurrentUser()
 
-    if (!currentUser) {
-        return { error: 'You must be logged in to view users' }
-    }
+  if (!currentUser) {
+    return { error: 'You must be logged in to view users' }
+  }
 
-    const canRead = await hasPermission(currentUser, MODULE_PERMISSION_IDS.users, 'read')
-    if (!canRead) {
-        return { error: 'You do not have permission to view users' }
-    }
+  const canRead = await hasPermission(currentUser, MODULE_PERMISSION_IDS.users, 'read')
+  if (!canRead) {
+    return { error: 'You do not have permission to view users' }
+  }
 
-    const supabase = await createClient()
+  const supabase = await createClient()
 
-    const { data: user, error } = await (supabase
-        .from('users')
-        .select('*')
-        .eq('id', id)
-        .is('deleted_at', null)
-        .single() as any)
+  const { data: user, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', id)
+    .is('deleted_at', null)
+    .single()
 
-    if (error) {
-        console.error('Error fetching user:', error)
-        return { error: 'Failed to fetch user' }
-    }
+  if (error) {
+    console.error('Error fetching user:', error)
+    return { error: 'Failed to fetch user' }
+  }
 
-    return { data: user as UserData }
+  return { data: toUserData(user) }
 }
 
 export async function createUser(formData: CreateUserFormData) {
-    const currentUser = await getCurrentUser()
+  const currentUser = await getCurrentUser()
 
-    if (!currentUser) {
-        return { error: 'You must be logged in to create users' }
-    }
+  if (!currentUser) {
+    return { error: 'You must be logged in to create users' }
+  }
 
-    const canWrite = await hasPermission(currentUser, MODULE_PERMISSION_IDS.users, 'write')
-    if (!canWrite) {
-        return { error: 'You do not have permission to create users' }
-    }
+  const canWrite = await hasPermission(currentUser, MODULE_PERMISSION_IDS.users, 'write')
+  if (!canWrite) {
+    return { error: 'You do not have permission to create users' }
+  }
 
-    const email = normalizeRequiredEmail(formData.email)
-    if (!email) {
-        return { error: 'Email is required' }
-    }
+  if (currentUser.role !== 'admin') {
+    return { error: 'Only admins can add new users' }
+  }
 
-    if (!isValidEmailFormat(email)) {
-        return { error: EMAIL_VALIDATION_MESSAGE }
-    }
+  const email = normalizeRequiredEmail(formData.email)
+  if (!email) {
+    return { error: 'Company email is required' }
+  }
 
-    const supabaseAdmin = createAdminClient()
+  if (!isValidEmailFormat(email)) {
+    return { error: EMAIL_VALIDATION_MESSAGE }
+  }
 
-    // 1. Create user in Supabase Auth
-    // We pass NO metadata initially to make the trigger as "light" as possible
-    // This prevents the trigger from trying to cast roles that might not exist yet.
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        email,
-        password: formData.password,
-        email_confirm: true,
-    })
+  const validation = validateCommonUserFields(formData)
+  if (validation.error || !validation.data) {
+    return { error: validation.error || 'Invalid user data' }
+  }
 
-    if (authError || !authData.user) {
-        console.error('Auth Error Details:', authError)
-        // If it's a database error, we want the user to see the EXACT details (e.g., which column or type is failing)
-        const isDbError = authError?.message?.includes('Database error')
-        return {
-            error: isDbError
-                ? `Database Error: ${authError?.message}. (Check if your users table and user_role enum are up to date)`
-                : (authError?.message || 'Failed to create user account')
-        }
-    }
+  const supabaseAdmin = createAdminClient()
 
-    // 2. Explicitly update/insert the profile
-    // Since the trigger might have failed OR we want to ensure specific data,
-    // we use an "upsert" to be safe.
-    const { error: dbError } = await supabaseAdmin
-        .from('users')
-        .upsert({
-            id: authData.user.id,
-            email,
-            role: formData.role,
-            module_permissions: formData.module_permissions as any,
-            full_name: formData.full_name,
-            is_active: true,
-            updated_at: new Date().toISOString()
-        } as any)
+  const { data: existingUser } = await supabaseAdmin
+    .from('users')
+    .select('id')
+    .eq('email', email)
+    .maybeSingle()
 
-    if (dbError) {
-        console.error('Profile Sync Error:', dbError)
-        // Cleanup the auth user since we couldn't create the profile
-        await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
-        return { error: 'Auth account created, but profile sync failed. Please check DB roles.' }
-    }
+  if (existingUser) {
+    return { error: 'A user with this company email already exists' }
+  }
 
-    revalidatePath('/dashboard/users')
-    return { success: true }
+  const userInsert: UserInsert = {
+    email,
+    full_name: validation.data.fullName,
+    designation: validation.data.designation,
+    joining_date: validation.data.joiningDate,
+    personal_email: validation.data.personalEmail,
+    personal_mobile_no: validation.data.personalMobileNo,
+    home_mobile_no: normalizeTextInput(formData.home_mobile_no),
+    address: normalizeTextInput(formData.address),
+    date_of_birth: normalizeDateInput(formData.date_of_birth),
+    photo_url: normalizeTextInput(formData.photo_url),
+    role: validation.data.role,
+    is_active: formData.is_active ?? false,
+    module_permissions:
+      getDefaultPermissions() as unknown as UserInsert['module_permissions'],
+    updated_at: new Date().toISOString(),
+  }
+
+  const { error: dbError } = await supabaseAdmin
+    .from('users')
+    .insert(userInsert as never)
+
+  if (dbError) {
+    console.error('User profile sync error:', dbError)
+    return { error: 'Failed to create user profile' }
+  }
+
+  revalidatePath('/dashboard/users')
+  return { success: true }
 }
 
 export async function updateUser(id: string, formData: UpdateUserFormData) {
-    const currentUser = await getCurrentUser()
+  const currentUser = await getCurrentUser()
 
-    if (!currentUser) {
-        return { error: 'You must be logged in to update users' }
-    }
+  if (!currentUser) {
+    return { error: 'You must be logged in to update users' }
+  }
 
-    const canWrite = await hasPermission(currentUser, MODULE_PERMISSION_IDS.users, 'write')
-    if (!canWrite) {
-        return { error: 'You do not have permission to update users' }
-    }
-    const supabaseAdmin = createAdminClient()
+  const canWrite = await hasPermission(currentUser, MODULE_PERMISSION_IDS.users, 'write')
+  if (!canWrite) {
+    return { error: 'You do not have permission to update users' }
+  }
 
-    const updates: any = {
-        ...formData,
-        updated_at: new Date().toISOString(),
-    }
+  const validation = validateCommonUserFields(formData)
+  if (validation.error || !validation.data) {
+    return { error: validation.error || 'Invalid user data' }
+  }
 
-    // Remove password from direct update to `users` table (it's in auth)
-    delete updates.password
+  const supabaseAdmin = createAdminClient()
 
-    const { error } = await supabaseAdmin
-        .from('users')
-        .update(updates as never)
-        .eq('id', id)
+  const userUpdates: UserUpdate = {
+    full_name: validation.data.fullName,
+    designation: validation.data.designation,
+    joining_date: validation.data.joiningDate,
+    personal_email: validation.data.personalEmail,
+    personal_mobile_no: validation.data.personalMobileNo,
+    home_mobile_no: normalizeTextInput(formData.home_mobile_no),
+    address: normalizeTextInput(formData.address),
+    date_of_birth: normalizeDateInput(formData.date_of_birth),
+    photo_url: normalizeTextInput(formData.photo_url),
+    role: validation.data.role,
+    is_active: formData.is_active,
+    updated_at: new Date().toISOString(),
+  }
 
-    if (error) {
-        console.error('Error updating user:', error)
-        return { error: 'Failed to update user' }
-    }
+  const { error } = await supabaseAdmin
+    .from('users')
+    .update(userUpdates as never)
+    .eq('id', id)
 
-    // If password update is needed, we need Admin API or user needs to allow it.
-    // We can use Admin API here if password is provided
-    if (formData.password) {
-        const supabaseAdmin = createAdminClient()
-        const { error: pwError } = await supabaseAdmin.auth.admin.updateUserById(id, { password: formData.password })
-        if (pwError) {
-            console.error('Error updating password:', pwError)
-            return { error: 'Failed to update password' }
-        }
-    }
+  if (error) {
+    console.error('Error updating user:', error)
+    return { error: 'Failed to update user' }
+  }
 
-    revalidatePath('/dashboard/users')
-    return { success: true }
+  revalidatePath('/dashboard/users')
+  return { success: true }
+}
+
+export async function updateUserPermissions(userId: string, modulePermissions: ModulePermissions) {
+  const currentUser = await getCurrentUser()
+
+  if (!currentUser) {
+    return { error: 'You must be logged in to update module permissions' }
+  }
+
+  const canWrite = await hasPermission(currentUser, MODULE_PERMISSION_IDS.users, 'write')
+  if (!canWrite) {
+    return { error: 'You do not have permission to update module permissions' }
+  }
+
+  const normalizedPermissions = normalizePermissions(modulePermissions)
+  const supabaseAdmin = createAdminClient()
+
+  const permissionsUpdate: UserUpdate = {
+    module_permissions:
+      normalizedPermissions as unknown as UserUpdate['module_permissions'],
+    updated_at: new Date().toISOString(),
+  }
+
+  const { error } = await supabaseAdmin
+    .from('users')
+    .update(permissionsUpdate as never)
+    .eq('id', userId)
+
+  if (error) {
+    console.error('Error updating user module permissions:', error)
+    return { error: 'Failed to update module permissions' }
+  }
+
+  revalidatePath('/dashboard/users')
+  return { success: true }
 }
 
 export async function deleteUser(id: string) {
-    const currentUser = await getCurrentUser()
+  const currentUser = await getCurrentUser()
 
-    if (!currentUser) {
-        return { error: 'You must be logged in to delete users' }
-    }
+  if (!currentUser) {
+    return { error: 'You must be logged in to delete users' }
+  }
 
-    const canWrite = await hasPermission(currentUser, MODULE_PERMISSION_IDS.users, 'write')
-    if (!canWrite) {
-        return { error: 'You do not have permission to delete users' }
-    }
-    const supabaseAdmin = createAdminClient()
+  const canWrite = await hasPermission(currentUser, MODULE_PERMISSION_IDS.users, 'write')
+  if (!canWrite) {
+    return { error: 'You do not have permission to delete users' }
+  }
 
-    // Soft delete: set deleted_at and is_active to false
-    const { error } = await supabaseAdmin
-        .from('users')
-        .update({
-            deleted_at: new Date().toISOString(),
-            is_active: false
-        } as never)
-        .eq('id', id)
+  const supabaseAdmin = createAdminClient()
+  const deleteUpdate: UserUpdate = {
+    deleted_at: new Date().toISOString(),
+    is_active: false,
+    updated_at: new Date().toISOString(),
+  }
 
-    if (error) {
-        console.error('Error deleting user:', error)
-        return { error: 'Failed to delete user' }
-    }
+  const { error } = await supabaseAdmin
+    .from('users')
+    .update(deleteUpdate as never)
+    .eq('id', id)
 
-    // Optionally sign out the user sessions if they're logged in
-    // Note: This won't immediately kick them out if they have a valid session, 
-    // but they won't be able to log in again or perform actions if RLS checks for deleted_at.
+  if (error) {
+    console.error('Error deleting user:', error)
+    return { error: 'Failed to delete user' }
+  }
 
-    revalidatePath('/dashboard/users')
-    return { success: true }
-}
-export async function changeUserPassword(userId: string, password: string) {
-    const currentUser = await getCurrentUser()
-
-    if (!currentUser) {
-        return { error: 'You must be logged in to change passwords' }
-    }
-
-    const canWrite = await hasPermission(currentUser, MODULE_PERMISSION_IDS.users, 'write')
-    if (!canWrite) {
-        return { error: 'You do not have permission to change passwords' }
-    }
-    const supabaseAdmin = createAdminClient()
-
-    const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
-        password: password
-    })
-
-    if (error) {
-        console.error('Error changing password:', error)
-        return { error: error.message || 'Failed to change password' }
-    }
-
-    return { success: true }
+  revalidatePath('/dashboard/users')
+  return { success: true }
 }

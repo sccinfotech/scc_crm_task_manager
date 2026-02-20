@@ -7,8 +7,9 @@ import { MODULE_PERMISSION_IDS } from '@/lib/permissions'
 export default async function CreateUserPage() {
     const currentUser = await requireAuth()
     const canWrite = await hasPermission(currentUser, MODULE_PERMISSION_IDS.users, 'write')
+    const canCreate = currentUser.role === 'admin'
 
-    if (!canWrite) {
+    if (!canWrite || !canCreate) {
         redirect('/dashboard?error=unauthorized')
     }
 

@@ -60,20 +60,14 @@ export default async function LoginPage({
 
             {/* Title */}
             <h2 className="mb-2 text-xl font-semibold tracking-tight text-[#1E1B4B] animate-fade-in-stagger-delay" style={{ animationDelay: '0.4s' }}>
-              Welcome Back
+              Sign in with Google
             </h2>
-
-            {/* Subtitle */}
-            <p className="text-sm text-gray-500 leading-relaxed animate-fade-in-stagger-delay" style={{ animationDelay: '0.5s' }}>
-              Sign in to continue to your dashboard
-            </p>
           </div>
 
           {/* Login Form */}
-          <LoginForm error={params.error} />
+          <LoginForm errorCode={params.error} redirectPath={params.redirect} />
         </div>
       </div>
     </div>
   )
 }
-

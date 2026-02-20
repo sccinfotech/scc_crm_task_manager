@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react'
 import { UserRole } from '@/lib/users/actions'
 
-type UserStatusFilter = 'all' | 'active' | 'inactive'
-
 interface UsersFiltersProps {
     roleFilter: UserRole | 'all'
     onRoleChange: (role: UserRole | 'all') => void

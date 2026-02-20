@@ -3,11 +3,8 @@
  * Throws clear errors if required variables are missing
  */
 
-function getEnvVar(name: string, isPublic = false): string {
-  const value = process.env[name]
-
-  if (!value) {
-    let instructions = `
+function buildMissingEnvError(name: string, isPublic = false): string {
+  let instructions = `
 Missing required environment variable: ${name}
 
 To fix this:
@@ -21,30 +18,57 @@ To fix this:
    - Go to Settings > API
    - Copy the values:`
 
-    if (isPublic) {
-      if (name === 'NEXT_PUBLIC_SUPABASE_URL') {
-        instructions += `
+  if (isPublic) {
+    if (name === 'NEXT_PUBLIC_SUPABASE_URL') {
+      instructions += `
      - Project URL → NEXT_PUBLIC_SUPABASE_URL`
-      } else {
-        instructions += `
-     - Publishable key (from "Publishable key" section) → NEXT_PUBLIC_SUPABASE_ANON_KEY
-       Note: Use the new "Publishable key" format (sb_publishable_...), not legacy "anon" key`
-      }
     } else {
       instructions += `
-     - service_role key → SUPABASE_SERVICE_ROLE_KEY (server-only)`
+     - Publishable key (from "Publishable key" section) → NEXT_PUBLIC_SUPABASE_ANON_KEY
+       Note: Use the new "Publishable key" format (sb_publishable_...), not legacy "anon" key`
     }
-
+  } else {
     instructions += `
+     - service_role key → SUPABASE_SERVICE_ROLE_KEY (server-only)`
+  }
+
+  instructions += `
 
 4. Restart your development server after adding .env.local
 
 For more details, see SETUP.md in the project root.`
 
-    throw new Error(instructions.trim())
+  return instructions.trim()
+}
+
+function getPublicEnvVar(name: 'NEXT_PUBLIC_SUPABASE_URL' | 'NEXT_PUBLIC_SUPABASE_ANON_KEY'): string {
+  // Use direct property access so Next/Turbopack can inline these at build time.
+  const value =
+    name === 'NEXT_PUBLIC_SUPABASE_URL'
+      ? process.env.NEXT_PUBLIC_SUPABASE_URL
+      : process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!value) {
+    throw new Error(buildMissingEnvError(name, true))
   }
 
   return value
+}
+
+function getServerEnvVar(name: 'SUPABASE_SERVICE_ROLE_KEY'): string {
+  const value = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!value) {
+    throw new Error(buildMissingEnvError(name, false))
+  }
+
+  return value
+}
+
+function normalizeBooleanEnv(value: string | undefined): boolean {
+  if (!value) return false
+  const normalized = value.trim().toLowerCase()
+  return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on'
 }
 
 /**
@@ -63,14 +87,14 @@ export function hasSupabaseClientConfig(): boolean {
  * Get Supabase URL (public, safe for browser)
  */
 export function getSupabaseUrl(): string {
-  return getEnvVar('NEXT_PUBLIC_SUPABASE_URL', true)
+  return getPublicEnvVar('NEXT_PUBLIC_SUPABASE_URL')
 }
 
 /**
  * Get Supabase anon key (public, safe for browser)
  */
 export function getSupabaseAnonKey(): string {
-  return getEnvVar('NEXT_PUBLIC_SUPABASE_ANON_KEY', true)
+  return getPublicEnvVar('NEXT_PUBLIC_SUPABASE_ANON_KEY')
 }
 
 /**
@@ -85,6 +109,40 @@ export function getSupabaseServiceRoleKey(): string {
       'It bypasses Row Level Security and should only be used in server-side admin operations.'
     )
   }
-  return getEnvVar('SUPABASE_SERVICE_ROLE_KEY', false)
+  return getServerEnvVar('SUPABASE_SERVICE_ROLE_KEY')
 }
 
+/**
+ * Optional: allow one controlled Google-login self-provision flow.
+ * This should be enabled only temporarily for bootstrap/emergency use.
+ */
+export function isGoogleAutoCreateEnabled(): boolean {
+  return normalizeBooleanEnv(process.env.ALLOW_GOOGLE_AUTO_CREATE)
+}
+
+/**
+ * Optional: only this exact email is allowed for auto-create when enabled.
+ */
+export function getGoogleAutoCreateEmail(): string | null {
+  const value = process.env.GOOGLE_AUTO_CREATE_EMAIL
+  if (!value) return null
+  const normalized = value.trim().toLowerCase()
+  return normalized.length > 0 ? normalized : null
+}
+
+/**
+ * Optional: role assigned when auto-creating user. Defaults to admin.
+ */
+export function getGoogleAutoCreateRole():
+  | 'admin'
+  | 'manager'
+  | 'staff'
+  | 'client' {
+  const value = process.env.GOOGLE_AUTO_CREATE_ROLE?.trim().toLowerCase()
+
+  if (value === 'manager' || value === 'staff' || value === 'client' || value === 'admin') {
+    return value
+  }
+
+  return 'admin'
+}

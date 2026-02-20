@@ -2,7 +2,11 @@
 
 import { useEffect } from 'react'
 import { UserForm } from '@/app/components/users/user-form'
-import { UserData, UserRole, ModulePermissions } from '@/lib/users/actions'
+import {
+  UserData,
+  CreateUserFormData,
+  UpdateUserFormData,
+} from '@/lib/users/actions'
 
 interface UserModalProps {
     isOpen: boolean
@@ -10,7 +14,7 @@ interface UserModalProps {
     mode: 'create' | 'edit'
     initialData?: UserData
     readOnly?: boolean
-    onSubmit: (data: any) => Promise<{ error?: string; success?: boolean }>
+    onSubmit: (data: CreateUserFormData | UpdateUserFormData) => Promise<{ error?: string; success?: boolean }>
 }
 
 export function UserModal({
@@ -34,10 +38,6 @@ export function UserModal({
     }, [isOpen])
 
     if (!isOpen) return null
-
-    // Transform UserData to UserForm expected format if needed
-    // UserForm expects: { id, email, full_name, role, is_active, module_permissions }
-    // UserData has these exact fields. Safe to pass.
 
     return (
         <div

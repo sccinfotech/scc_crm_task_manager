@@ -1,32 +1,81 @@
-import { type NextRequest } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
+import { SupabaseClient } from '@supabase/supabase-js'
 import { updateSession } from '@/lib/supabase/middleware'
+import { Database } from '@/types/supabase'
+
+type UserAccessState = 'allowed' | 'inactive' | 'deleted' | 'not_allowed'
+type UserAccessRow = Pick<
+  Database['public']['Tables']['users']['Row'],
+  'id' | 'is_active' | 'deleted_at'
+>
+
+async function resolveUserAccessState(
+  supabase: SupabaseClient<Database>,
+  userId: string
+): Promise<UserAccessState> {
+  const { data: rawUserRow, error } = await supabase
+    .from('users')
+    .select('id, is_active, deleted_at')
+    .eq('id', userId)
+    .maybeSingle()
+  const userRow = rawUserRow as UserAccessRow | null
+
+  if (error || !userRow) {
+    return 'not_allowed'
+  }
+
+  if (userRow.deleted_at) {
+    return 'deleted'
+  }
+
+  if (!userRow.is_active) {
+    return 'inactive'
+  }
+
+  return 'allowed'
+}
 
 export async function proxy(request: NextRequest) {
-  const { user, supabaseResponse } = await updateSession(request)
-
+  const { user, supabase, supabaseResponse } = await updateSession(request)
   const { pathname } = request.nextUrl
 
-  // Protected routes - require authentication
   if (pathname.startsWith('/dashboard')) {
     if (!user) {
       const url = request.nextUrl.clone()
       url.pathname = '/login'
       url.searchParams.set('redirect', pathname)
-      return Response.redirect(url)
+      return NextResponse.redirect(url)
     }
 
-    // Check if user is active (future-ready)
-    // This will be implemented when we fetch user data from users table
+    const accessState = await resolveUserAccessState(supabase, user.id)
+    if (accessState !== 'allowed') {
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      url.searchParams.set('error', accessState)
+      return NextResponse.redirect(url)
+    }
+
     return supabaseResponse
   }
 
-  // Auth routes - redirect if already authenticated
   if (pathname.startsWith('/login')) {
-    if (user) {
+    if (!user) {
+      return supabaseResponse
+    }
+
+    const accessState = await resolveUserAccessState(supabase, user.id)
+    if (accessState === 'allowed') {
       const url = request.nextUrl.clone()
       url.pathname = '/dashboard'
-      return Response.redirect(url)
+      return NextResponse.redirect(url)
     }
+
+    if (request.nextUrl.searchParams.get('error') !== accessState) {
+      const url = request.nextUrl.clone()
+      url.searchParams.set('error', accessState)
+      return NextResponse.redirect(url)
+    }
+
     return supabaseResponse
   }
 
@@ -35,13 +84,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

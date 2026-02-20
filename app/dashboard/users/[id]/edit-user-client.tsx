@@ -1,7 +1,12 @@
 'use client'
 
 import { UserForm } from '@/app/components/users/user-form'
-import { updateUser, UserData } from '@/lib/users/actions'
+import {
+    updateUser,
+    UserData,
+    CreateUserFormData,
+    UpdateUserFormData,
+} from '@/lib/users/actions'
 import { useRouter } from 'next/navigation'
 
 type EditUserClientProps = {
@@ -12,12 +17,28 @@ type EditUserClientProps = {
 export function EditUserClient({ user, readOnly = false }: EditUserClientProps) {
     const router = useRouter()
 
-    const handleSubmit = async (data: any) => {
+    const handleSubmit = async (data: CreateUserFormData | UpdateUserFormData) => {
         if (readOnly) {
             return { error: 'Read-only access', success: false }
         }
-        // Remove password if empty (though form handles this logic mostly, backend ignores it if not provided in update)
-        const result = await updateUser(user.id, data)
+
+        const payload: UpdateUserFormData = 'email' in data
+            ? {
+                full_name: data.full_name,
+                designation: data.designation,
+                joining_date: data.joining_date,
+                role: data.role,
+                is_active: data.is_active,
+                personal_email: data.personal_email,
+                personal_mobile_no: data.personal_mobile_no,
+                home_mobile_no: data.home_mobile_no,
+                address: data.address,
+                date_of_birth: data.date_of_birth,
+                photo_url: data.photo_url,
+            }
+            : data
+
+        const result = await updateUser(user.id, payload)
         if (result.success) {
             router.push('/dashboard/users')
             router.refresh()

@@ -19,6 +19,7 @@ export default async function UsersPage({
   }
 
   const canWrite = await hasPermission(currentUser, MODULE_PERMISSION_IDS.users, 'write')
+  const canCreate = currentUser.role === 'admin'
   const params = await searchParams
   const page = Math.max(1, parseInt(params.page ?? '1', 10) || 1)
   const result = await getUsers({
@@ -40,11 +41,11 @@ export default async function UsersPage({
   return (
     <UsersClient
       initialUsers={result.data || []}
-      totalCount={result.totalCount}
+      totalCount={result.totalCount ?? 0}
       page={page}
       pageSize={PAGE_SIZE}
-      currentUserId={currentUser.id}
       canWrite={canWrite}
+      canCreate={canCreate}
     />
   )
 }

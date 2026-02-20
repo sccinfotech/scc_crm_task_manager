@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 import { Sidebar } from './sidebar'
 import { Header } from './header'
 import type { ModulePermissions } from '@/lib/permissions'
@@ -17,17 +17,48 @@ interface DashboardLayoutProps {
 }
 
 const SIDEBAR_STATE_KEY = 'sidebar-collapsed'
+const SIDEBAR_STATE_EVENT = 'sidebar-collapsed-change'
 
-// Helper function to get initial sidebar state from localStorage
-function getInitialSidebarState(): boolean {
-  if (typeof window === 'undefined') {
-    return false // Default to open during SSR
-  }
+function getServerSidebarState(): boolean {
+  return false
+}
+
+function getClientSidebarState(): boolean {
+  if (typeof window === 'undefined') return false
   try {
-    const savedState = localStorage.getItem(SIDEBAR_STATE_KEY)
-    return savedState === 'true'
+    return window.localStorage.getItem(SIDEBAR_STATE_KEY) === 'true'
   } catch {
-    return false // Default to open if localStorage is unavailable
+    return false
+  }
+}
+
+function subscribeSidebarState(callback: () => void): () => void {
+  if (typeof window === 'undefined') return () => {}
+
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === SIDEBAR_STATE_KEY) {
+      callback()
+    }
+  }
+  const onLocalChange = () => callback()
+
+  window.addEventListener('storage', onStorage)
+  window.addEventListener(SIDEBAR_STATE_EVENT, onLocalChange)
+
+  return () => {
+    window.removeEventListener('storage', onStorage)
+    window.removeEventListener(SIDEBAR_STATE_EVENT, onLocalChange)
+  }
+}
+
+function setClientSidebarState(collapsed: boolean): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(SIDEBAR_STATE_KEY, String(collapsed))
+    window.dispatchEvent(new Event(SIDEBAR_STATE_EVENT))
+  } catch (error) {
+    // Silently fail if localStorage is unavailable
+    console.warn('Failed to save sidebar state to localStorage:', error)
   }
 }
 
@@ -42,30 +73,15 @@ export function DashboardLayout({
   hideHeader = false,
 }: DashboardLayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  // Initialize state from localStorage synchronously to prevent flash
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => getInitialSidebarState())
-  const [isHydrated, setIsHydrated] = useState(false)
-
-  // Mark as hydrated after first render
-  useEffect(() => {
-    setIsHydrated(true)
-  }, [])
-
-  // Save sidebar state to localStorage whenever it changes (only after hydration)
-  useEffect(() => {
-    if (isHydrated && typeof window !== 'undefined') {
-      try {
-        localStorage.setItem(SIDEBAR_STATE_KEY, String(isSidebarCollapsed))
-      } catch (error) {
-        // Silently fail if localStorage is unavailable
-        console.warn('Failed to save sidebar state to localStorage:', error)
-      }
-    }
-  }, [isSidebarCollapsed, isHydrated])
+  const isSidebarCollapsed = useSyncExternalStore(
+    subscribeSidebarState,
+    getClientSidebarState,
+    getServerSidebarState
+  )
 
   // Close mobile menu on navigation (but keep sidebar state for desktop)
   const handleSidebarToggle = (collapsed: boolean) => {
-    setIsSidebarCollapsed(collapsed)
+    setClientSidebarState(collapsed)
   }
 
   return (

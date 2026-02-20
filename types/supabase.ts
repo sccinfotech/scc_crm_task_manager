@@ -14,19 +14,37 @@ export interface Database {
           id: string
           email: string
           full_name: string | null
+          designation: string | null
+          joining_date: string | null
+          personal_email: string | null
+          personal_mobile_no: string | null
+          home_mobile_no: string | null
+          address: string | null
+          date_of_birth: string | null
+          photo_url: string | null
           role: 'admin' | 'manager' | 'staff' | 'client'
           module_permissions: Json | null
           is_active: boolean
+          deleted_at: string | null
           created_at: string
           updated_at: string
         }
         Insert: {
-          id: string
+          id?: string
           email: string
           full_name?: string | null
+          designation?: string | null
+          joining_date?: string | null
+          personal_email?: string | null
+          personal_mobile_no?: string | null
+          home_mobile_no?: string | null
+          address?: string | null
+          date_of_birth?: string | null
+          photo_url?: string | null
           role?: 'admin' | 'manager' | 'staff' | 'client'
           module_permissions?: Json | null
           is_active?: boolean
+          deleted_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -34,9 +52,18 @@ export interface Database {
           id?: string
           email?: string
           full_name?: string | null
+          designation?: string | null
+          joining_date?: string | null
+          personal_email?: string | null
+          personal_mobile_no?: string | null
+          home_mobile_no?: string | null
+          address?: string | null
+          date_of_birth?: string | null
+          photo_url?: string | null
           role?: 'admin' | 'manager' | 'staff' | 'client'
           module_permissions?: Json | null
           is_active?: boolean
+          deleted_at?: string | null
           created_at?: string
           updated_at?: string
         }

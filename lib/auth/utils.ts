@@ -35,6 +35,11 @@ export async function getCurrentUser() {
   }
 
   const row = userData as UserRow
+  if (row.deleted_at) {
+    await supabase.auth.signOut()
+    redirect('/login?error=deleted')
+  }
+
   if (!row.is_active) {
     // Inactive user - sign them out
     await supabase.auth.signOut()
