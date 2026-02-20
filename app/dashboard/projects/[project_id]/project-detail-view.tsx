@@ -1,7 +1,7 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useCallback, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Tooltip } from '@/app/components/ui/tooltip'
 import { useToast } from '@/app/components/ui/toast-context'
@@ -31,6 +31,7 @@ import { ProjectTasks } from '../project-tasks'
 interface ProjectDetailViewProps {
   project: Project
   initialFollowUps?: ProjectFollowUp[]
+  initialTab?: string
   canManageProject: boolean
   canManageFollowUps: boolean
   canViewAmount: boolean
@@ -260,6 +261,25 @@ const PROJECT_DETAIL_TABS: { id: ProjectDetailTab; label: string }[] = [
   { id: 'details', label: 'Details' },
 ]
 
+function parseProjectDetailTab(value: string | null | undefined): ProjectDetailTab | null {
+  if (!value) return null
+  const normalized = value.trim().toLowerCase()
+  return PROJECT_DETAIL_TABS.some((tab) => tab.id === normalized)
+    ? (normalized as ProjectDetailTab)
+    : null
+}
+
+function resolveProjectDetailTab(
+  tab: ProjectDetailTab | null,
+  showRequirementsAndPayments: boolean
+): ProjectDetailTab {
+  if (!tab) return 'tasks'
+  if (!showRequirementsAndPayments && (tab === 'requirements' || tab === 'payments')) {
+    return 'tasks'
+  }
+  return tab
+}
+
 function TabPlaceholder({ title, description }: { title: string; description: string }) {
   return (
     <div className="flex h-full items-center justify-center">
@@ -274,6 +294,7 @@ function TabPlaceholder({ title, description }: { title: string; description: st
 export function ProjectDetailView({
   project: initialProject,
   initialFollowUps = [],
+  initialTab,
   canManageProject,
   canManageFollowUps,
   canViewAmount,
@@ -287,9 +308,14 @@ export function ProjectDetailView({
   teamMembersError,
 }: ProjectDetailViewProps) {
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { success: showSuccess, error: showError } = useToast()
+  /** Requirements and Payments tabs are hidden from Staff and Clients */
+  const showRequirementsAndPayments = userRole !== 'staff' && userRole !== 'client'
+  const initialResolvedTab = resolveProjectDetailTab(parseProjectDetailTab(initialTab), showRequirementsAndPayments)
   const [project, setProject] = useState<Project>(initialProject)
-  const [activeTab, setActiveTab] = useState<ProjectDetailTab>('tasks')
+  const [activeTab, setActiveTab] = useState<ProjectDetailTab>(initialResolvedTab)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [linksModalOpen, setLinksModalOpen] = useState(false)
@@ -306,15 +332,29 @@ export function ProjectDetailView({
   /** Optimistic work state so the timer shows immediately on Start without waiting for server */
   const [optimisticWork, setOptimisticWork] = useState<{ status: 'start'; runningSince: string } | null>(null)
 
-  /** Requirements and Payments tabs are hidden from Staff and Clients (must be declared before useEffects that use it) */
-  const showRequirementsAndPayments = userRole !== 'staff' && userRole !== 'client'
   const visibleTabs = showRequirementsAndPayments
     ? PROJECT_DETAIL_TABS
     : PROJECT_DETAIL_TABS.filter((t) => t.id !== 'requirements' && t.id !== 'payments')
 
+  const updateTabInUrl = useCallback((tab: ProjectDetailTab) => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('tab', tab)
+    const query = params.toString()
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+  }, [pathname, router, searchParams])
+
   useEffect(() => {
     setProject(initialProject)
   }, [initialProject])
+
+  /** Keep tab in sync with URL (handles refresh/back-forward/manual query edits). */
+  useEffect(() => {
+    const nextTab = resolveProjectDetailTab(
+      parseProjectDetailTab(searchParams.get('tab')),
+      showRequirementsAndPayments
+    )
+    setActiveTab((currentTab) => (currentTab === nextTab ? currentTab : nextTab))
+  }, [searchParams, showRequirementsAndPayments])
 
   useEffect(() => {
     if (activeTab !== 'details') {
@@ -322,12 +362,23 @@ export function ProjectDetailView({
     }
   }, [activeTab])
 
-  /** If Staff/Client and current tab is hidden, switch to Tasks */
+  /** If current URL tab is invalid or hidden for this role, normalize it to Tasks. */
   useEffect(() => {
-    if (!showRequirementsAndPayments && (activeTab === 'requirements' || activeTab === 'payments')) {
-      setActiveTab('tasks')
+    const rawTabParam = searchParams.get('tab')
+    if (!rawTabParam) return
+
+    const parsedTabParam = parseProjectDetailTab(rawTabParam)
+    const resolvedTab = resolveProjectDetailTab(parsedTabParam, showRequirementsAndPayments)
+    if (!parsedTabParam || parsedTabParam !== resolvedTab) {
+      updateTabInUrl(resolvedTab)
     }
-  }, [showRequirementsAndPayments, activeTab])
+  }, [searchParams, showRequirementsAndPayments, updateTabInUrl])
+
+  const handleTabChange = (nextTab: ProjectDetailTab) => {
+    if (nextTab === activeTab) return
+    setActiveTab(nextTab)
+    updateTabInUrl(nextTab)
+  }
 
   const handleMyWorkStatus = async (eventType: 'start' | 'hold' | 'resume' | 'end', note?: string) => {
     if (!currentUserId || myWorkStatusUpdating) return
@@ -496,7 +547,7 @@ export function ProjectDetailView({
                     type="button"
                     role="tab"
                     aria-selected={isActive}
-                    onClick={() => setActiveTab(id)}
+                    onClick={() => handleTabChange(id)}
                     className={`
                       relative px-2.5 pb-2 pt-1 text-sm font-semibold whitespace-nowrap transition-colors duration-200 cursor-pointer
                       border-b-2

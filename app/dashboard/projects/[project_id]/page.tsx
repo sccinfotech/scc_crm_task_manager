@@ -11,11 +11,13 @@ import { MODULE_PERMISSION_IDS } from '@/lib/permissions'
 
 interface ProjectDetailPageProps {
   params: Promise<{ project_id: string }>
+  searchParams: Promise<{ tab?: string }>
 }
 
-export default async function ProjectDetailPage({ params }: ProjectDetailPageProps) {
+export default async function ProjectDetailPage({ params, searchParams }: ProjectDetailPageProps) {
   const user = await requireAuth()
   const { project_id } = await params
+  const query = await searchParams
   const canReadModule = await hasPermission(user, MODULE_PERMISSION_IDS.projects, 'read')
   const canRead = user.role === 'admin' || user.role === 'manager' || user.role === 'staff' || canReadModule
 
@@ -68,6 +70,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
         <ProjectDetailView
           project={project}
           initialFollowUps={[]}
+          initialTab={query.tab}
           canManageProject={canManageProject}
           canManageFollowUps={canManageFollowUps}
           canViewAmount={canViewAmount}
