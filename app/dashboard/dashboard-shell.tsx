@@ -84,11 +84,13 @@ export function DashboardShell({
         pathname === '/dashboard/projects' ||
         pathname === '/dashboard/settings' ||
         pathname?.startsWith('/dashboard/leads/') || // lead detail page also has custom header
+        pathname?.startsWith('/dashboard/users/') || // user detail page also has custom header
         pathname?.startsWith('/dashboard/clients/') || // client detail page also has custom header
         pathname?.startsWith('/dashboard/projects/') ||
         pathname?.startsWith('/dashboard/settings/'); // settings subpages
 
     const getTitle = () => {
+        if (pathname?.includes('users')) return 'Users';
         if (pathname?.includes('clients')) return 'Clients';
         if (pathname?.includes('projects')) return 'Projects';
         if (pathname?.includes('logs')) return 'Logs';

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { EmptyState } from '@/app/components/empty-state'
 import { Tooltip } from '@/app/components/ui/tooltip'
 import { useToast } from '@/app/components/ui/toast-context'
@@ -42,6 +42,9 @@ interface ProjectsTableProps {
   showClientColumn?: boolean
   /** When true, show Work column with Start / Hold / End for staff. */
   showWorkActions?: boolean
+  buildProjectHref?: (projectId: string) => string
+  showWorkingStatusColumn?: boolean
+  getWorkingStatusLabel?: (project: Project) => string | undefined
   onView: (projectId: string) => void
   onEdit: (projectId: string) => void
   onDelete: (projectId: string, projectName: string) => void
@@ -138,11 +141,101 @@ function getInitials(name: string) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
+function getWorkingStatusBadgeClasses(label: string): string {
+  const normalized = label.trim().toLowerCase()
+  if (normalized === 'working on' || normalized === 'working') {
+    return 'bg-cyan-50 text-cyan-700 ring-cyan-600/20'
+  }
+  if (normalized === 'hold') {
+    return 'bg-amber-50 text-amber-700 ring-amber-600/20'
+  }
+  if (normalized === 'not started') {
+    return 'bg-slate-100 text-slate-700 ring-slate-500/20'
+  }
+  if (normalized === 'ended') {
+    return 'bg-emerald-50 text-emerald-700 ring-emerald-600/20'
+  }
+  return 'bg-slate-100 text-slate-700 ring-slate-500/20'
+}
+
+function WorkActionIcon({ action }: { action: 'start' | 'hold' | 'resume' | 'end' }) {
+  if (action === 'hold') {
+    return (
+      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    )
+  }
+
+  if (action === 'end') {
+    return (
+      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.5 9.5h5v5h-5z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    )
+  }
+
+  return (
+    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  )
+}
+
+function WorkActionButton({
+  label,
+  tone,
+  disabled,
+  isLoading,
+  onClick,
+  icon,
+}: {
+  label: string
+  tone: 'emerald' | 'amber' | 'cyan' | 'slate'
+  disabled: boolean
+  isLoading: boolean
+  onClick: () => void
+  icon: ReactNode
+}) {
+  const toneClasses: Record<'emerald' | 'amber' | 'cyan' | 'slate', string> = {
+    emerald: 'bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-200',
+    amber: 'bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-200',
+    cyan: 'bg-cyan-100 text-cyan-800 border-cyan-200 hover:bg-cyan-200',
+    slate: 'bg-slate-200 text-slate-800 border-slate-300 hover:bg-slate-300',
+  }
+
+  return (
+    <Tooltip content={label}>
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={label}
+        className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${toneClasses[tone]}`}
+      >
+        {isLoading ? (
+          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle className="opacity-20" cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
+            <path className="opacity-90" d="M21 12a9 9 0 00-9-9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        ) : (
+          icon
+        )}
+      </button>
+    </Tooltip>
+  )
+}
+
 export function ProjectsTable({
   projects,
   canWrite,
   showClientColumn = true,
   showWorkActions = false,
+  buildProjectHref,
+  showWorkingStatusColumn = false,
+  getWorkingStatusLabel,
   onView,
   onEdit,
   onDelete,
@@ -236,6 +329,11 @@ export function ProjectsTable({
                 <SortIcon direction={sortField === 'status' ? sortDirection : null} />
               </div>
             </th>
+            {showWorkingStatusColumn && (
+              <th className="hidden md:table-cell md:w-[12%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                Working Status
+              </th>
+            )}
             <th
               className="group hidden md:table-cell md:w-[11%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
               onClick={() => handleSort('start_date')}
@@ -287,6 +385,9 @@ export function ProjectsTable({
             const canEdit = canWrite
             const canDelete = canWrite
             const clientLabel = project.client_name || project.client_company_name || '--'
+            const projectHref = buildProjectHref
+              ? buildProjectHref(project.id)
+              : `/dashboard/projects/${project.id}?tab=tasks`
 
             return (
               <tr
@@ -295,7 +396,7 @@ export function ProjectsTable({
               >
                 <td className="px-4 sm:px-6 py-3">
                   <Link
-                    href={`/dashboard/projects/${project.id}?tab=tasks`}
+                    href={projectHref}
                     prefetch
                     className="flex items-center gap-2 sm:gap-3 no-underline text-inherit"
                   >
@@ -325,22 +426,41 @@ export function ProjectsTable({
                   </td>
                 )}
                 <td className="px-4 sm:px-6 py-3">
-                  <Link href={`/dashboard/projects/${project.id}?tab=tasks`} prefetch className="block no-underline text-inherit">
+                  <Link href={projectHref} prefetch className="block no-underline text-inherit">
                     <StatusPill status={project.status} />
                   </Link>
                 </td>
+                {showWorkingStatusColumn && (
+                  <td className="hidden md:table-cell px-6 py-3">
+                    <Link href={projectHref} prefetch className="block no-underline text-inherit">
+                      {(() => {
+                        const statusLabel = getWorkingStatusLabel?.(project)
+                        if (!statusLabel) {
+                          return <span className="text-sm font-medium text-slate-400">--</span>
+                        }
+                        return (
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ring-1 ring-inset ${getWorkingStatusBadgeClasses(statusLabel)}`}
+                          >
+                            {statusLabel}
+                          </span>
+                        )
+                      })()}
+                    </Link>
+                  </td>
+                )}
                 <td className="hidden px-6 py-3 text-sm text-gray-500 md:table-cell">
-                  <Link href={`/dashboard/projects/${project.id}?tab=tasks`} prefetch className="block no-underline text-inherit">
+                  <Link href={projectHref} prefetch className="block no-underline text-inherit">
                     {formatDate(project.start_date)}
                   </Link>
                 </td>
                 <td className="hidden px-6 py-3 text-sm text-gray-500 md:table-cell">
-                  <Link href={`/dashboard/projects/${project.id}?tab=tasks`} prefetch className="block no-underline text-inherit">
+                  <Link href={projectHref} prefetch className="block no-underline text-inherit">
                     {project.developer_deadline_date ? formatDate(project.developer_deadline_date) : '--'}
                   </Link>
                 </td>
                 <td className="hidden px-6 py-3 text-sm text-gray-500 lg:table-cell">
-                  <Link href={`/dashboard/projects/${project.id}?tab=tasks`} prefetch className="block no-underline text-inherit">
+                  <Link href={projectHref} prefetch className="block no-underline text-inherit">
                     {project.follow_up_date ? (
                       <span className={getFollowUpDateColor(project.follow_up_date)}>
                         {formatFollowUpDate(project.follow_up_date)}
@@ -351,7 +471,7 @@ export function ProjectsTable({
                   </Link>
                 </td>
                 <td className="hidden px-6 py-3 text-sm text-gray-500 xl:table-cell">
-                  <Link href={`/dashboard/projects/${project.id}?tab=tasks`} prefetch className="block no-underline text-inherit">
+                  <Link href={projectHref} prefetch className="block no-underline text-inherit">
                     {formatDate(project.created_at)}
                   </Link>
                 </td>
@@ -360,94 +480,64 @@ export function ProjectsTable({
                     {project.my_work_status != null ? (
                       <div className="flex flex-wrap items-center gap-1.5">
                         {project.my_work_status === 'not_started' && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              handleWorkAction(project.id, 'start')
-                            }}
+                          <WorkActionButton
+                            label="Start"
+                            tone="emerald"
                             disabled={workActionProjectId === project.id}
-                            className="rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-200 transition-colors cursor-pointer disabled:opacity-50"
-                          >
-                            {workActionProjectId === project.id ? '…' : 'Start'}
-                          </button>
+                            isLoading={workActionProjectId === project.id}
+                            onClick={() => handleWorkAction(project.id, 'start')}
+                            icon={<WorkActionIcon action="start" />}
+                          />
                         )}
                         {project.my_work_status === 'start' && (
                           <>
-                            <Tooltip content="Pause work">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault()
-                                  e.stopPropagation()
-                                  handleWorkAction(project.id, 'hold')
-                                }}
-                                disabled={workActionProjectId === project.id}
-                                className="rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200 hover:bg-amber-200 transition-colors cursor-pointer disabled:opacity-50"
-                              >
-                                {workActionProjectId === project.id ? '…' : 'Hold'}
-                              </button>
-                            </Tooltip>
-                            <Tooltip content="End work and add done tasks">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault()
-                                  e.stopPropagation()
-                                  setEndWorkProject({ id: project.id, name: project.name })
-                                }}
-                                disabled={workActionProjectId === project.id}
-                                className="rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-slate-200 text-slate-800 border border-slate-300 hover:bg-slate-300 transition-colors cursor-pointer disabled:opacity-50"
-                              >
-                                End
-                              </button>
-                            </Tooltip>
+                            <WorkActionButton
+                              label="Hold"
+                              tone="amber"
+                              disabled={workActionProjectId === project.id}
+                              isLoading={workActionProjectId === project.id}
+                              onClick={() => handleWorkAction(project.id, 'hold')}
+                              icon={<WorkActionIcon action="hold" />}
+                            />
+                            <WorkActionButton
+                              label="End session"
+                              tone="slate"
+                              disabled={workActionProjectId === project.id}
+                              isLoading={false}
+                              onClick={() => setEndWorkProject({ id: project.id, name: project.name })}
+                              icon={<WorkActionIcon action="end" />}
+                            />
                           </>
                         )}
                         {project.my_work_status === 'hold' && (
                           <>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                handleWorkAction(project.id, 'resume')
-                              }}
+                            <WorkActionButton
+                              label="Resume"
+                              tone="cyan"
                               disabled={workActionProjectId === project.id}
-                              className="rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-cyan-100 text-cyan-800 border border-cyan-200 hover:bg-cyan-200 transition-colors cursor-pointer disabled:opacity-50"
-                            >
-                              {workActionProjectId === project.id ? '…' : 'Resume'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                setEndWorkProject({ id: project.id, name: project.name })
-                              }}
+                              isLoading={workActionProjectId === project.id}
+                              onClick={() => handleWorkAction(project.id, 'resume')}
+                              icon={<WorkActionIcon action="resume" />}
+                            />
+                            <WorkActionButton
+                              label="End session"
+                              tone="slate"
                               disabled={workActionProjectId === project.id}
-                              className="rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-slate-200 text-slate-800 border border-slate-300 hover:bg-slate-300 transition-colors cursor-pointer disabled:opacity-50"
-                            >
-                              End
-                            </button>
+                              isLoading={false}
+                              onClick={() => setEndWorkProject({ id: project.id, name: project.name })}
+                              icon={<WorkActionIcon action="end" />}
+                            />
                           </>
                         )}
                         {project.my_work_status === 'end' && (
-                          <Tooltip content="Start a new work session">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                handleWorkAction(project.id, 'start')
-                              }}
-                              disabled={workActionProjectId === project.id}
-                              className="rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-200 transition-colors cursor-pointer disabled:opacity-50"
-                            >
-                              {workActionProjectId === project.id ? '…' : 'Start again'}
-                            </button>
-                          </Tooltip>
+                          <WorkActionButton
+                            label="Start again"
+                            tone="emerald"
+                            disabled={workActionProjectId === project.id}
+                            isLoading={workActionProjectId === project.id}
+                            onClick={() => handleWorkAction(project.id, 'start')}
+                            icon={<WorkActionIcon action="start" />}
+                          />
                         )}
                       </div>
                     ) : (

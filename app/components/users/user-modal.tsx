@@ -25,6 +25,8 @@ export function UserModal({
     readOnly = false,
     onSubmit,
 }: UserModalProps) {
+    const editTitle = initialData?.full_name?.trim() || initialData?.email || 'Edit User'
+
     useEffect(() => {
         if (isOpen) {
             document.body.style.overflow = 'hidden'
@@ -52,7 +54,7 @@ export function UserModal({
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 flex-shrink-0">
                     <h2 className="text-xl font-semibold text-[#1E1B4B]">
-                        {mode === 'create' ? 'Create New User' : 'Edit User'}
+                        {mode === 'create' ? 'Create New User' : editTitle}
                     </h2>
                     <button
                         onClick={onClose}

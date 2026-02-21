@@ -100,6 +100,15 @@ export default function UsersClient({
     setIsModalOpen(true)
   }
 
+  const handleRowClick = (user: UserData) => {
+    const query = searchParams.toString()
+    const returnTo = query ? `${pathname}?${query}` : pathname
+    const params = new URLSearchParams()
+    params.set('returnTo', returnTo)
+    params.set('tab', 'assigned-projects')
+    router.push(`/dashboard/users/${encodeURIComponent(user.id)}?${params.toString()}`)
+  }
+
   const handleManagePermissionsOpen = (user: UserData) => {
     if (!canWrite) {
       showError('Read-only Access', 'You do not have permission to set module permissions.')
@@ -210,6 +219,7 @@ export default function UsersClient({
           <UsersTable
             users={initialUsers}
             canWrite={canWrite}
+            onRowClick={handleRowClick}
             onEdit={handleEditOpen}
             onManagePermissions={handleManagePermissionsOpen}
           />

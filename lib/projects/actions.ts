@@ -360,7 +360,7 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
     query = supabase
       .from('projects')
       .select(
-        'id, name, logo_url, client_id, project_amount, status, priority, start_date, developer_deadline_date, website_links, created_at, created_by, clients(id, name, company_name), project_team_members!inner(user_id)',
+        'id, name, logo_url, client_id, project_amount, status, priority, start_date, developer_deadline_date, website_links, created_at, created_by, clients(id, name, company_name), project_team_members!inner(user_id, work_status, work_started_at)',
         { count: 'exact' }
       )
       .eq('project_team_members.user_id', staffUserId)
@@ -402,7 +402,7 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
   }
 
   const canViewAmount = canViewProjectAmount(currentUser.role)
-  const includeMyWorkStatus = isStaff && !isAdmin
+  const includeMyWorkStatus = (isStaff && !isAdmin) || Boolean(staffUserId)
   const projectIds = (data || []).map((row: any) => row.id) as string[]
 
   // Next follow-up date per project (latest follow-up's follow_up_date, same as detail view setup)

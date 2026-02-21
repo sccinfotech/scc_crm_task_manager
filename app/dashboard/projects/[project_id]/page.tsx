@@ -32,7 +32,31 @@ function resolveProjectDetailTab(
 
 interface ProjectDetailPageProps {
   params: Promise<{ project_id: string }>
-  searchParams: Promise<{ tab?: string }>
+  searchParams: Promise<{ tab?: string; from?: string; userId?: string; returnTo?: string }>
+}
+
+function sanitizeDashboardPath(value: string | undefined): string | null {
+  const normalized = value?.trim()
+  if (!normalized) return null
+  if (!normalized.startsWith('/dashboard')) return null
+  if (normalized.startsWith('//')) return null
+  return normalized
+}
+
+function resolveBreadcrumbLink(query: { from?: string; userId?: string; returnTo?: string }) {
+  const safeReturnTo = sanitizeDashboardPath(query.returnTo)
+  if (query.from === 'user') {
+    if (safeReturnTo) {
+      return { href: safeReturnTo, label: 'User Details' }
+    }
+
+    const userId = query.userId?.trim()
+    if (userId && !userId.includes('/')) {
+      return { href: `/dashboard/users/${encodeURIComponent(userId)}`, label: 'User Details' }
+    }
+  }
+
+  return { href: '/dashboard/projects', label: 'Projects' }
 }
 
 export default async function ProjectDetailPage({ params, searchParams }: ProjectDetailPageProps) {
@@ -69,15 +93,16 @@ export default async function ProjectDetailPage({ params, searchParams }: Projec
   const canManageProject = user.role === 'admin' || user.role === 'manager' || canWriteModule
   const canManageFollowUps = canManageProject || user.role === 'staff'
   const canViewAmount = user.role === 'admin' || user.role === 'manager'
+  const breadcrumbLink = resolveBreadcrumbLink(query)
 
   const projectName = project.name ?? 'Project'
   const breadcrumb = (
     <div className="flex items-center gap-2 text-sm">
       <Link
-        href="/dashboard/projects"
+        href={breadcrumbLink.href}
         className="font-medium text-[#06B6D4] hover:text-[#0891b2] hover:underline transition-colors"
       >
-        Projects
+        {breadcrumbLink.label}
       </Link>
       <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
