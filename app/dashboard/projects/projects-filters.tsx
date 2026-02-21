@@ -2,12 +2,17 @@
 
 import { useState, useEffect } from 'react'
 import { ProjectStatus } from '@/lib/projects/actions'
+import type { StaffSelectOption } from '@/lib/users/actions'
 
 const SEARCH_DEBOUNCE_MS = 300
 
 interface ProjectsFiltersProps {
   statusFilter: ProjectStatus | 'all'
   onStatusChange: (status: ProjectStatus | 'all') => void
+  staffMembers: StaffSelectOption[]
+  selectedStaffId: string
+  onStaffChange: (staffId: string) => void
+  showStaffFilter?: boolean
   searchQuery: string
   onSearchChange: (query: string) => void
   onClearFilters: () => void
@@ -27,6 +32,10 @@ const FILTER_SELECT_CLASSES =
 export function ProjectsFilters({
   statusFilter,
   onStatusChange,
+  staffMembers,
+  selectedStaffId,
+  onStaffChange,
+  showStaffFilter = false,
   searchQuery,
   onSearchChange,
   onClearFilters,
@@ -46,7 +55,7 @@ export function ProjectsFilters({
     return () => clearTimeout(t)
   }, [localSearch, onSearchChange, searchQuery])
 
-  const hasActiveFilters = statusFilter !== 'all' || searchQuery.trim() !== ''
+  const hasActiveFilters = statusFilter !== 'all' || searchQuery.trim() !== '' || selectedStaffId !== ''
 
   return (
     <div className="border-b border-gray-200 bg-white px-3 py-3 sm:px-4 sm:py-4 lg:px-6">
@@ -99,6 +108,28 @@ export function ProjectsFilters({
               </svg>
             </div>
           </div>
+
+          {showStaffFilter && (
+            <div className="relative sm:w-56">
+              <select
+                value={selectedStaffId}
+                onChange={(e) => onStaffChange(e.target.value)}
+                className={FILTER_SELECT_CLASSES}
+              >
+                <option value="">All Staff</option>
+                {staffMembers.map((staff) => (
+                  <option key={staff.id} value={staff.id}>
+                    {staff.full_name?.trim() || staff.email || 'Unnamed staff'}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Clear Filters Button */}

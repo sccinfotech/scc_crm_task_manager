@@ -15,6 +15,7 @@ export default async function ProjectsPage({
   searchParams: Promise<{
     search?: string
     status?: string
+    staff?: string
     sort?: string
     sortDir?: 'asc' | 'desc'
     page?: string
@@ -40,6 +41,7 @@ export default async function ProjectsPage({
     getProjectsPage({
       search: params.search,
       status: (params.status as ProjectStatus | undefined) ?? 'all',
+      staffUserId: params.staff,
       sortField: (params.sort as ProjectSortField | undefined) ?? 'created_at',
       sortDirection: params.sortDir ?? 'desc',
       page,
@@ -66,6 +68,7 @@ export default async function ProjectsPage({
       pageSize={PAGE_SIZE}
       initialSearch={params.search ?? ''}
       initialStatus={(params.status as ProjectStatus | 'all') ?? 'all'}
+      initialStaffUserId={params.staff ?? ''}
       initialSortField={(params.sort as ProjectSortField) ?? 'created_at'}
       initialSortDirection={params.sortDir ?? 'desc'}
       canWrite={canWrite}

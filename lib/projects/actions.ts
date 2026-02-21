@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser, hasPermission } from '@/lib/auth/utils'
 import { MODULE_PERMISSION_IDS } from '@/lib/permissions'
 import { computeMemberWorkSeconds, computeWorkHistoryByDay } from '@/lib/projects/work-utils'
-import type { WorkHistoryDay } from '@/lib/projects/work-utils'
+import type { WorkHistoryDay, WorkHistorySegment } from '@/lib/projects/work-utils'
 
 export type ProjectStatus = 'pending' | 'in_progress' | 'hold' | 'completed'
 export type ProjectStaffStatus = 'start' | 'hold' | 'end'
@@ -99,6 +99,7 @@ export type ProjectSortField =
 export type GetProjectsPageOptions = {
   search?: string
   status?: ProjectStatus | 'all'
+  staffUserId?: string
   sortField?: ProjectSortField
   sortDirection?: 'asc' | 'desc'
   page?: number
@@ -320,6 +321,7 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
   const page = Math.max(1, options.page ?? 1)
   const pageSize = Math.min(100, Math.max(1, options.pageSize ?? 20))
   const supabase = await createClient()
+  const staffUserId = options.staffUserId?.trim() || null
 
   let query = supabase
     .from('projects')
@@ -336,6 +338,14 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
         { count: 'exact' }
       )
       .eq('project_team_members.user_id', currentUser.id)
+  } else if (staffUserId) {
+    query = supabase
+      .from('projects')
+      .select(
+        'id, name, logo_url, client_id, project_amount, status, priority, start_date, developer_deadline_date, website_links, created_at, created_by, clients(id, name, company_name), project_team_members!inner(user_id)',
+        { count: 'exact' }
+      )
+      .eq('project_team_members.user_id', staffUserId)
   }
 
   if (options.search?.trim()) {
@@ -374,6 +384,7 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
   }
 
   const canViewAmount = canViewProjectAmount(currentUser.role)
+  const includeMyWorkStatus = isStaff && !isAdmin
   const projectIds = (data || []).map((row: any) => row.id) as string[]
 
   // Next follow-up date per project (latest follow-up's follow_up_date, same as detail view setup)
@@ -396,7 +407,7 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
   const list = (data || []).map((row: any) => {
     const client = normalizeClient(row.clients)
     const raw = row.project_team_members
-    const members = Array.isArray(raw) ? raw : raw != null ? [raw] : []
+    const members = includeMyWorkStatus && raw ? (Array.isArray(raw) ? raw : [raw]) : []
     const myMember = (members as Array<{ work_status?: string; work_started_at?: string }>)[0] ?? null
     return {
       id: row.id,
@@ -414,7 +425,7 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
       created_at: row.created_at,
       created_by: row.created_by,
       follow_up_date: followUpDateByProject.get(row.id) ?? null,
-      ...(myMember && {
+      ...(includeMyWorkStatus && myMember && {
         my_work_status: myMember.work_status ?? null,
         my_work_started_at: myMember.work_started_at ?? null,
       }),
@@ -1143,14 +1154,34 @@ export async function getProjectFollowUps(projectId: string): Promise<ProjectFol
   return { data: transformedData, error: null }
 }
 
+export type ProjectWorkHistoryTeamMemberDay = {
+  userId: string
+  userName: string | null
+  userEmail: string | null
+  totalSeconds: number
+  segments: WorkHistorySegment[]
+}
+
+export type ProjectWorkHistoryTeamDay = {
+  date: string
+  totalSeconds: number
+  members: ProjectWorkHistoryTeamMemberDay[]
+}
+
+export type ProjectWorkHistoryPayload =
+  | { mode: 'single'; days: WorkHistoryDay[] }
+  | { mode: 'team'; days: ProjectWorkHistoryTeamDay[] }
+
 export type ProjectWorkHistoryResult =
-  | { data: WorkHistoryDay[]; error: null }
+  | { data: ProjectWorkHistoryPayload; error: null }
   | { data: null; error: string }
 
 /**
  * Returns work history (by day, with segments and notes) for a project.
  * Data source: project_team_member_time_events (event_type: start, hold, resume, end; note on end).
- * Staff: always current user. Admin/Manager: optional staffUserId to view that staff's history.
+ * Staff: always current user.
+ * Admin/Manager: returns all users' work history grouped by date.
+ * Others: optional staffUserId to view a single assigned user's history.
  */
 export async function getProjectWorkHistory(
   projectId: string,
@@ -1171,21 +1202,8 @@ export async function getProjectWorkHistory(
     }
   }
 
-  const userId = (() => {
-    if (currentUser.role === 'staff') return currentUser.id
-    if (staffUserId) return staffUserId
-    return currentUser.id
-  })()
-
-  if (currentUser.role === 'staff' && userId !== currentUser.id) {
+  if (currentUser.role === 'staff' && staffUserId && staffUserId !== currentUser.id) {
     return { data: null, error: 'You can only view your own work history' }
-  }
-
-  if (userId !== currentUser.id) {
-    const isAssigned = await isUserAssignedToProject(supabase, projectId, userId)
-    if (!isAssigned) {
-      return { data: null, error: 'Selected staff is not assigned to this project' }
-    }
   }
 
   const { data: timeEventRows, error: timeEventsError } = await supabase
@@ -1206,8 +1224,81 @@ export async function getProjectWorkHistory(
     note: e.note ?? null,
   }))
 
+  const isTeamViewRole = currentUser.role === 'admin' || currentUser.role === 'manager'
+  if (isTeamViewRole) {
+    const userIds = [...new Set(events.map((event) => event.user_id))]
+    if (userIds.length === 0) {
+      return { data: { mode: 'team', days: [] }, error: null }
+    }
+
+    const { data: users, error: usersError } = await supabase
+      .from('users')
+      .select('id, full_name, email')
+      .in('id', userIds)
+
+    if (usersError) {
+      console.error('Error fetching work history users:', usersError)
+      return { data: null, error: usersError.message || 'Failed to fetch work history users' }
+    }
+
+    const userMap = new Map<string, { name: string | null; email: string | null }>()
+    ;(users as Array<{ id: string; full_name: string | null; email: string | null }> | null)?.forEach((user) => {
+      userMap.set(user.id, { name: user.full_name, email: user.email })
+    })
+
+    const dayMap = new Map<string, ProjectWorkHistoryTeamDay>()
+    for (const userId of userIds) {
+      const userDays = computeWorkHistoryByDay(userId, events)
+      if (userDays.length === 0) continue
+
+      const userInfo = userMap.get(userId)
+      for (const day of userDays) {
+        const existing = dayMap.get(day.date)
+        const memberDay: ProjectWorkHistoryTeamMemberDay = {
+          userId,
+          userName: userInfo?.name ?? null,
+          userEmail: userInfo?.email ?? null,
+          totalSeconds: day.totalSeconds,
+          segments: day.segments,
+        }
+
+        if (!existing) {
+          dayMap.set(day.date, {
+            date: day.date,
+            totalSeconds: day.totalSeconds,
+            members: [memberDay],
+          })
+        } else {
+          existing.totalSeconds += day.totalSeconds
+          existing.members.push(memberDay)
+        }
+      }
+    }
+
+    const days = Array.from(dayMap.values())
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .map((day) => ({
+        ...day,
+        members: day.members.sort((a, b) => {
+          const aLabel = (a.userName ?? a.userEmail ?? a.userId).toLowerCase()
+          const bLabel = (b.userName ?? b.userEmail ?? b.userId).toLowerCase()
+          return aLabel.localeCompare(bLabel)
+        }),
+      }))
+
+    return { data: { mode: 'team', days }, error: null }
+  }
+
+  const userId = staffUserId || currentUser.id
+  if (userId !== currentUser.id) {
+    const isAssigned = await isUserAssignedToProject(supabase, projectId, userId)
+    if (!isAssigned) {
+      return { data: null, error: 'Selected staff is not assigned to this project' }
+    }
+  }
+
   const days = computeWorkHistoryByDay(userId, events)
-  return { data: days, error: null }
+  return { data: { mode: 'single', days }, error: null }
 }
 
 export async function createProjectFollowUp(

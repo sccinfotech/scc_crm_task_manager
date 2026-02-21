@@ -33,6 +33,7 @@ interface ProjectsClientProps {
   pageSize: number
   initialSearch: string
   initialStatus: ProjectStatus | 'all'
+  initialStaffUserId: string
   initialSortField: ProjectSortField | null
   initialSortDirection: 'asc' | 'desc'
   canWrite: boolean
@@ -55,6 +56,7 @@ export function ProjectsClient({
   pageSize,
   initialSearch,
   initialStatus,
+  initialStaffUserId,
   initialSortField,
   initialSortDirection,
   canWrite,
@@ -90,7 +92,7 @@ export function ProjectsClient({
   useEffect(() => {
     setMobileProjects(projects)
     setMobilePage(page)
-  }, [projects, page, initialSearch, initialStatus, initialSortField, initialSortDirection])
+  }, [projects, page, initialSearch, initialStatus, initialStaffUserId, initialSortField, initialSortDirection])
 
   const canCreate = canWrite
 
@@ -98,6 +100,7 @@ export function ProjectsClient({
     (updates: {
       search?: string
       status?: string
+      staff?: string
       sort?: string | null
       sortDir?: string
       page?: number
@@ -105,11 +108,13 @@ export function ProjectsClient({
       const params = new URLSearchParams()
       const search = updates.search !== undefined ? updates.search : initialSearch
       const status = updates.status !== undefined ? updates.status : initialStatus
+      const staffUserId = updates.staff !== undefined ? updates.staff : initialStaffUserId
       const sort = updates.sort !== undefined ? updates.sort : initialSortField
       const sortDir = updates.sortDir !== undefined ? updates.sortDir : initialSortDirection
       const pageNum = updates.page !== undefined ? updates.page : page
       if (search) params.set('search', search)
       if (status && status !== 'all') params.set('status', status)
+      if (staffUserId) params.set('staff', staffUserId)
       if (sort) {
         params.set('sort', sort)
         params.set('sortDir', sortDir)
@@ -117,7 +122,7 @@ export function ProjectsClient({
       if (pageNum > 1) params.set('page', String(pageNum))
       return params.toString()
     },
-    [initialSearch, initialStatus, initialSortField, initialSortDirection, page]
+    [initialSearch, initialStatus, initialStaffUserId, initialSortField, initialSortDirection, page]
   )
 
   const handleSort = (field: ProjectSortField | null) => {
@@ -259,9 +264,15 @@ export function ProjectsClient({
     }
   }
 
-  const handleFilterChange = (updates: { search?: string; status?: ProjectStatus | 'all' }) => {
+  const handleFilterChange = (updates: {
+    search?: string
+    status?: ProjectStatus | 'all'
+    staffUserId?: string
+  }) => {
     const q = buildSearchParams({
-      ...updates,
+      search: updates.search,
+      status: updates.status,
+      staff: updates.staffUserId,
       page: 1,
     })
     router.push(`${pathname}${q ? `?${q}` : ''}`)
@@ -286,6 +297,7 @@ export function ProjectsClient({
     const result = await getProjectsPage({
       search: initialSearch || undefined,
       status: initialStatus !== 'all' ? initialStatus : undefined,
+      staffUserId: initialStaffUserId || undefined,
       sortField: initialSortField ?? undefined,
       sortDirection: initialSortDirection,
       page: mobilePage + 1,
@@ -296,7 +308,7 @@ export function ProjectsClient({
       setMobileProjects((prev) => [...prev, ...result.data])
       setMobilePage((prev) => prev + 1)
     }
-  }, [loadingMore, mobileProjects.length, totalCount, initialSearch, initialStatus, initialSortField, initialSortDirection, mobilePage, pageSize])
+  }, [loadingMore, mobileProjects.length, totalCount, initialSearch, initialStatus, initialStaffUserId, initialSortField, initialSortDirection, mobilePage, pageSize])
 
   return (
     <>
@@ -341,6 +353,10 @@ export function ProjectsClient({
           <ProjectsFilters
             statusFilter={initialStatus}
             onStatusChange={(s) => handleFilterChange({ status: s })}
+            staffMembers={teamMembers}
+            selectedStaffId={initialStaffUserId}
+            onStaffChange={(staffUserId) => handleFilterChange({ staffUserId })}
+            showStaffFilter={userRole === 'admin' || userRole === 'manager'}
             searchQuery={initialSearch}
             onSearchChange={(q) => handleFilterChange({ search: q })}
             onClearFilters={handleClearFilters}
@@ -363,7 +379,7 @@ export function ProjectsClient({
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onWorkUpdated={() => router.refresh()}
-                isFiltered={initialStatus !== 'all' || initialSearch.trim() !== ''}
+                isFiltered={initialStatus !== 'all' || initialSearch.trim() !== '' || Boolean(initialStaffUserId)}
                 hasMore={mobileProjects.length < totalCount}
                 loadingMore={loadingMore}
                 onLoadMore={handleLoadMore}
@@ -383,7 +399,7 @@ export function ProjectsClient({
                 sortField={initialSortField}
                 sortDirection={initialSortField ? initialSortDirection : undefined}
                 onSort={handleSort}
-                isFiltered={initialStatus !== 'all' || initialSearch.trim() !== ''}
+                isFiltered={initialStatus !== 'all' || initialSearch.trim() !== '' || Boolean(initialStaffUserId)}
               />
             </div>
           </div>

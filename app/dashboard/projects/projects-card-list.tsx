@@ -186,7 +186,7 @@ export function ProjectsCardList({
             className="rounded-xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-cyan-500 focus-within:ring-offset-2"
           >
             <Link
-              href={`/dashboard/projects/${project.id}`}
+              href={`/dashboard/projects/${project.id}?tab=tasks`}
               prefetch
               className="block no-underline text-inherit outline-none"
             >

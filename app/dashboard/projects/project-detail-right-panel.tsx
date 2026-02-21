@@ -85,7 +85,7 @@ export function ProjectDetailRightPanel({
   return (
     <div className={`w-full h-full flex flex-col ${className}`}>
       {!hideTabs && (
-        <div className="flex-shrink-0 rounded-t-2xl overflow-hidden bg-slate-100/80 p-1.5 border border-slate-200/80">
+        <div className="flex-shrink-0 rounded-t-2xl overflow-hidden bg-slate-100/85 p-1.5 border border-slate-200/80">
           <div className="flex gap-1 overflow-x-auto scrollbar-hide" role="tablist" aria-label="Project detail sections">
             {tabConfig.map(({ id, label }) => {
               const isActive = tab === id
@@ -99,11 +99,11 @@ export function ProjectDetailRightPanel({
                   id={`tab-${id}`}
                   onClick={() => handleTab(id)}
                   className={`
-                    min-w-[120px] shrink-0 rounded-xl px-3 py-2 text-sm font-semibold whitespace-nowrap transition-all duration-200 sm:min-w-0 sm:flex-1 sm:px-4 sm:py-2.5
-                    focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-offset-2 focus:ring-offset-slate-100
+                    min-w-[120px] shrink-0 rounded-xl px-3 py-2.5 text-sm font-semibold whitespace-nowrap transition-colors duration-200 sm:min-w-0 sm:flex-1 sm:px-4 sm:py-2.5
+                    focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[#06B6D4]
                     cursor-pointer
                     ${isActive
-                      ? 'bg-white text-[#0C4A6E] shadow-sm border border-slate-200/80'
+                      ? 'bg-white text-[#0F172A] border border-slate-300 shadow-sm'
                       : 'text-slate-600 hover:text-slate-800 hover:bg-white/60 border border-transparent'}
                   `}
                 >

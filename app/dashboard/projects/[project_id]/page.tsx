@@ -1,13 +1,34 @@
 import { requireAuth, hasPermission } from '@/lib/auth/utils'
 import { getProject } from '@/lib/projects/actions'
-import { getClientsForSelect } from '@/lib/clients/actions'
-import { getTechnologyTools } from '@/lib/settings/technology-tools-actions'
 import { getStaffForSelect } from '@/lib/users/actions'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ProjectDetailView } from './project-detail-view'
 import { Header } from '@/app/components/dashboard/header'
 import { MODULE_PERMISSION_IDS } from '@/lib/permissions'
+
+type ProjectDetailTab = 'details' | 'payments' | 'requirements' | 'tasks'
+
+const PROJECT_DETAIL_TABS: ProjectDetailTab[] = ['tasks', 'requirements', 'payments', 'details']
+
+function parseProjectDetailTab(value: string | null | undefined): ProjectDetailTab | null {
+  if (!value) return null
+  const normalized = value.trim().toLowerCase()
+  return PROJECT_DETAIL_TABS.includes(normalized as ProjectDetailTab)
+    ? (normalized as ProjectDetailTab)
+    : null
+}
+
+function resolveProjectDetailTab(
+  tab: ProjectDetailTab | null,
+  showRequirementsAndPayments: boolean
+): ProjectDetailTab {
+  if (!tab) return 'tasks'
+  if (!showRequirementsAndPayments && (tab === 'requirements' || tab === 'payments')) {
+    return 'tasks'
+  }
+  return tab
+}
 
 interface ProjectDetailPageProps {
   params: Promise<{ project_id: string }>
@@ -25,18 +46,24 @@ export default async function ProjectDetailPage({ params, searchParams }: Projec
     redirect('/dashboard?error=unauthorized')
   }
 
-  const [projectResult, clientsResult, toolsResult, staffResult] = await Promise.all([
-    getProject(project_id),
-    getClientsForSelect(),
-    getTechnologyTools(),
-    getStaffForSelect(),
-  ])
+  const projectResult = await getProject(project_id)
 
   if (projectResult.error || !projectResult.data) {
     notFound()
   }
 
   const project = projectResult.data
+  const showRequirementsAndPayments = user.role !== 'staff' && user.role !== 'client'
+  const initialResolvedTab = resolveProjectDetailTab(
+    parseProjectDetailTab(query.tab),
+    showRequirementsAndPayments
+  )
+  // Load task assignees only when the initial tab needs Tasks.
+  const shouldFetchTaskAssignees = initialResolvedTab === 'tasks'
+  const staffResult = shouldFetchTaskAssignees
+    ? await getStaffForSelect()
+    : { data: [], error: null as string | null }
+
   // Follow-ups (and Work history, etc.) load only when user opens that tab
   const canWriteModule = await hasPermission(user, MODULE_PERMISSION_IDS.projects, 'write')
   const canManageProject = user.role === 'admin' || user.role === 'manager' || canWriteModule
@@ -70,18 +97,21 @@ export default async function ProjectDetailPage({ params, searchParams }: Projec
         <ProjectDetailView
           project={project}
           initialFollowUps={[]}
-          initialTab={query.tab}
+          initialTab={initialResolvedTab}
           canManageProject={canManageProject}
           canManageFollowUps={canManageFollowUps}
           canViewAmount={canViewAmount}
           userRole={user.role}
           currentUserId={user.id}
-          clients={clientsResult.data}
-          clientsError={clientsResult.error}
-          technologyTools={toolsResult.data}
-          technologyToolsError={toolsResult.error}
+          clients={[]}
+          clientsError={null}
+          technologyTools={[]}
+          technologyToolsError={null}
           teamMembers={staffResult.data}
           teamMembersError={staffResult.error}
+          initialClientsLoaded={false}
+          initialTechnologyToolsLoaded={false}
+          initialTeamMembersLoaded={shouldFetchTaskAssignees}
         />
       </div>
     </div>

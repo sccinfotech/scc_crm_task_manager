@@ -295,7 +295,7 @@ export function ProjectsTable({
               >
                 <td className="px-4 sm:px-6 py-3">
                   <Link
-                    href={`/dashboard/projects/${project.id}`}
+                    href={`/dashboard/projects/${project.id}?tab=tasks`}
                     prefetch
                     className="flex items-center gap-2 sm:gap-3 no-underline text-inherit"
                   >
@@ -325,22 +325,22 @@ export function ProjectsTable({
                   </td>
                 )}
                 <td className="px-4 sm:px-6 py-3">
-                  <Link href={`/dashboard/projects/${project.id}`} prefetch className="block no-underline text-inherit">
+                  <Link href={`/dashboard/projects/${project.id}?tab=tasks`} prefetch className="block no-underline text-inherit">
                     <StatusPill status={project.status} />
                   </Link>
                 </td>
                 <td className="hidden px-6 py-3 text-sm text-gray-500 md:table-cell">
-                  <Link href={`/dashboard/projects/${project.id}`} prefetch className="block no-underline text-inherit">
+                  <Link href={`/dashboard/projects/${project.id}?tab=tasks`} prefetch className="block no-underline text-inherit">
                     {formatDate(project.start_date)}
                   </Link>
                 </td>
                 <td className="hidden px-6 py-3 text-sm text-gray-500 md:table-cell">
-                  <Link href={`/dashboard/projects/${project.id}`} prefetch className="block no-underline text-inherit">
+                  <Link href={`/dashboard/projects/${project.id}?tab=tasks`} prefetch className="block no-underline text-inherit">
                     {project.developer_deadline_date ? formatDate(project.developer_deadline_date) : '--'}
                   </Link>
                 </td>
                 <td className="hidden px-6 py-3 text-sm text-gray-500 lg:table-cell">
-                  <Link href={`/dashboard/projects/${project.id}`} prefetch className="block no-underline text-inherit">
+                  <Link href={`/dashboard/projects/${project.id}?tab=tasks`} prefetch className="block no-underline text-inherit">
                     {project.follow_up_date ? (
                       <span className={getFollowUpDateColor(project.follow_up_date)}>
                         {formatFollowUpDate(project.follow_up_date)}
@@ -351,7 +351,7 @@ export function ProjectsTable({
                   </Link>
                 </td>
                 <td className="hidden px-6 py-3 text-sm text-gray-500 xl:table-cell">
-                  <Link href={`/dashboard/projects/${project.id}`} prefetch className="block no-underline text-inherit">
+                  <Link href={`/dashboard/projects/${project.id}?tab=tasks`} prefetch className="block no-underline text-inherit">
                     {formatDate(project.created_at)}
                   </Link>
                 </td>

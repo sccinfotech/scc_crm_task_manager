@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { useCallback, useState, useEffect } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Tooltip } from '@/app/components/ui/tooltip'
 import { useToast } from '@/app/components/ui/toast-context'
@@ -19,10 +19,10 @@ import {
   ProjectFormData,
 } from '@/lib/projects/actions'
 import type { ProjectTeamMember, ProjectTeamMemberWorkStatus } from '@/lib/projects/actions'
-import type { ClientSelectOption } from '@/lib/clients/actions'
-import type { TechnologyTool } from '@/lib/settings/technology-tools-actions'
-import type { StaffSelectOption } from '@/lib/users/actions'
-import { ProjectDetailRightPanel } from '../project-detail-right-panel'
+import { getClientsForSelect, type ClientSelectOption } from '@/lib/clients/actions'
+import { getTechnologyTools, type TechnologyTool } from '@/lib/settings/technology-tools-actions'
+import { getStaffForSelect, type StaffSelectOption } from '@/lib/users/actions'
+import { ProjectDetailRightPanel, type RightPanelTab } from '../project-detail-right-panel'
 import { ProjectModal } from '../project-modal'
 import { DeleteConfirmModal } from '../delete-confirm-modal'
 import { ProjectRequirements } from '../project-requirements'
@@ -43,6 +43,9 @@ interface ProjectDetailViewProps {
   technologyToolsError: string | null
   teamMembers: StaffSelectOption[]
   teamMembersError: string | null
+  initialClientsLoaded?: boolean
+  initialTechnologyToolsLoaded?: boolean
+  initialTeamMembersLoaded?: boolean
 }
 
 const STATUS_STYLES: Record<ProjectStatus, string> = {
@@ -261,12 +264,36 @@ const PROJECT_DETAIL_TABS: { id: ProjectDetailTab; label: string }[] = [
   { id: 'details', label: 'Details' },
 ]
 
+const DETAILS_PANEL_QUERY_PARAM = 'detailsTab'
+const RIGHT_PANEL_TABS: RightPanelTab[] = ['follow-ups', 'work-history', 'my-notes', 'team-talk']
+const STAFF_RIGHT_PANEL_TABS: RightPanelTab[] = ['work-history', 'my-notes', 'team-talk']
+
 function parseProjectDetailTab(value: string | null | undefined): ProjectDetailTab | null {
   if (!value) return null
   const normalized = value.trim().toLowerCase()
   return PROJECT_DETAIL_TABS.some((tab) => tab.id === normalized)
     ? (normalized as ProjectDetailTab)
     : null
+}
+
+function parseRightPanelTab(value: string | null | undefined): RightPanelTab | null {
+  if (!value) return null
+  const normalized = value.trim().toLowerCase()
+  return RIGHT_PANEL_TABS.includes(normalized as RightPanelTab)
+    ? (normalized as RightPanelTab)
+    : null
+}
+
+function resolveRightPanelTab(tab: RightPanelTab | null, userRole: string): RightPanelTab {
+  const isStaff = userRole === 'staff'
+  const defaultTab: RightPanelTab = isStaff ? 'work-history' : 'follow-ups'
+  if (!tab) return defaultTab
+
+  if (isStaff && !STAFF_RIGHT_PANEL_TABS.includes(tab)) {
+    return defaultTab
+  }
+
+  return tab
 }
 
 function resolveProjectDetailTab(
@@ -280,13 +307,41 @@ function resolveProjectDetailTab(
   return tab
 }
 
-function TabPlaceholder({ title, description }: { title: string; description: string }) {
+function PaymentSummarySection({
+  projectAmount,
+  canViewAmount,
+}: {
+  projectAmount: number | null
+  canViewAmount: boolean
+}) {
   return (
-    <div className="flex h-full items-center justify-center">
-      <div className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-        <h3 className="text-xl font-bold text-[#1E1B4B]">{title}</h3>
-        <p className="mt-2 text-sm text-slate-600">{description}</p>
+    <div className="rounded-2xl bg-white shadow-sm border border-slate-200 p-4">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-bold text-[#1E1B4B]">Payment Summary</h3>
       </div>
+      {canViewAmount ? (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Amount</p>
+            <p className="mt-2 text-lg font-bold text-slate-800">{formatCurrency(projectAmount)}</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Paid</p>
+            <p className="mt-2 text-lg font-bold text-slate-800">{formatCurrency(0)}</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Outstanding</p>
+            <p className="mt-2 text-lg font-bold text-slate-800">{formatCurrency(projectAmount)}</p>
+          </div>
+          <p className="text-xs text-slate-500 sm:col-span-3">
+            Payment tracking details will populate here once payments are recorded.
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+          Payment summary is visible only to admins and managers.
+        </div>
+      )}
     </div>
   )
 }
@@ -306,6 +361,9 @@ export function ProjectDetailView({
   technologyToolsError,
   teamMembers,
   teamMembersError,
+  initialClientsLoaded = false,
+  initialTechnologyToolsLoaded = false,
+  initialTeamMembersLoaded = false,
 }: ProjectDetailViewProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -331,21 +389,156 @@ export function ProjectDetailView({
   const [endWorkNotes, setEndWorkNotes] = useState('')
   /** Optimistic work state so the timer shows immediately on Start without waiting for server */
   const [optimisticWork, setOptimisticWork] = useState<{ status: 'start'; runningSince: string } | null>(null)
+  const [clientOptions, setClientOptions] = useState<ClientSelectOption[]>(clients)
+  const [clientOptionsError, setClientOptionsError] = useState<string | null>(clientsError)
+  const [clientOptionsLoaded, setClientOptionsLoaded] = useState(initialClientsLoaded)
+  const [technologyToolOptions, setTechnologyToolOptions] = useState<TechnologyTool[]>(technologyTools)
+  const [technologyToolOptionsError, setTechnologyToolOptionsError] = useState<string | null>(technologyToolsError)
+  const [technologyToolOptionsLoaded, setTechnologyToolOptionsLoaded] = useState(initialTechnologyToolsLoaded)
+  const [taskAssigneeOptions, setTaskAssigneeOptions] = useState<StaffSelectOption[]>(teamMembers)
+  const [taskAssigneeOptionsError, setTaskAssigneeOptionsError] = useState<string | null>(teamMembersError)
+  const [taskAssigneeOptionsLoaded, setTaskAssigneeOptionsLoaded] = useState(initialTeamMembersLoaded)
+  const [editDependenciesLoading, setEditDependenciesLoading] = useState(false)
+  const clientOptionsLoadPromiseRef = useRef<Promise<void> | null>(null)
+  const technologyToolOptionsLoadPromiseRef = useRef<Promise<void> | null>(null)
+  const taskAssigneeOptionsLoadPromiseRef = useRef<Promise<void> | null>(null)
 
   const visibleTabs = showRequirementsAndPayments
     ? PROJECT_DETAIL_TABS
     : PROJECT_DETAIL_TABS.filter((t) => t.id !== 'requirements' && t.id !== 'payments')
+  const [activeDetailsPanelTab, setActiveDetailsPanelTab] = useState<RightPanelTab>(() =>
+    resolveRightPanelTab(parseRightPanelTab(searchParams.get(DETAILS_PANEL_QUERY_PARAM)), userRole)
+  )
 
   const updateTabInUrl = useCallback((tab: ProjectDetailTab) => {
-    const params = new URLSearchParams(searchParams.toString())
+    const params = new URLSearchParams(
+      typeof window !== 'undefined' ? window.location.search : searchParams.toString()
+    )
     params.set('tab', tab)
     const query = params.toString()
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
   }, [pathname, router, searchParams])
 
+  const updateDetailsPanelTabInUrl = useCallback((panelTab: RightPanelTab) => {
+    const params = new URLSearchParams(
+      typeof window !== 'undefined' ? window.location.search : searchParams.toString()
+    )
+    params.set(DETAILS_PANEL_QUERY_PARAM, panelTab)
+    const query = params.toString()
+    const nextUrl = query ? `${pathname}?${query}` : pathname
+
+    // Update URL without triggering an App Router navigation for faster tab switching.
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(window.history.state, '', nextUrl)
+      return
+    }
+
+    router.replace(nextUrl, { scroll: false })
+  }, [pathname, router, searchParams])
+
   useEffect(() => {
     setProject(initialProject)
   }, [initialProject])
+
+  const ensureClientOptionsLoaded = useCallback(async () => {
+    if (clientOptionsLoaded) return
+    if (clientOptionsLoadPromiseRef.current) {
+      await clientOptionsLoadPromiseRef.current
+      return
+    }
+
+    const promise = (async () => {
+      const result = await getClientsForSelect()
+      setClientOptions(result.data)
+      setClientOptionsError(result.error)
+      setClientOptionsLoaded(true)
+    })().finally(() => {
+      clientOptionsLoadPromiseRef.current = null
+    })
+
+    clientOptionsLoadPromiseRef.current = promise
+    await promise
+  }, [clientOptionsLoaded])
+
+  const ensureTechnologyToolOptionsLoaded = useCallback(async () => {
+    if (technologyToolOptionsLoaded) return
+    if (technologyToolOptionsLoadPromiseRef.current) {
+      await technologyToolOptionsLoadPromiseRef.current
+      return
+    }
+
+    const promise = (async () => {
+      const result = await getTechnologyTools()
+      setTechnologyToolOptions(result.data)
+      setTechnologyToolOptionsError(result.error)
+      setTechnologyToolOptionsLoaded(true)
+    })().finally(() => {
+      technologyToolOptionsLoadPromiseRef.current = null
+    })
+
+    technologyToolOptionsLoadPromiseRef.current = promise
+    await promise
+  }, [technologyToolOptionsLoaded])
+
+  const ensureTaskAssigneeOptionsLoaded = useCallback(async () => {
+    if (taskAssigneeOptionsLoaded) return
+    if (taskAssigneeOptionsLoadPromiseRef.current) {
+      await taskAssigneeOptionsLoadPromiseRef.current
+      return
+    }
+
+    const promise = (async () => {
+      const result = await getStaffForSelect()
+      setTaskAssigneeOptions(result.data)
+      setTaskAssigneeOptionsError(result.error)
+      setTaskAssigneeOptionsLoaded(true)
+    })().finally(() => {
+      taskAssigneeOptionsLoadPromiseRef.current = null
+    })
+
+    taskAssigneeOptionsLoadPromiseRef.current = promise
+    await promise
+  }, [taskAssigneeOptionsLoaded])
+
+  const ensureEditDependenciesLoaded = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false
+    if (clientOptionsLoaded && technologyToolOptionsLoaded && taskAssigneeOptionsLoaded) return
+
+    if (!silent) {
+      setEditDependenciesLoading(true)
+    }
+
+    try {
+      await Promise.all([
+        ensureClientOptionsLoaded(),
+        ensureTechnologyToolOptionsLoaded(),
+        ensureTaskAssigneeOptionsLoaded(),
+      ])
+    } finally {
+      if (!silent) {
+        setEditDependenciesLoading(false)
+      }
+    }
+  }, [
+    clientOptionsLoaded,
+    technologyToolOptionsLoaded,
+    taskAssigneeOptionsLoaded,
+    ensureClientOptionsLoaded,
+    ensureTechnologyToolOptionsLoaded,
+    ensureTaskAssigneeOptionsLoaded,
+  ])
+
+  useEffect(() => {
+    if (activeTab !== 'tasks') return
+    if (taskAssigneeOptionsLoaded) return
+    void ensureTaskAssigneeOptionsLoaded()
+  }, [activeTab, taskAssigneeOptionsLoaded, ensureTaskAssigneeOptionsLoaded])
+
+  useEffect(() => {
+    if (activeTab !== 'details') return
+    if (!canManageProject) return
+    void ensureEditDependenciesLoaded({ silent: true })
+  }, [activeTab, canManageProject, ensureEditDependenciesLoaded])
 
   /** Keep tab in sync with URL (handles refresh/back-forward/manual query edits). */
   useEffect(() => {
@@ -361,6 +554,23 @@ export function ProjectDetailView({
       setMobileFollowUpsOpen(false)
     }
   }, [activeTab])
+
+  /**
+   * Keep Details right-panel tab in sync with URL so refresh/back-forward
+   * preserve Follow-ups / Work history / My notes / Team talk selection.
+   */
+  useEffect(() => {
+    if (activeTab !== 'details') return
+
+    const rawPanelTab = searchParams.get(DETAILS_PANEL_QUERY_PARAM)
+    const parsedPanelTab = parseRightPanelTab(rawPanelTab)
+    const resolvedPanelTab = resolveRightPanelTab(parsedPanelTab, userRole)
+    setActiveDetailsPanelTab((currentTab) => (currentTab === resolvedPanelTab ? currentTab : resolvedPanelTab))
+
+    if (!parsedPanelTab || parsedPanelTab !== resolvedPanelTab || rawPanelTab !== resolvedPanelTab) {
+      updateDetailsPanelTabInUrl(resolvedPanelTab)
+    }
+  }, [activeTab, searchParams, userRole, updateDetailsPanelTabInUrl])
 
   /** If current URL tab is invalid or hidden for this role, normalize it to Tasks. */
   useEffect(() => {
@@ -378,6 +588,12 @@ export function ProjectDetailView({
     if (nextTab === activeTab) return
     setActiveTab(nextTab)
     updateTabInUrl(nextTab)
+  }
+
+  const handleDetailsPanelTabChange = (nextPanelTab: RightPanelTab) => {
+    if (nextPanelTab === activeDetailsPanelTab) return
+    setActiveDetailsPanelTab(nextPanelTab)
+    updateDetailsPanelTabInUrl(nextPanelTab)
   }
 
   const handleMyWorkStatus = async (eventType: 'start' | 'hold' | 'resume' | 'end', note?: string) => {
@@ -504,11 +720,13 @@ export function ProjectDetailView({
     }
   }
 
-  const handleEdit = () => {
+  const handleEdit = async () => {
     if (!canEdit) {
       showError('Read-only Access', 'You do not have permission to edit projects.')
       return
     }
+    if (editDependenciesLoading) return
+    await ensureEditDependenciesLoaded()
     setEditModalOpen(true)
   }
 
@@ -626,7 +844,8 @@ export function ProjectDetailView({
                       <button
                         type="button"
                         onClick={handleEdit}
-                        className="rounded-lg p-2 text-slate-400 transition-colors duration-200 hover:bg-indigo-50 hover:text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:ring-offset-1 cursor-pointer"
+                        disabled={editDependenciesLoading}
+                        className="rounded-lg p-2 text-slate-400 transition-colors duration-200 hover:bg-indigo-50 hover:text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:ring-offset-1 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
                         aria-label="Edit project"
                       >
                         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -698,20 +917,6 @@ export function ProjectDetailView({
                   </div>
                 </div>
 
-                {canViewAmount && (
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200">
-                    <div className="h-12 w-12 rounded-xl bg-emerald-50 flex items-center justify-center">
-                      <svg className="h-6 w-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Project Amount</p>
-                      <p className="text-sm font-semibold text-slate-700">{formatCurrency(project.project_amount)}</p>
-                    </div>
-                  </div>
-                )}
-
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200">
                   <div className="h-12 w-12 rounded-xl bg-cyan-50 flex items-center justify-center">
                     <svg className="h-6 w-6 text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -719,7 +924,7 @@ export function ProjectDetailView({
                     </svg>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Project Deadline</p>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Staff Deadline</p>
                     <p className="text-sm font-semibold text-slate-700">
                       {project.developer_deadline_date ? formatDate(project.developer_deadline_date) : '--'}
                     </p>
@@ -756,37 +961,6 @@ export function ProjectDetailView({
               </div>
             </div>
           </div>
-
-          {userRole !== 'staff' && (
-            <div className="rounded-2xl bg-white shadow-sm border border-slate-200 p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-[#1E1B4B]">Payment Summary</h3>
-              </div>
-              {canViewAmount ? (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Amount</p>
-                    <p className="mt-2 text-lg font-bold text-slate-800">{formatCurrency(project.project_amount)}</p>
-                  </div>
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Paid</p>
-                    <p className="mt-2 text-lg font-bold text-slate-800">{formatCurrency(0)}</p>
-                  </div>
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Outstanding</p>
-                    <p className="mt-2 text-lg font-bold text-slate-800">{formatCurrency(project.project_amount)}</p>
-                  </div>
-                  <p className="text-xs text-slate-500 sm:col-span-3">
-                    Payment tracking details will populate here once payments are recorded.
-                  </p>
-                </div>
-              ) : (
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
-                  Payment summary is visible only to admins and managers.
-                </div>
-              )}
-            </div>
-          )}
 
           {canViewTeamMembers && (
             <div className="rounded-2xl bg-white shadow-sm border border-slate-200 p-4">
@@ -944,6 +1118,8 @@ export function ProjectDetailView({
             teamMembers={project.team_members ?? null}
             staffWorkState={staffWorkState}
             onStaffWorkStatus={handleMyWorkStatus}
+            activeTabOverride={activeDetailsPanelTab}
+            onTabChange={handleDetailsPanelTabChange}
           />
         </div>
       </div>
@@ -960,10 +1136,12 @@ export function ProjectDetailView({
       )}
 
       {activeTab === 'payments' && (
-        <TabPlaceholder
-          title="Payments"
-          description="Payment tracking for this project will be available here soon."
-        />
+        <div className="h-full overflow-y-auto p-0.5">
+          <PaymentSummarySection
+            projectAmount={project.project_amount}
+            canViewAmount={canViewAmount}
+          />
+        </div>
       )}
 
       {activeTab === 'tasks' && (
@@ -972,7 +1150,7 @@ export function ProjectDetailView({
           canManageTasks={canManageProject}
           userRole={userRole}
           currentUserId={currentUserId}
-          teamMembers={teamMembers ?? []}
+          teamMembers={taskAssigneeOptions}
           className="h-full"
         />
       )}
@@ -985,7 +1163,8 @@ export function ProjectDetailView({
             {canEdit && (
               <button
                 onClick={handleEdit}
-                className="flex flex-col items-center justify-center gap-1 rounded-xl p-2 text-gray-600 hover:bg-gray-50 active:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06B6D4] focus-visible:ring-offset-2"
+                disabled={editDependenciesLoading}
+                className="flex flex-col items-center justify-center gap-1 rounded-xl p-2 text-gray-600 hover:bg-gray-50 active:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06B6D4] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <div className="h-6 w-6 text-[#06B6D4]">
                   <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1040,6 +1219,8 @@ export function ProjectDetailView({
                 staffWorkState={staffWorkState}
                 onStaffWorkStatus={handleMyWorkStatus}
                 className="!rounded-none border-0 h-full"
+                activeTabOverride={activeDetailsPanelTab}
+                onTabChange={handleDetailsPanelTabChange}
               />
             </div>
           </div>
@@ -1062,13 +1243,13 @@ export function ProjectDetailView({
             }
             return result
           }}
-          clients={clients}
-          clientsError={clientsError}
+          clients={clientOptions}
+          clientsError={clientOptionsError}
           canViewAmount={canViewAmount}
-          technologyTools={technologyTools}
-          technologyToolsError={technologyToolsError}
-          teamMembers={teamMembers}
-          teamMembersError={teamMembersError}
+          technologyTools={technologyToolOptions}
+          technologyToolsError={technologyToolOptionsError}
+          teamMembers={taskAssigneeOptions}
+          teamMembersError={taskAssigneeOptionsError}
         />
       )}
 

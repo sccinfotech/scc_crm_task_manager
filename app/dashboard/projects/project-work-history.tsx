@@ -1,9 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useState, useRef } from 'react'
-import { getProjectWorkHistory } from '@/lib/projects/actions'
-import type { WorkHistoryDay } from '@/lib/projects/work-utils'
-import type { ProjectTeamMember } from '@/lib/projects/actions'
+import {
+  getProjectWorkHistory,
+  type ProjectWorkHistoryPayload,
+  type ProjectWorkHistoryTeamDay,
+  type ProjectTeamMember,
+} from '@/lib/projects/actions'
 import { EmptyState } from '@/app/components/empty-state'
 
 /** Work history is sourced from project_team_member_time_events (start/hold/resume/end + note on end). */
@@ -67,19 +70,6 @@ function formatTotalHours(totalSeconds: number): string {
   return `${pad(h)} : ${pad(m)} Hours`
 }
 
-function formatWorkSeconds(seconds: number): string {
-  if (seconds < 60) return `${Math.round(seconds)}s`
-  const m = Math.floor(seconds / 60)
-  const s = Math.round(seconds % 60)
-  if (m < 60) return s > 0 ? `${m}m ${s}s` : `${m}m`
-  const h = Math.floor(m / 60)
-  const rem = m % 60
-  if (h < 24) return rem > 0 ? `${h}h ${rem}m` : `${h}h`
-  const d = Math.floor(h / 24)
-  const rh = h % 24
-  return rh > 0 ? `${d}d ${rh}h` : `${d}d`
-}
-
 function formatWorkSecondsHhMmSs(seconds: number): string {
   const h = Math.floor(seconds / 3600)
   const m = Math.floor((seconds % 3600) / 60)
@@ -95,6 +85,90 @@ function formatWorkStatus(status: StaffWorkState['status']): string {
   return 'Ended'
 }
 
+function WorkHistoryLoadingSkeleton({ isTeamView }: { isTeamView: boolean }) {
+  if (isTeamView) {
+    return (
+      <div className="space-y-6" aria-busy="true" aria-label="Loading team work history">
+        {[1, 2].map((dayKey) => (
+          <div key={dayKey} className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 shadow-sm">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <span className="h-5 w-40 rounded bg-slate-200 animate-pulse" />
+              <span className="h-5 w-28 rounded bg-slate-200 animate-pulse" />
+            </div>
+
+            <div className="space-y-3">
+              {[1, 2].map((memberKey) => (
+                <section
+                  key={`${dayKey}-${memberKey}`}
+                  className="rounded-xl border border-slate-200/80 bg-white shadow-sm"
+                >
+                  <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-3 py-2.5">
+                    <div className="space-y-1.5">
+                      <span className="block h-4 w-32 rounded bg-slate-200 animate-pulse" />
+                      <span className="block h-3 w-44 rounded bg-slate-100 animate-pulse" />
+                    </div>
+                    <span className="h-4 w-20 rounded bg-slate-200 animate-pulse" />
+                  </div>
+
+                  <ul className="list-none space-y-2 p-3">
+                    {[1, 2].map((segmentKey) => (
+                      <li
+                        key={`${dayKey}-${memberKey}-${segmentKey}`}
+                        className="rounded-lg border border-slate-200/80 bg-slate-50/50 p-3"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="size-6 rounded-full bg-slate-200 animate-pulse" />
+                            <span className="h-4 w-36 rounded bg-slate-200 animate-pulse" />
+                          </div>
+                          <span className="h-4 w-16 rounded bg-slate-200 animate-pulse" />
+                        </div>
+                        <div className="mt-2.5 ml-8 border-l-2 border-slate-100 pl-3">
+                          <span className="block h-3 w-48 rounded bg-slate-100 animate-pulse" />
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6" aria-busy="true" aria-label="Loading work history">
+      {[1, 2].map((dayKey) => (
+        <div key={dayKey} className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <span className="h-5 w-32 rounded bg-slate-200 animate-pulse" />
+            <span className="h-5 w-24 rounded bg-slate-200 animate-pulse" />
+          </div>
+          <ul className="list-none space-y-3 pl-0">
+            {[1, 2, 3].map((segKey) => (
+              <li key={segKey} className="rounded-lg border border-slate-200/80 bg-white p-3">
+                <div className="flex items-center gap-2">
+                  <span className="size-6 rounded-full bg-slate-200 animate-pulse flex-shrink-0" />
+                  <span className="h-4 w-28 rounded bg-slate-200 animate-pulse" />
+                </div>
+                <div className="mt-2.5 ml-8 pl-3 border-l-2 border-slate-100">
+                  <span className="block h-3 w-12 rounded bg-slate-100 animate-pulse mb-1.5" />
+                  <div className="rounded-md bg-slate-50 px-3 py-2 space-y-1.5">
+                    <span className="block h-3 w-full rounded bg-slate-200 animate-pulse" />
+                    <span className="block h-3 w-3/4 rounded bg-slate-200 animate-pulse" />
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function ProjectWorkHistory({
   projectId,
   userRole,
@@ -106,10 +180,9 @@ export function ProjectWorkHistory({
   className = '',
   hideHeader = false,
 }: ProjectWorkHistoryProps) {
-  const [days, setDays] = useState<WorkHistoryDay[]>([])
+  const [historyData, setHistoryData] = useState<ProjectWorkHistoryPayload | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [endNotesOpen, setEndNotesOpen] = useState(false)
   const [endNotes, setEndNotes] = useState('')
   const [liveTick, setLiveTick] = useState(() => Date.now())
@@ -118,7 +191,11 @@ export function ProjectWorkHistory({
   const wasActiveTabRef = useRef(false)
 
   const isStaff = userRole === 'staff'
+  const isAdminOrManager = userRole === 'admin' || userRole === 'manager'
+  const isTeamView = !isStaff && isAdminOrManager
   const showStaffActions = isStaff && Boolean(staffWorkState && onStaffWorkStatus)
+  const singleDays = historyData?.mode === 'single' ? historyData.days : []
+  const teamDays = historyData?.mode === 'team' ? historyData.days : []
 
   // Staff only: tick every second so the timer updates live when work is in progress
   useEffect(() => {
@@ -137,16 +214,14 @@ export function ProjectWorkHistory({
     }
   }, [showStaffActions, staffWorkState?.status])
 
-  const showStaffSelector = !isStaff && teamMembers && teamMembers.length > 0
-
   const loadWorkHistory = useCallback(
     (silent: boolean) => {
-      const userId = isStaff ? currentUserId : selectedUserId ?? currentUserId ?? null
-      if (!userId) {
+      const userId = isStaff ? currentUserId : (isAdminOrManager ? undefined : currentUserId)
+      if (isStaff && !userId) {
         if (!silent) {
-          setDays([])
+          setHistoryData({ mode: 'single', days: [] })
           setLoading(false)
-          if (!isStaff && !selectedUserId) setError(null)
+          setError(null)
         }
         return
       }
@@ -154,31 +229,31 @@ export function ProjectWorkHistory({
         setLoading(true)
         setError(null)
       }
-      getProjectWorkHistory(projectId, isStaff ? undefined : userId).then((result) => {
+      getProjectWorkHistory(projectId, userId).then((result) => {
         if (result.error) {
           if (!silent) {
             setError(result.error)
-            setDays([])
+            setHistoryData(null)
           }
         } else {
-          setDays(result.data ?? [])
+          setHistoryData(result.data ?? null)
         }
         if (!silent) setLoading(false)
       })
     },
-    [projectId, isStaff, currentUserId, selectedUserId]
+    [projectId, isStaff, isAdminOrManager, currentUserId]
   )
 
   useEffect(() => {
-    const userId = isStaff ? currentUserId : selectedUserId ?? currentUserId ?? null
-    if (!userId) {
-      setDays([])
+    const hasRequiredUser = isStaff ? Boolean(currentUserId) : (isAdminOrManager ? true : Boolean(currentUserId))
+    if (!hasRequiredUser) {
+      setHistoryData({ mode: 'single', days: [] })
       setLoading(false)
-      if (!isStaff && !selectedUserId) setError(null)
+      setError(null)
       return
     }
     loadWorkHistory(false)
-  }, [projectId, isStaff, currentUserId, selectedUserId, loadWorkHistory])
+  }, [projectId, isStaff, isAdminOrManager, currentUserId, loadWorkHistory])
 
   // When user switches back to Work history tab, silently refresh the list (skip on first mount; initial load already runs)
   useEffect(() => {
@@ -186,26 +261,16 @@ export function ProjectWorkHistory({
       if (!wasActiveTabRef.current) {
         wasActiveTabRef.current = true
         if (!loading) {
-          const userId = isStaff ? currentUserId : selectedUserId ?? currentUserId ?? null
-          if (userId) loadWorkHistory(true)
+          const canRefresh = isStaff ? Boolean(currentUserId) : (isAdminOrManager ? true : Boolean(currentUserId))
+          if (canRefresh) loadWorkHistory(true)
         }
       }
     } else {
       wasActiveTabRef.current = false
     }
-  }, [isActiveTab, loading, isStaff, currentUserId, selectedUserId, loadWorkHistory])
+  }, [isActiveTab, loading, isStaff, isAdminOrManager, currentUserId, loadWorkHistory])
 
-  useEffect(() => {
-    if (!showStaffSelector || selectedUserId !== null) return
-    const first = teamMembers?.[0]
-    if (first) setSelectedUserId(first.id)
-  }, [showStaffSelector, teamMembers, selectedUserId])
-
-  const selectedMember = showStaffSelector && selectedUserId
-    ? teamMembers?.find((m) => m.id === selectedUserId)
-    : null
-
-  const totalProjectSeconds = days.reduce((acc, d) => acc + d.totalSeconds, 0)
+  const totalProjectSeconds = (isTeamView ? teamDays : singleDays).reduce((acc, d) => acc + d.totalSeconds, 0)
 
   return (
     <div
@@ -223,49 +288,25 @@ export function ProjectWorkHistory({
               Work history
             </h4>
           </div>
-          {showStaffSelector && (
-            <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
-              <select
-                value={selectedUserId ?? ''}
-                onChange={(e) => setSelectedUserId(e.target.value || null)}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-cyan-500/20 cursor-pointer"
-                aria-label="Select staff member"
-              >
-                {teamMembers?.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.full_name || m.email || 'Staff'}
-                  </option>
-                ))}
-              </select>
-              {!loading && selectedUserId && (
-                <span className="text-sm font-bold text-[#0C4A6E] tabular-nums whitespace-nowrap">
-                  Total: {formatTotalHours(totalProjectSeconds)}
-                </span>
-              )}
-            </div>
+          {isAdminOrManager && (
+            loading ? (
+              <span className="h-5 w-36 rounded bg-slate-200 animate-pulse" />
+            ) : (
+              <span className="text-sm font-bold text-[#0C4A6E] tabular-nums whitespace-nowrap">
+                Team Total: {formatTotalHours(totalProjectSeconds)}
+              </span>
+            )
           )}
         </div>
       )}
 
-      {hideHeader && showStaffSelector && (
-        <div className="flex-shrink-0 px-4 pt-3 pb-1 border-b border-slate-100 flex flex-wrap items-center gap-2">
-          <label className="sr-only" htmlFor="work-history-staff-select">View work history for</label>
-          <select
-            id="work-history-staff-select"
-            value={selectedUserId ?? ''}
-            onChange={(e) => setSelectedUserId(e.target.value || null)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-cyan-500/20 cursor-pointer"
-            aria-label="Select staff member"
-          >
-            {teamMembers?.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.full_name || m.email || 'Staff'}
-              </option>
-            ))}
-          </select>
-          {!loading && selectedUserId && (
-            <span className="text-sm font-bold text-[#0C4A6E] tabular-nums whitespace-nowrap ml-auto">
-              Total: {formatTotalHours(totalProjectSeconds)}
+      {hideHeader && isAdminOrManager && (
+        <div className="flex-shrink-0 px-4 pt-3 pb-1 border-b border-slate-100 flex items-center justify-end">
+          {loading ? (
+            <span className="h-4 w-32 rounded bg-slate-200 animate-pulse" />
+          ) : (
+            <span className="text-xs font-bold text-[#0C4A6E] tabular-nums whitespace-nowrap">
+              Team Total: {formatTotalHours(totalProjectSeconds)}
             </span>
           )}
         </div>
@@ -274,60 +315,126 @@ export function ProjectWorkHistory({
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 scrollbar-hide">
           {loading ? (
-          <div className="space-y-6" aria-busy="true" aria-label="Loading work history">
-            {[1, 2].map((dayKey) => (
-              <div key={dayKey} className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                  <span className="h-5 w-32 rounded bg-slate-200 animate-pulse" />
-                  <span className="h-5 w-24 rounded bg-slate-200 animate-pulse" />
-                </div>
-                <ul className="list-none space-y-3 pl-0">
-                  {[1, 2, 3].map((segKey) => (
-                    <li key={segKey} className="rounded-lg border border-slate-200/80 bg-white p-3">
-                      <div className="flex items-center gap-2">
-                        <span className="size-6 rounded-full bg-slate-200 animate-pulse flex-shrink-0" />
-                        <span className="h-4 w-28 rounded bg-slate-200 animate-pulse" />
-                      </div>
-                      <div className="mt-2.5 ml-8 pl-3 border-l-2 border-slate-100">
-                        <span className="block h-3 w-12 rounded bg-slate-100 animate-pulse mb-1.5" />
-                        <div className="rounded-md bg-slate-50 px-3 py-2 space-y-1.5">
-                          <span className="block h-3 w-full rounded bg-slate-200 animate-pulse" />
-                          <span className="block h-3 w-3/4 rounded bg-slate-200 animate-pulse" />
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        ) : error ? (
+            <WorkHistoryLoadingSkeleton isTeamView={isTeamView} />
+          ) : error ? (
           <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
             {error}
           </div>
-        ) : !showStaffSelector && !currentUserId ? (
+        ) : isStaff && !currentUserId ? (
           <div className="text-sm text-slate-500">Sign in to see your work history.</div>
-        ) : !isStaff && teamMembers && teamMembers.length === 0 ? (
+        ) : !isTeamView && !currentUserId ? (
+          <div className="text-sm text-slate-500">Sign in to see your work history.</div>
+        ) : isTeamView && teamMembers && teamMembers.length === 0 ? (
           <div className="text-sm text-slate-500">No team members assigned to this project.</div>
-        ) : showStaffSelector && !selectedUserId ? (
-          <div className="text-sm text-slate-500">Select a staff member to view work history.</div>
-        ) : days.length === 0 ? (
+        ) : isTeamView && teamDays.length === 0 ? (
           <div className="flex h-full min-h-[200px] items-center justify-center">
             <div className="w-full max-w-[280px]">
               <EmptyState
                 variant="followups"
                 title="No work history"
-                description={
-                  selectedMember
-                    ? `No logged work yet for ${selectedMember.full_name || selectedMember.email || 'this staff'}.`
-                    : 'When you start and end work sessions, they will appear here.'
-                }
+                description="No logged work yet for this project team."
               />
             </div>
           </div>
+        ) : !isTeamView && singleDays.length === 0 ? (
+          <div className="flex h-full min-h-[200px] items-center justify-center">
+            <div className="w-full max-w-[280px]">
+              <EmptyState
+                variant="followups"
+                title="No work history"
+                description="When you start and end work sessions, they will appear here."
+              />
+            </div>
+          </div>
+        ) : isTeamView ? (
+          <div className="space-y-6">
+            {teamDays.map((day: ProjectWorkHistoryTeamDay) => (
+              <div
+                key={day.date}
+                className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 shadow-sm"
+              >
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-base font-bold text-cyan-600">
+                    {formatHistoryDate(day.date)}
+                  </span>
+                  <span className="text-base font-bold text-cyan-600 tabular-nums">
+                    {formatTotalHours(day.totalSeconds)}
+                  </span>
+                </div>
+
+                {day.members.length > 0 ? (
+                  <div className="space-y-3">
+                    {day.members.map((member) => (
+                      <section
+                        key={`${day.date}-${member.userId}`}
+                        className="rounded-xl border border-slate-200/80 bg-white shadow-sm"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-3 py-2.5">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold text-[#0C4A6E]">
+                              {member.userName || member.userEmail || 'Staff'}
+                            </p>
+                            {member.userEmail && member.userEmail !== member.userName && (
+                              <p className="truncate text-xs text-slate-500">{member.userEmail}</p>
+                            )}
+                          </div>
+                          <span className="text-sm font-bold text-[#0C4A6E] tabular-nums whitespace-nowrap">
+                            {formatTotalHours(member.totalSeconds)}
+                          </span>
+                        </div>
+
+                        {member.segments.length > 0 ? (
+                          <ul className="list-none space-y-2 p-3">
+                            {member.segments.map((seg, i) => {
+                              const segmentSec = (new Date(seg.endAt).getTime() - new Date(seg.startAt).getTime()) / 1000
+                              return (
+                                <li
+                                  key={i}
+                                  className="rounded-lg border border-slate-200/80 bg-slate-50/50 p-3"
+                                >
+                                  <div className="flex items-center justify-between gap-2 text-slate-700">
+                                    <div className="flex min-w-0 items-center gap-2">
+                                      <span className="inline-flex size-6 flex-shrink-0 items-center justify-center rounded-full bg-cyan-100 text-xs font-bold text-cyan-700">
+                                        {i + 1}
+                                      </span>
+                                      <span className="text-sm font-semibold tabular-nums text-[#0C4A6E]">
+                                        {formatTimeRange(seg.startAt, seg.endAt)}
+                                      </span>
+                                    </div>
+                                    <span className="flex-shrink-0 text-sm font-bold tabular-nums text-[#0C4A6E]">
+                                      {formatWorkSecondsHhMmSs(segmentSec)}
+                                    </span>
+                                  </div>
+                                  {seg.note && seg.note.trim() ? (
+                                    <div className="mt-2.5 ml-8 border-l-2 border-cyan-200/80 pl-3">
+                                      <div className="rounded-md bg-white px-3 py-2 text-sm text-slate-700">
+                                        <span className="whitespace-pre-wrap break-words" style={{ wordBreak: 'break-word' }}>
+                                          {seg.note.trim()}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <p className="mt-1.5 ml-8 text-xs italic text-slate-400">No notes for this session.</p>
+                                  )}
+                                </li>
+                              )
+                            })}
+                          </ul>
+                        ) : (
+                          <p className="px-3 py-3 text-sm text-slate-500 italic">No segments recorded for this staff on this day.</p>
+                        )}
+                      </section>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500 italic">No staff sessions recorded for this day.</p>
+                )}
+              </div>
+            ))}
+          </div>
         ) : (
           <div className="space-y-6">
-            {days.map((day) => (
+            {singleDays.map((day) => (
               <div
                 key={day.date}
                 className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 shadow-sm"
