@@ -40,9 +40,10 @@ export function ClientModal({
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center p-4"
-      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
     >
-      {/* Backdrop */}
+      {/* Backdrop - does not close modal; use Cancel/Close button */}
       <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
 
       {/* Modal */}

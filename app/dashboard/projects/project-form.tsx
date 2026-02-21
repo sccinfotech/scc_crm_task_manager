@@ -14,6 +14,7 @@ import {
 } from '@/lib/settings/technology-tools-actions'
 import type { StaffSelectOption } from '@/lib/users/actions'
 import { useToast } from '@/app/components/ui/toast-context'
+import { ListboxDropdown } from '@/app/components/ui/listbox-dropdown'
 
 interface ProjectFormProps {
   initialData?: Partial<ProjectFormData>
@@ -77,7 +78,19 @@ export function ProjectForm({
   const [toolsList, setToolsList] = useState<TechnologyTool[]>(technologyTools)
   const [toolSearchQuery, setToolSearchQuery] = useState('')
   const [toolDropdownOpen, setToolDropdownOpen] = useState(false)
+  const [priorityFormValue, setPriorityFormValue] = useState<ProjectPriority>(
+    initialData?.priority ?? 'medium'
+  )
+  const [clientIdFormValue, setClientIdFormValue] = useState(initialData?.client_id ?? '')
   const toolComboRef = useRef<HTMLDivElement>(null)
+
+  const isClientControlled = onClientIdChange != null && clientIdValue !== undefined
+  const effectiveClientId = isClientControlled ? clientIdValue! : clientIdFormValue
+
+  const handleClientIdChange = (id: string) => {
+    if (isClientControlled) onClientIdChange?.(id)
+    else setClientIdFormValue(id)
+  }
   const fileInputRef = useRef<HTMLInputElement>(null)
   const pendingLogoFileRef = useRef<File | null>(null)
   const { success: showToastSuccess, error: showToastError } = useToast()
@@ -332,25 +345,15 @@ export function ProjectForm({
             <label htmlFor="priority" className={labelClasses}>
               Priority
             </label>
-            <div className="relative">
-              <select
-                id="priority"
-                name="priority"
-                defaultValue={initialData?.priority || 'medium'}
-                className={`${inputClasses} appearance-none cursor-pointer`}
-              >
-                {PRIORITY_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </div>
+            <input type="hidden" name="priority" value={priorityFormValue} readOnly />
+            <ListboxDropdown
+              id="priority"
+              value={priorityFormValue}
+              options={PRIORITY_OPTIONS}
+              onChange={setPriorityFormValue}
+              ariaLabel="Project priority"
+              className="min-h-[2.75rem]"
+            />
           </div>
         </div>
       </div>
@@ -384,31 +387,22 @@ export function ProjectForm({
                 </button>
               )}
             </div>
-            <div className="relative">
-              <select
-                id="client_id"
-                name="client_id"
-                required
-                {...(onClientIdChange && clientIdValue !== undefined
-                  ? { value: clientIdValue, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => onClientIdChange(e.target.value) }
-                  : { defaultValue: initialData?.client_id || '' })}
-                className={`${inputClasses} appearance-none cursor-pointer`}
-              >
-                <option value="">
-                  Select a client
-                </option>
-                {clients.map((client) => (
-                  <option key={client.id} value={client.id}>
-                    {client.name}{client.company_name ? ` (${client.company_name})` : ''}
-                  </option>
-                ))}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </div>
+            <input type="hidden" name="client_id" value={effectiveClientId} readOnly />
+            <ListboxDropdown
+              id="client_id"
+              value={effectiveClientId}
+              options={[
+                { value: '', label: 'Select a client' },
+                ...clients.map((c) => ({
+                  value: c.id,
+                  label: c.name + (c.company_name ? ` (${c.company_name})` : ''),
+                })),
+              ]}
+              onChange={handleClientIdChange}
+              ariaLabel="Select client"
+              placeholder="Select a client"
+              className="min-h-[2.75rem]"
+            />
             {clients.length === 0 && !clientsError && (
               <p className="mt-2 text-xs text-slate-500">No clients found. Add a client first or create one.</p>
             )}
@@ -649,37 +643,22 @@ export function ProjectForm({
               <label htmlFor="staff_member_select" className={labelClasses}>
                 Add staff member
               </label>
-              <div className="relative">
-                <select
-                  id="staff_member_select"
-                  value=""
-                  onChange={(e) => {
-                    const id = e.target.value
-                    if (id) {
-                      setSelectedMemberIds((prev) => (prev.includes(id) ? prev : [...prev, id]))
-                      e.target.value = ''
-                    }
-                  }}
-                  className={`${inputClasses} appearance-none cursor-pointer`}
-                >
-                  <option value="">Select a staff member</option>
-                  {teamMembers
-                    .filter((m) => !selectedMemberIds.includes(m.id))
-                    .map((member) => {
-                      const label = member.full_name || member.email || 'Unnamed Staff'
-                      return (
-                        <option key={member.id} value={member.id}>
-                          {label}
-                        </option>
-                      )
-                    })}
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-              </div>
+              <ListboxDropdown
+                id="staff_member_select"
+                value=""
+                options={teamMembers
+                  .filter((m) => !selectedMemberIds.includes(m.id))
+                  .map((member) => ({
+                    value: member.id,
+                    label: member.full_name || member.email || 'Unnamed Staff',
+                  }))}
+                onChange={(id) => {
+                  if (id) setSelectedMemberIds((prev) => (prev.includes(id) ? prev : [...prev, id]))
+                }}
+                ariaLabel="Add staff member"
+                placeholder="Select a staff member"
+                className="min-h-[2.75rem]"
+              />
             </div>
             {selectedMemberIds.length > 0 && (
               <div className="flex flex-wrap gap-2">

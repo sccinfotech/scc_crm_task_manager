@@ -1,7 +1,8 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useState } from 'react'
 import { LeadFormData, LeadStatus } from '@/lib/leads/actions'
+import { ListboxDropdown } from '@/app/components/ui/listbox-dropdown'
 
 interface LeadFormProps {
   initialData?: Partial<LeadFormData>
@@ -50,6 +51,11 @@ export function LeadForm({
 
   const inputClasses = "block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder-slate-400 shadow-sm transition-all duration-200 focus:border-[#06B6D4] focus:outline-none focus:ring-4 focus:ring-[#06B6D4]/10 sm:text-sm hover:border-slate-300"
   const labelClasses = "block text-sm font-semibold text-slate-700 mb-1.5"
+
+  const [statusFormValue, setStatusFormValue] = useState<LeadStatus>(
+    initialData?.status ?? 'new'
+  )
+  const statusOptions = STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label }))
 
   return (
     <form action={formAction} className="space-y-6">
@@ -149,26 +155,15 @@ export function LeadForm({
             <label htmlFor="status" className={labelClasses}>
               Current Status <span className="text-rose-500">*</span>
             </label>
-            <div className="relative">
-              <select
-                id="status"
-                name="status"
-                required
-                defaultValue={initialData?.status || 'new'}
-                className={`${inputClasses} appearance-none cursor-pointer`}
-              >
-                {STATUS_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </div>
+            <input type="hidden" name="status" value={statusFormValue} readOnly />
+            <ListboxDropdown
+              id="status"
+              value={statusFormValue}
+              options={statusOptions}
+              onChange={(v) => setStatusFormValue(v as LeadStatus)}
+              ariaLabel="Lead status"
+              className="min-h-[2.75rem]"
+            />
           </div>
 
           {/* Next Follow-up Date */}

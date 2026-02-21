@@ -2701,7 +2701,7 @@ function TaskDetailPanel({
   }
 
   const filteredMentionUsers = mentionableUsers.filter((u) => {
-    const name = getUserTagLabel(u).toLowerCase()
+    const name = getUserName(u).toLowerCase()
     const search = mentionSearch.toLowerCase()
     return name.includes(search)
   }).slice(0, 8)
@@ -3374,7 +3374,7 @@ function TaskDetailPanel({
                       <span className="h-7 w-7 rounded-full bg-cyan-100 text-cyan-800 flex items-center justify-center text-xs font-semibold">
                         {getInitials(getUserName(u))}
                       </span>
-                      <span className="truncate" title={getUserTagLabel(u)}>{getUserTagLabel(u)}</span>
+                      <span className="truncate" title={getUserName(u)}>{getUserName(u)}</span>
                     </button>
                   ))}
                 </div>
@@ -3869,7 +3869,7 @@ function TaskDetailPanel({
 function renderCommentWithMentions(commentText: string, mentionedUsers: TaskAssignee[] = []) {
   if (!mentionedUsers.length) return <span className="whitespace-pre-wrap">{commentText}</span>
   const mentions = mentionedUsers
-    .map((u) => ({ id: u.id, name: getUserName(u), displayName: getUserTagLabel(u) }))
+    .map((u) => ({ id: u.id, name: getUserName(u), displayName: getUserName(u) }))
     .filter((m) => m.name)
   if (!mentions.length) return <span className="whitespace-pre-wrap">{commentText}</span>
   const parts: Array<{ type: 'text'; value: string } | { type: 'mention'; name: string; displayName: string }> = []
@@ -3980,12 +3980,11 @@ function CommentRow({
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-semibold text-slate-900">{comment.created_by_name}</span>
-              {comment.created_by_role ? (
-                <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
-                  {formatRoleLabel(comment.created_by_role)}
-                </span>
-              ) : null}
+              <span className="text-sm font-semibold text-slate-900">
+                {comment.created_by_role
+                  ? `${comment.created_by_name} (${formatRoleLabel(comment.created_by_role)})`
+                  : comment.created_by_name}
+              </span>
               <span className="text-xs text-slate-400" title={comment.created_at}>
                 {formatRelative(comment.created_at)}
               </span>

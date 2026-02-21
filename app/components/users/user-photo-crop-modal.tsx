@@ -119,9 +119,8 @@ export function UserPhotoCropModal({
   return (
     <div
       className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm"
-      onClick={() => {
-        if (!isSaving) onClose()
-      }}
+      role="dialog"
+      aria-modal="true"
     >
       <div
         className="w-full max-w-2xl rounded-2xl bg-white p-5 shadow-2xl ring-1 ring-black/5"

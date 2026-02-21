@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Tooltip } from "@/app/components/ui/tooltip"
 import { EmptyState } from "@/app/components/empty-state"
 import { useToast } from "@/app/components/ui/toast-context"
+import { ListboxDropdown } from "@/app/components/ui/listbox-dropdown"
 import {
   PROJECT_REQUIREMENT_ALLOWED_EXTENSIONS,
   PROJECT_REQUIREMENT_ALLOWED_MIME_TYPES,
@@ -284,7 +285,7 @@ function RequirementDeleteModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50" />
       <div className="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
         <h3 className="text-lg font-bold text-[#1E1B4B]">Delete Requirement</h3>
         <p className="mt-2 text-sm text-slate-600">
@@ -370,7 +371,8 @@ function RequirementModal({
   useEffect(() => {
     if (!isOpen) return
     setRequirementType(requirement?.requirement_type ?? "initial")
-    setPricingType((requirement?.pricing_type as PricingType) ?? "fixed")
+    const rawPricing = (requirement?.pricing_type as PricingType) ?? "fixed"
+    setPricingType(rawPricing === "milestone" && !canViewAmount ? "fixed" : rawPricing)
     setDescription(requirement?.description ?? "")
     setEstimatedHours(requirement?.estimated_hours != null ? String(requirement.estimated_hours) : "")
     setHourlyRate(canViewAmount && requirement?.hourly_rate != null ? String(requirement.hourly_rate) : "")
@@ -664,7 +666,7 @@ function RequirementModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50" />
       <div className="relative z-10 w-full max-w-3xl rounded-2xl bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 sm:px-6 sm:py-4">
           <div>
@@ -695,32 +697,40 @@ function RequirementModal({
               <label className="block text-sm font-semibold text-slate-700 mb-2">
                 Requirement Type <span className="text-rose-500">*</span>
               </label>
-              <select
+              <ListboxDropdown
                 value={requirementType}
-                onChange={(e) => setRequirementType(e.target.value as RequirementType)}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
-                required
-              >
-                <option value="initial">Initial Requirement</option>
-                <option value="addon">Add-On Requirement</option>
-              </select>
+                options={[
+                  { value: "initial", label: REQUIREMENT_TYPE_LABELS.initial },
+                  { value: "addon", label: REQUIREMENT_TYPE_LABELS.addon },
+                ]}
+                onChange={(v) => setRequirementType(v as RequirementType)}
+                ariaLabel="Requirement type"
+                className="min-h-[2.75rem]"
+              />
             </div>
 
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">
                 Pricing Type <span className="text-rose-500">*</span>
               </label>
-              <select
+              <ListboxDropdown
                 value={pricingType}
-                onChange={(e) => setPricingType(e.target.value as PricingType)}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
-              >
-                <option value="fixed">{PRICING_TYPE_LABELS.fixed}</option>
-                <option value="hourly">{PRICING_TYPE_LABELS.hourly}</option>
-                <option value="milestone" disabled={!canViewAmount}>
-                  {PRICING_TYPE_LABELS.milestone}
-                </option>
-              </select>
+                options={
+                  canViewAmount
+                    ? [
+                        { value: "fixed", label: PRICING_TYPE_LABELS.fixed },
+                        { value: "hourly", label: PRICING_TYPE_LABELS.hourly },
+                        { value: "milestone", label: PRICING_TYPE_LABELS.milestone },
+                      ]
+                    : [
+                        { value: "fixed", label: PRICING_TYPE_LABELS.fixed },
+                        { value: "hourly", label: PRICING_TYPE_LABELS.hourly },
+                      ]
+                }
+                onChange={(v) => setPricingType(v as PricingType)}
+                ariaLabel="Pricing type"
+                className="min-h-[2.75rem]"
+              />
               {!canViewAmount && (
                 <p className="mt-2 text-xs text-slate-500">
                   Milestone-based pricing is available for admins and managers only.

@@ -14,6 +14,7 @@ import {
   isValidEmailFormat,
   normalizeRequiredEmail,
 } from '@/lib/validation/email'
+import { ListboxDropdown } from '@/app/components/ui/listbox-dropdown'
 
 const MAX_PHOTO_SIZE_BYTES = 2 * 1024 * 1024
 const ALLOWED_PHOTO_MIME_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp']
@@ -377,29 +378,24 @@ export function UserForm({ initialData, mode, onSubmit, onCancel, readOnly = fal
           </div>
 
           <div>
-            <label className={labelClasses}>
+            <label htmlFor="role" className={labelClasses}>
               Role <span className="text-rose-500">*</span>
             </label>
-            <div className="relative">
-              <select
-                name="role"
-                required
-                value={formData.role}
-                onChange={handleChange}
-                disabled={readOnly}
-                className={`${inputClasses} appearance-none cursor-pointer disabled:bg-slate-100 disabled:shadow-none disabled:text-slate-500 disabled:border-slate-200 disabled:cursor-not-allowed`}
-              >
-                <option value="staff">Staff</option>
-                <option value="client">Client</option>
-                <option value="manager">Manager</option>
-                <option value="admin">Admin</option>
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </div>
+            <input type="hidden" name="role" value={formData.role} readOnly />
+            <ListboxDropdown
+              id="role"
+              value={formData.role}
+              options={[
+                { value: 'staff', label: 'Staff' },
+                { value: 'client', label: 'Client' },
+                { value: 'manager', label: 'Manager' },
+                { value: 'admin', label: 'Admin' },
+              ]}
+              onChange={(value) => setFormData((prev) => ({ ...prev, role: value }))}
+              ariaLabel="User role"
+              disabled={readOnly}
+              className="min-h-[2.75rem]"
+            />
           </div>
 
           <div>

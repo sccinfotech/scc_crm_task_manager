@@ -265,6 +265,11 @@ export default async function AdminPage() {
 - Check that middleware is running correctly
 - Verify Supabase session configuration
 
+## Documentation
+
+- **[docs/UI_SETUP.md](docs/UI_SETUP.md)** – UI conventions and modal behavior (modals close only via Cancel/Close buttons, not by clicking outside).
+- **[docs/LOADING_AND_SKELETONS.md](docs/LOADING_AND_SKELETONS.md)** – Loading states, skeletons, and delays.
+
 ## Next Steps
 
 After authentication is working:

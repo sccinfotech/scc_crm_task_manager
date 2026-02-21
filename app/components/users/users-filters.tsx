@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { UserRole } from '@/lib/users/actions'
+import { ListboxDropdown } from '@/app/components/ui/listbox-dropdown'
 
 interface UsersFiltersProps {
     roleFilter: UserRole | 'all'
@@ -81,17 +82,12 @@ export function UsersFilters({
 
                     {/* Role Filter */}
                     <div className="sm:w-40">
-                        <select
+                        <ListboxDropdown
                             value={roleFilter}
-                            onChange={(e) => onRoleChange(e.target.value as UserRole | 'all')}
-                            className="block w-full rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-[#1E1B4B] shadow-sm transition-all duration-200 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-opacity-20"
-                        >
-                            {ROLE_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                    {option.label}
-                                </option>
-                            ))}
-                        </select>
+                            options={ROLE_OPTIONS}
+                            onChange={(v) => onRoleChange(v as UserRole | 'all')}
+                            ariaLabel="Filter by role"
+                        />
                     </div>
                 </div>
 

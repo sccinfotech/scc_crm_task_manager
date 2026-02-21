@@ -40,9 +40,10 @@ export function FollowUpModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4"
-      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
     >
-      {/* Backdrop */}
+      {/* Backdrop - does not close modal; use Cancel/Close button */}
       <div className="absolute inset-0 bg-black/50" />
 
       {/* Modal */}

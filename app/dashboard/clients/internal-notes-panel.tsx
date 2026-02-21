@@ -442,7 +442,7 @@ export function InternalNotesPanel({
       {/* Backdrop with fade animation */}
       <div
         className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity duration-300 opacity-100"
-        onClick={onClose}
+        aria-hidden="true"
       />
 
       {/* Panel with slide-in animation from right */}

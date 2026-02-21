@@ -94,7 +94,8 @@ export function UserPermissionsModal({
   return (
     <div
       className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
-      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
     >
       <div
         className="relative z-10 w-full max-w-2xl rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 max-h-[90vh] flex flex-col"

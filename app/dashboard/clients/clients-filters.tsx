@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { ClientStatus } from '@/lib/clients/actions'
+import { ListboxDropdown } from '@/app/components/ui/listbox-dropdown'
 
 const SEARCH_DEBOUNCE_MS = 300
 
@@ -77,17 +78,12 @@ export function ClientsFilters({
 
           {/* Status Filter */}
           <div className="sm:w-48">
-            <select
+            <ListboxDropdown
               value={statusFilter}
-              onChange={(e) => onStatusChange(e.target.value as ClientStatus | 'all')}
-              className="block w-full rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-[#1E1B4B] shadow-sm transition-all duration-200 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-opacity-20"
-            >
-              {STATUS_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              options={STATUS_OPTIONS}
+              onChange={(v) => onStatusChange(v as ClientStatus | 'all')}
+              ariaLabel="Filter by status"
+            />
           </div>
         </div>
 

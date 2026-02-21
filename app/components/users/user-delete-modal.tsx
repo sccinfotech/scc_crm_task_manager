@@ -56,7 +56,8 @@ export function UserDeleteModal({
     return (
         <div
             className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200"
-            onClick={onClose}
+            role="dialog"
+            aria-modal="true"
         >
             <div
                 className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-black/5 animate-in zoom-in-95 duration-200"

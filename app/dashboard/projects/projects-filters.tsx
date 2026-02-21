@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { ProjectStatus } from '@/lib/projects/actions'
 import type { StaffSelectOption } from '@/lib/users/actions'
+import { ListboxDropdown } from '@/app/components/ui/listbox-dropdown'
 
 const SEARCH_DEBOUNCE_MS = 300
 
@@ -31,9 +32,6 @@ const STATUS_OPTIONS: { value: ProjectStatus | 'all'; label: string }[] = [
   { value: 'hold', label: 'Hold' },
   { value: 'completed', label: 'Completed' },
 ]
-
-const FILTER_SELECT_CLASSES =
-  'block h-10 w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 pr-10 text-sm font-medium text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.05)] transition-all duration-200 hover:border-slate-300 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/20'
 
 export function ProjectsFilters({
   title,
@@ -118,65 +116,40 @@ export function ProjectsFilters({
           </div>
 
           {/* Status Filter */}
-          <div className={`relative ${compact ? 'sm:w-40' : 'sm:w-52'}`}>
-            <select
+          <div className={`${compact ? 'sm:w-40' : 'sm:w-52'}`}>
+            <ListboxDropdown
               value={statusFilter}
-              onChange={(e) => onStatusChange(e.target.value as ProjectStatus | 'all')}
-              className={FILTER_SELECT_CLASSES}
-            >
-              {STATUS_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
+              options={STATUS_OPTIONS}
+              onChange={(v) => onStatusChange(v as ProjectStatus | 'all')}
+              ariaLabel="Filter by status"
+            />
           </div>
 
           {showStaffFilter && (
-            <div className="relative sm:w-56">
-              <select
+            <div className="sm:w-56">
+              <ListboxDropdown
                 value={selectedStaffId}
-                onChange={(e) => onStaffChange(e.target.value)}
-                className={FILTER_SELECT_CLASSES}
-              >
-                <option value="">All Staff</option>
-                {staffMembers.map((staff) => (
-                  <option key={staff.id} value={staff.id}>
-                    {staff.full_name?.trim() || staff.email || 'Unnamed staff'}
-                  </option>
-                ))}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
+                options={[
+                  { value: '', label: 'All Staff' },
+                  ...staffMembers.map((staff) => ({
+                    value: staff.id,
+                    label: staff.full_name?.trim() || staff.email || 'Unnamed staff',
+                  })),
+                ]}
+                onChange={onStaffChange}
+                ariaLabel="Filter by staff"
+              />
             </div>
           )}
 
           {staffWorkStatusOptions && staffWorkStatusOptions.length > 0 && onStaffWorkStatusChange ? (
-            <div className={`relative ${compact ? 'sm:w-40' : 'sm:w-56'}`}>
-              <select
+            <div className={`${compact ? 'sm:w-40' : 'sm:w-56'}`}>
+              <ListboxDropdown
                 value={staffWorkStatusFilter ?? 'all'}
-                onChange={(e) => onStaffWorkStatusChange(e.target.value)}
-                className={FILTER_SELECT_CLASSES}
-              >
-                {staffWorkStatusOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
+                options={staffWorkStatusOptions}
+                onChange={onStaffWorkStatusChange}
+                ariaLabel="Filter by staff work status"
+              />
             </div>
           ) : null}
         </div>
