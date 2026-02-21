@@ -265,8 +265,16 @@ const PROJECT_DETAIL_TABS: { id: ProjectDetailTab; label: string }[] = [
 ]
 
 const DETAILS_PANEL_QUERY_PARAM = 'detailsTab'
-const RIGHT_PANEL_TABS: RightPanelTab[] = ['follow-ups', 'work-history', 'my-notes', 'team-talk']
+const RIGHT_PANEL_TABS: RightPanelTab[] = ['follow-ups', 'work-history', 'analytics', 'my-notes', 'team-talk']
+const ADMIN_MANAGER_RIGHT_PANEL_TABS: RightPanelTab[] = ['follow-ups', 'work-history', 'analytics', 'my-notes', 'team-talk']
+const NON_STAFF_RIGHT_PANEL_TABS: RightPanelTab[] = ['follow-ups', 'work-history', 'my-notes', 'team-talk']
 const STAFF_RIGHT_PANEL_TABS: RightPanelTab[] = ['work-history', 'my-notes', 'team-talk']
+
+function getVisibleRightPanelTabs(userRole: string): RightPanelTab[] {
+  if (userRole === 'staff') return STAFF_RIGHT_PANEL_TABS
+  if (userRole === 'admin' || userRole === 'manager') return ADMIN_MANAGER_RIGHT_PANEL_TABS
+  return NON_STAFF_RIGHT_PANEL_TABS
+}
 
 function parseProjectDetailTab(value: string | null | undefined): ProjectDetailTab | null {
   if (!value) return null
@@ -287,9 +295,9 @@ function parseRightPanelTab(value: string | null | undefined): RightPanelTab | n
 function resolveRightPanelTab(tab: RightPanelTab | null, userRole: string): RightPanelTab {
   const isStaff = userRole === 'staff'
   const defaultTab: RightPanelTab = isStaff ? 'work-history' : 'follow-ups'
+  const visibleTabs = getVisibleRightPanelTabs(userRole)
   if (!tab) return defaultTab
-
-  if (isStaff && !STAFF_RIGHT_PANEL_TABS.includes(tab)) {
+  if (!visibleTabs.includes(tab)) {
     return defaultTab
   }
 
@@ -557,7 +565,7 @@ export function ProjectDetailView({
 
   /**
    * Keep Details right-panel tab in sync with URL so refresh/back-forward
-   * preserve Follow-ups / Work history / My notes / Team talk selection.
+   * preserve Follow-ups / Work history / Analytics / My notes / Team talk selection.
    */
   useEffect(() => {
     if (activeTab !== 'details') return

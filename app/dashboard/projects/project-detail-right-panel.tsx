@@ -3,12 +3,13 @@
 import { useState, useRef, useEffect } from 'react'
 import { ProjectFollowUps } from './project-followups'
 import { ProjectWorkHistory } from './project-work-history'
+import { ProjectAnalytics } from './project-analytics'
 import { ProjectMyNotes } from './project-my-notes'
 import { ProjectTeamTalk } from './project-team-talk'
 import type { ProjectFollowUp } from '@/lib/projects/actions'
 import type { ProjectTeamMember } from '@/lib/projects/actions'
 
-export type RightPanelTab = 'follow-ups' | 'work-history' | 'my-notes' | 'team-talk'
+export type RightPanelTab = 'follow-ups' | 'work-history' | 'analytics' | 'my-notes' | 'team-talk'
 
 interface ProjectDetailRightPanelProps {
   projectId: string
@@ -31,14 +32,22 @@ interface ProjectDetailRightPanelProps {
   onTabChange?: (tab: RightPanelTab) => void
 }
 
-const ALL_TABS: { id: RightPanelTab; label: string }[] = [
+const ADMIN_MANAGER_TABS: { id: RightPanelTab; label: string }[] = [
   { id: 'follow-ups', label: 'Follow-ups' },
   { id: 'work-history', label: 'Work history' },
+  { id: 'analytics', label: 'Analytics' },
   { id: 'my-notes', label: 'My Notes' },
   { id: 'team-talk', label: 'Team Talk' },
 ]
 
 const STAFF_TABS: { id: RightPanelTab; label: string }[] = [
+  { id: 'work-history', label: 'Work history' },
+  { id: 'my-notes', label: 'My Notes' },
+  { id: 'team-talk', label: 'Team Talk' },
+]
+
+const NON_STAFF_TABS: { id: RightPanelTab; label: string }[] = [
+  { id: 'follow-ups', label: 'Follow-ups' },
   { id: 'work-history', label: 'Work history' },
   { id: 'my-notes', label: 'My Notes' },
   { id: 'team-talk', label: 'Team Talk' },
@@ -59,13 +68,19 @@ export function ProjectDetailRightPanel({
   onTabChange,
 }: ProjectDetailRightPanelProps) {
   const isStaff = userRole === 'staff'
-  const tabConfig = isStaff ? STAFF_TABS : ALL_TABS
+  const isAdminOrManager = userRole === 'admin' || userRole === 'manager'
+  const tabConfig = isStaff ? STAFF_TABS : (isAdminOrManager ? ADMIN_MANAGER_TABS : NON_STAFF_TABS)
   const defaultTab: RightPanelTab = isStaff ? 'work-history' : 'follow-ups'
   const [activeTab, setActiveTab] = useState<RightPanelTab>(defaultTab)
-  const tab = activeTabOverride ?? activeTab
+  const isTabVisible = (candidate: RightPanelTab) => tabConfig.some((item) => item.id === candidate)
+  const tab = isTabVisible(activeTabOverride ?? activeTab) ? (activeTabOverride ?? activeTab) : defaultTab
   // Only mount and fetch a tab's data when the user has clicked that tab (per-tab lazy load).
   const visitedTabsRef = useRef<Set<RightPanelTab>>(
-    new Set(activeTabOverride ? [defaultTab, activeTabOverride] : [defaultTab])
+    new Set(
+      activeTabOverride && isTabVisible(activeTabOverride)
+        ? [defaultTab, activeTabOverride]
+        : [defaultTab]
+    )
   )
 
   useEffect(() => {
@@ -172,6 +187,23 @@ export function ProjectDetailRightPanel({
               staffWorkState={isStaff ? staffWorkState ?? null : null}
               onStaffWorkStatus={isStaff ? onStaffWorkStatus : undefined}
               isActiveTab={tab === 'work-history'}
+              className="!rounded-none !border-t-0 h-full"
+            />
+          </div>
+        )}
+        {!showPlaceholder && isAdminOrManager && hasVisited('analytics') && (
+          <div
+            id="panel-analytics"
+            role="tabpanel"
+            aria-labelledby="tab-analytics"
+            aria-hidden={tab !== 'analytics'}
+            className={`h-full ${tab === 'analytics' ? 'block' : 'hidden'}`}
+          >
+            <ProjectAnalytics
+              projectId={projectId}
+              userRole={userRole}
+              isActiveTab={tab === 'analytics'}
+              hideHeader={true}
               className="!rounded-none !border-t-0 h-full"
             />
           </div>

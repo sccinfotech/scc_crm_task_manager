@@ -306,6 +306,24 @@ function validateSingleDate(value: string | undefined, label: string) {
   return null
 }
 
+function parseAnalyticsDateInput(value: string | null | undefined, label: string) {
+  const trimmed = value?.trim() ?? ''
+  if (!trimmed) {
+    return { value: null as string | null, error: null as string | null }
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return { value: null, error: `${label} must be in YYYY-MM-DD format` }
+  }
+
+  const parsed = new Date(`${trimmed}T00:00:00.000Z`)
+  if (Number.isNaN(parsed.getTime())) {
+    return { value: null, error: `${label} must be a valid date` }
+  }
+
+  return { value: trimmed, error: null }
+}
+
 export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
   const currentUser = await getCurrentUser()
   if (!currentUser) {
@@ -1176,6 +1194,24 @@ export type ProjectWorkHistoryResult =
   | { data: ProjectWorkHistoryPayload; error: null }
   | { data: null; error: string }
 
+export type ProjectAnalyticsStaffTime = {
+  userId: string
+  userName: string | null
+  userEmail: string | null
+  totalSeconds: number
+}
+
+export type ProjectAnalyticsPayload = {
+  fromDate: string | null
+  toDate: string | null
+  totalSeconds: number
+  staffTotals: ProjectAnalyticsStaffTime[]
+}
+
+export type ProjectAnalyticsResult =
+  | { data: ProjectAnalyticsPayload; error: null }
+  | { data: null; error: string }
+
 /**
  * Returns work history (by day, with segments and notes) for a project.
  * Data source: project_team_member_time_events (event_type: start, hold, resume, end; note on end).
@@ -1299,6 +1335,169 @@ export async function getProjectWorkHistory(
 
   const days = computeWorkHistoryByDay(userId, events)
   return { data: { mode: 'single', days }, error: null }
+}
+
+/**
+ * Project analytics for Admin/Manager: total time spent and staff-wise totals,
+ * with optional inclusive date-range filtering by day key (YYYY-MM-DD).
+ */
+export async function getProjectAnalytics(
+  projectId: string,
+  options?: { fromDate?: string | null; toDate?: string | null }
+): Promise<ProjectAnalyticsResult> {
+  const currentUser = await getCurrentUser()
+  if (!currentUser) {
+    return { data: null, error: 'You must be logged in to view project analytics' }
+  }
+
+  if (!isAdminManager(currentUser.role)) {
+    return { data: null, error: 'Only admins and managers can view project analytics' }
+  }
+
+  const fromDateValidation = parseAnalyticsDateInput(options?.fromDate, 'From date')
+  if (fromDateValidation.error) {
+    return { data: null, error: fromDateValidation.error }
+  }
+
+  const toDateValidation = parseAnalyticsDateInput(options?.toDate, 'To date')
+  if (toDateValidation.error) {
+    return { data: null, error: toDateValidation.error }
+  }
+
+  const fromDate = fromDateValidation.value
+  const toDate = toDateValidation.value
+  if (fromDate && toDate && fromDate > toDate) {
+    return { data: null, error: 'From date must be earlier than or equal to To date' }
+  }
+
+  const supabase = await createClient()
+
+  const { data: projectRow, error: projectError } = await supabase
+    .from('projects')
+    .select('id')
+    .eq('id', projectId)
+    .maybeSingle()
+
+  if (projectError) {
+    console.error('Error validating project for analytics:', projectError)
+    return { data: null, error: projectError.message || 'Failed to validate project' }
+  }
+
+  if (!projectRow) {
+    return { data: null, error: 'Project not found' }
+  }
+
+  const { data: teamRows, error: teamError } = await supabase
+    .from('project_team_members')
+    .select('user_id, users(id, full_name, email)')
+    .eq('project_id', projectId)
+
+  if (teamError) {
+    console.error('Error fetching project team members for analytics:', teamError)
+    return { data: null, error: teamError.message || 'Failed to fetch project team members' }
+  }
+
+  const userMetaById = new Map<
+    string,
+    { userName: string | null; userEmail: string | null; isAssigned: boolean }
+  >()
+
+  ;(teamRows as Array<{ user_id: string; users?: { id?: string; full_name?: string | null; email?: string | null } | Array<{ id?: string; full_name?: string | null; email?: string | null }> }> | null)?.forEach((row) => {
+    const userNode = Array.isArray(row.users) ? row.users[0] : row.users
+    const userId = userNode?.id ?? row.user_id
+    if (!userId) return
+    userMetaById.set(userId, {
+      userName: userNode?.full_name ?? null,
+      userEmail: userNode?.email ?? null,
+      isAssigned: true,
+    })
+  })
+
+  const { data: timeEventRows, error: timeEventsError } = await supabase
+    .from('project_team_member_time_events')
+    .select('user_id, event_type, occurred_at, note')
+    .eq('project_id', projectId)
+    .order('occurred_at', { ascending: true })
+
+  if (timeEventsError) {
+    console.error('Error fetching project analytics time events:', timeEventsError)
+    return { data: null, error: timeEventsError.message || 'Failed to fetch project analytics' }
+  }
+
+  const events = (timeEventRows || []).map(
+    (event: { user_id: string; event_type: string; occurred_at: string; note?: string | null }) => ({
+      user_id: event.user_id,
+      event_type: event.event_type,
+      occurred_at: event.occurred_at,
+      note: event.note ?? null,
+    })
+  )
+
+  const missingEventUserIds = [...new Set(events.map((event) => event.user_id))]
+    .filter((userId) => !userMetaById.has(userId))
+
+  if (missingEventUserIds.length > 0) {
+    const { data: missingUsers, error: missingUsersError } = await supabase
+      .from('users')
+      .select('id, full_name, email')
+      .in('id', missingEventUserIds)
+
+    if (missingUsersError) {
+      console.error('Error fetching analytics users:', missingUsersError)
+      return { data: null, error: missingUsersError.message || 'Failed to fetch analytics users' }
+    }
+
+    ;(missingUsers as Array<{ id: string; full_name: string | null; email: string | null }> | null)?.forEach((user) => {
+      userMetaById.set(user.id, {
+        userName: user.full_name,
+        userEmail: user.email,
+        isAssigned: false,
+      })
+    })
+  }
+
+  const shouldIncludeDay = (dayKey: string) => {
+    if (fromDate && dayKey < fromDate) return false
+    if (toDate && dayKey > toDate) return false
+    return true
+  }
+
+  const staffTotals: ProjectAnalyticsStaffTime[] = []
+  for (const [userId, meta] of userMetaById.entries()) {
+    const dayHistory = computeWorkHistoryByDay(userId, events)
+    const totalSeconds = dayHistory.reduce((sum, day) => (
+      shouldIncludeDay(day.date) ? sum + day.totalSeconds : sum
+    ), 0)
+
+    if (totalSeconds > 0 || meta.isAssigned) {
+      staffTotals.push({
+        userId,
+        userName: meta.userName,
+        userEmail: meta.userEmail,
+        totalSeconds,
+      })
+    }
+  }
+
+  staffTotals.sort((a, b) => {
+    if (b.totalSeconds !== a.totalSeconds) {
+      return b.totalSeconds - a.totalSeconds
+    }
+    const aLabel = (a.userName ?? a.userEmail ?? a.userId).toLowerCase()
+    const bLabel = (b.userName ?? b.userEmail ?? b.userId).toLowerCase()
+    return aLabel.localeCompare(bLabel)
+  })
+
+  const totalSeconds = staffTotals.reduce((sum, staff) => sum + staff.totalSeconds, 0)
+  return {
+    data: {
+      fromDate,
+      toDate,
+      totalSeconds,
+      staffTotals,
+    },
+    error: null,
+  }
 }
 
 export async function createProjectFollowUp(
