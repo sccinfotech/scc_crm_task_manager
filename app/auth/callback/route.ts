@@ -8,6 +8,7 @@ import {
 } from '@/lib/supabase/env'
 import { normalizeRequiredEmail } from '@/lib/validation/email'
 import { Database } from '@/types/supabase'
+import { createActivityLogEntry } from '@/lib/activity-log/logger'
 
 const DEFAULT_REDIRECT_PATH = '/dashboard'
 
@@ -17,6 +18,9 @@ type AccessProfile = Pick<
   Database['public']['Tables']['users']['Row'],
   'id' | 'email' | 'is_active' | 'deleted_at'
 >
+function getClientIp(request: NextRequest): string | null {
+  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? request.headers.get('x-real-ip') ?? null
+}
 
 function canAutoCreateForEmail(email: string): boolean {
   if (!isGoogleAutoCreateEnabled()) {
@@ -116,11 +120,11 @@ export async function GET(request: NextRequest) {
 
   const profileResult = await supabase
     .from('users')
-    .select('id, email, is_active, deleted_at')
+    .select('id, email, full_name, is_active, deleted_at')
     .eq('id', user.id)
     .maybeSingle()
   const { error: profileError } = profileResult
-  let profile = profileResult.data as unknown as AccessProfile | null
+  let profile = profileResult.data as unknown as (AccessProfile & { full_name?: string | null }) | null
 
   if (profileError) {
     return buildLoginRedirect(request, 'callback_error')
@@ -204,6 +208,21 @@ export async function GET(request: NextRequest) {
   if (!profile.is_active) {
     return denyAccess(request, supabase, 'inactive')
   }
+
+  const adminClient = createAdminClient()
+  const userName = (profile as { full_name?: string | null }).full_name?.trim() || user.email || user.id
+  await createActivityLogEntry(
+    {
+      userId: user.id,
+      userName,
+      actionType: 'Login',
+      moduleName: 'Auth',
+      description: 'User logged in successfully',
+      status: 'Success',
+      ipAddress: getClientIp(request),
+    },
+    adminClient
+  )
 
   return NextResponse.redirect(new URL(nextPath, request.url))
 }

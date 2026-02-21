@@ -6,6 +6,7 @@ import { encryptAmount, decryptAmount } from '@/lib/amount-encryption'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser, hasPermission } from '@/lib/auth/utils'
 import { MODULE_PERMISSION_IDS } from '@/lib/permissions'
+import { createActivityLogEntry } from '@/lib/activity-log/logger'
 import { computeMemberWorkSeconds, computeWorkHistoryByDay } from '@/lib/projects/work-utils'
 import type { WorkHistoryDay, WorkHistorySegment } from '@/lib/projects/work-utils'
 
@@ -695,8 +696,18 @@ export async function createProject(formData: ProjectFormData): Promise<ProjectA
     }
   }
 
+  const project = data as unknown as Project
+  await createActivityLogEntry({
+    userId: currentUser.id,
+    userName: currentUser.fullName ?? currentUser.email,
+    actionType: 'Create',
+    moduleName: 'Projects',
+    recordId: project.id,
+    description: `Created project "${project.name}"`,
+    status: 'Success',
+  })
   revalidatePath('/dashboard/projects')
-  return { data: data as unknown as Project, error: null }
+  return { data: project, error: null }
 }
 
 export async function updateProject(projectId: string, formData: ProjectFormData): Promise<ProjectActionResult> {
@@ -772,6 +783,17 @@ export async function updateProject(projectId: string, formData: ProjectFormData
     console.error('Error updating project:', error)
     return { data: null, error: error.message || 'Failed to update project' }
   }
+
+  const project = data as unknown as Project
+  await createActivityLogEntry({
+    userId: currentUser.id,
+    userName: currentUser.fullName ?? currentUser.email,
+    actionType: 'Update',
+    moduleName: 'Projects',
+    recordId: projectId,
+    description: `Updated project "${project.name}"`,
+    status: 'Success',
+  })
 
   const toolIds = Array.from(new Set(formData.technology_tool_ids ?? [])).filter(Boolean)
   const { error: deleteToolsError } = await supabase
@@ -1101,6 +1123,15 @@ export async function deleteProject(projectId: string) {
     return { error: error.message || 'Failed to delete project' }
   }
 
+  await createActivityLogEntry({
+    userId: currentUser.id,
+    userName: currentUser.fullName ?? currentUser.email,
+    actionType: 'Delete',
+    moduleName: 'Projects',
+    recordId: projectId,
+    description: 'Deleted project',
+    status: 'Success',
+  })
   revalidatePath('/dashboard/projects')
   return { error: null }
 }

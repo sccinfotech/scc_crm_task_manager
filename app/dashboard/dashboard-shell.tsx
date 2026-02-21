@@ -82,6 +82,7 @@ export function DashboardShell({
         pathname === '/dashboard/users' ||
         pathname === '/dashboard/clients' ||
         pathname === '/dashboard/projects' ||
+        pathname === '/dashboard/logs' ||
         pathname === '/dashboard/settings' ||
         pathname?.startsWith('/dashboard/leads/') || // lead detail page also has custom header
         pathname?.startsWith('/dashboard/users/') || // user detail page also has custom header

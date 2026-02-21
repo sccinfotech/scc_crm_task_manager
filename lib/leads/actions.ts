@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser, hasPermission } from '@/lib/auth/utils'
 import { MODULE_PERMISSION_IDS } from '@/lib/permissions'
+import { createActivityLogEntry } from '@/lib/activity-log/logger'
 
 export type LeadStatus = 'new' | 'contacted' | 'follow_up' | 'converted' | 'lost'
 
@@ -85,8 +86,18 @@ export async function createLead(formData: LeadFormData): Promise<LeadActionResu
     }
   }
 
+  const lead = data as unknown as Lead
+  await createActivityLogEntry({
+    userId: currentUser.id,
+    userName: currentUser.fullName ?? currentUser.email,
+    actionType: 'Create',
+    moduleName: 'Leads',
+    recordId: lead.id,
+    description: `Created lead "${lead.name}"`,
+    status: 'Success',
+  })
   revalidatePath('/dashboard/leads')
-  return { data: data as unknown as Lead, error: null }
+  return { data: lead, error: null }
 }
 
 /**
@@ -168,8 +179,18 @@ export async function updateLead(leadId: string, formData: LeadFormData): Promis
     }
   }
 
+  const lead = data as unknown as Lead
+  await createActivityLogEntry({
+    userId: currentUser.id,
+    userName: currentUser.fullName ?? currentUser.email,
+    actionType: 'Update',
+    moduleName: 'Leads',
+    recordId: leadId,
+    description: `Updated lead "${lead.name}"`,
+    status: 'Success',
+  })
   revalidatePath('/dashboard/leads')
-  return { data: data as unknown as Lead, error: null }
+  return { data: lead, error: null }
 }
 
 export type FollowUpDateFilter =
@@ -368,6 +389,15 @@ export async function deleteLead(leadId: string) {
     }
   }
 
+  await createActivityLogEntry({
+    userId: currentUser.id,
+    userName: currentUser.fullName ?? currentUser.email,
+    actionType: 'Delete',
+    moduleName: 'Leads',
+    recordId: leadId,
+    description: 'Deleted lead',
+    status: 'Success',
+  })
   revalidatePath('/dashboard/leads')
   return { error: null }
 }

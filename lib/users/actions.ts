@@ -16,6 +16,7 @@ import {
   isValidEmailFormat,
   normalizeRequiredEmail,
 } from '@/lib/validation/email'
+import { createActivityLogEntry } from '@/lib/activity-log/logger'
 
 export type UserRole = Database['public']['Enums']['user_role']
 export type ModulePermissions = PermissionMap
@@ -427,15 +428,26 @@ export async function createUser(formData: CreateUserFormData) {
     updated_at: new Date().toISOString(),
   }
 
-  const { error: dbError } = await supabaseAdmin
+  const { data: insertedUser, error: dbError } = await supabaseAdmin
     .from('users')
     .insert(userInsert as never)
+    .select('id')
+    .single()
 
   if (dbError) {
     console.error('User profile sync error:', dbError)
     return { error: 'Failed to create user profile' }
   }
 
+  await createActivityLogEntry({
+    userId: currentUser.id,
+    userName: currentUser.fullName ?? currentUser.email,
+    actionType: 'Create',
+    moduleName: 'User Management',
+    recordId: insertedUser?.id ?? undefined,
+    description: `Created user "${validation.data!.fullName}" (${email})`,
+    status: 'Success',
+  })
   revalidatePath('/dashboard/users')
   return { success: true }
 }
@@ -484,6 +496,15 @@ export async function updateUser(id: string, formData: UpdateUserFormData) {
     return { error: 'Failed to update user' }
   }
 
+  await createActivityLogEntry({
+    userId: currentUser.id,
+    userName: currentUser.fullName ?? currentUser.email,
+    actionType: 'Update',
+    moduleName: 'User Management',
+    recordId: id,
+    description: `Updated user "${validation.data!.fullName}"`,
+    status: 'Success',
+  })
   revalidatePath('/dashboard/users')
   return { success: true }
 }
@@ -552,6 +573,15 @@ export async function deleteUser(id: string) {
     return { error: 'Failed to delete user' }
   }
 
+  await createActivityLogEntry({
+    userId: currentUser.id,
+    userName: currentUser.fullName ?? currentUser.email,
+    actionType: 'Delete',
+    moduleName: 'User Management',
+    recordId: id,
+    description: 'Deleted user',
+    status: 'Success',
+  })
   revalidatePath('/dashboard/users')
   return { success: true }
 }

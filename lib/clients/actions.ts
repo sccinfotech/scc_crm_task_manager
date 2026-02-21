@@ -5,6 +5,7 @@ import { createClient as createSupabaseClient } from '@/lib/supabase/server'
 import { getCurrentUser, hasPermission } from '@/lib/auth/utils'
 import { MODULE_PERMISSION_IDS } from '@/lib/permissions'
 import { EMAIL_VALIDATION_MESSAGE, isValidEmailFormat, normalizeOptionalEmail } from '@/lib/validation/email'
+import { createActivityLogEntry } from '@/lib/activity-log/logger'
 
 export type ClientStatus = 'active' | 'inactive'
 
@@ -203,6 +204,17 @@ export async function createClient(formData: ClientFormData): Promise<ClientActi
     }
   }
 
+  const client = data as unknown as Client
+  await createActivityLogEntry({
+    userId: currentUser.id,
+    userName: currentUser.fullName ?? currentUser.email,
+    actionType: 'Create',
+    moduleName: 'Clients',
+    recordId: client.id,
+    description: `Created client "${client.name}"`,
+    status: 'Success',
+  })
+
   if (formData.lead_id) {
     const { error: followUpError } = await supabase
       .from('lead_client_followups')
@@ -304,8 +316,18 @@ export async function updateClient(clientId: string, formData: ClientFormData): 
     }
   }
 
+  const client = data as unknown as Client
+  await createActivityLogEntry({
+    userId: currentUser.id,
+    userName: currentUser.fullName ?? currentUser.email,
+    actionType: 'Update',
+    moduleName: 'Clients',
+    recordId: clientId,
+    description: `Updated client "${client.name}"`,
+    status: 'Success',
+  })
   revalidatePath('/dashboard/clients')
-  return { data: data as unknown as Client, error: null }
+  return { data: client, error: null }
 }
 
 export async function getClient(clientId: string): Promise<{ data: Client | null; error: string | null }> {
@@ -381,6 +403,15 @@ export async function deleteClient(clientId: string) {
     }
   }
 
+  await createActivityLogEntry({
+    userId: currentUser.id,
+    userName: currentUser.fullName ?? currentUser.email,
+    actionType: 'Delete',
+    moduleName: 'Clients',
+    recordId: clientId,
+    description: 'Deleted client',
+    status: 'Success',
+  })
   revalidatePath('/dashboard/clients')
   return { error: null }
 }

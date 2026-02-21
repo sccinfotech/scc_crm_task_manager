@@ -68,6 +68,44 @@ export interface Database {
           updated_at?: string
         }
       }
+      activity_log: {
+        Row: {
+          id: string
+          user_id: string | null
+          user_name: string
+          action_type: string
+          module_name: string
+          record_id: string | null
+          description: string
+          status: string
+          ip_address: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          user_name: string
+          action_type: string
+          module_name: string
+          record_id?: string | null
+          description: string
+          status?: string
+          ip_address?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          user_name?: string
+          action_type?: string
+          module_name?: string
+          record_id?: string | null
+          description?: string
+          status?: string
+          ip_address?: string | null
+          created_at?: string
+        }
+      }
       leads: {
         Row: {
           id: string
