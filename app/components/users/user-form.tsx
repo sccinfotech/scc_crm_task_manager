@@ -391,7 +391,7 @@ export function UserForm({ initialData, mode, onSubmit, onCancel, readOnly = fal
                 { value: 'manager', label: 'Manager' },
                 { value: 'admin', label: 'Admin' },
               ]}
-              onChange={(value) => setFormData((prev) => ({ ...prev, role: value }))}
+              onChange={(value) => setFormData((prev) => ({ ...prev, role: value as UserRole }))}
               ariaLabel="User role"
               disabled={readOnly}
               className="min-h-[2.75rem]"
