@@ -6,6 +6,7 @@ import { getCurrentUser, hasPermission } from '@/lib/auth/utils'
 import { MODULE_PERMISSION_IDS } from '@/lib/permissions'
 import { EMAIL_VALIDATION_MESSAGE, isValidEmailFormat, normalizeOptionalEmail } from '@/lib/validation/email'
 import { createActivityLogEntry } from '@/lib/activity-log/logger'
+import { prepareSearchTerm } from '@/lib/supabase/utils'
 
 export type ClientStatus = 'active' | 'inactive'
 
@@ -81,9 +82,9 @@ export async function getClientsPage(options: GetClientsPageOptions = {}) {
       count: 'exact',
     })
 
-  if (options.search?.trim()) {
-    const term = options.search.trim()
-    query = query.or(`name.ilike.%${term}%,company_name.ilike.%${term}%`)
+  const searchTerm = prepareSearchTerm(options.search)
+  if (searchTerm) {
+    query = query.or(`name.ilike.%${searchTerm}%,company_name.ilike.%${searchTerm}%`)
   }
 
   if (options.status && options.status !== 'all') {
@@ -474,9 +475,9 @@ export async function getClientFollowUps(clientId: string) {
     .in('id', userIds)
 
   const userMap = new Map<string, string>()
-  ;(users as Array<{ id: string; full_name: string | null }> | null)?.forEach((user) => {
-    userMap.set(user.id, user.full_name || 'Unknown User')
-  })
+    ; (users as Array<{ id: string; full_name: string | null }> | null)?.forEach((user) => {
+      userMap.set(user.id, user.full_name || 'Unknown User')
+    })
 
   const transformedData = followUpsList.map((item) => ({
     id: item.id,
@@ -717,9 +718,9 @@ export async function getLeadFollowUpsForClient(clientId: string) {
     .in('id', userIds)
 
   const userMap = new Map<string, string>()
-  ;(users as Array<{ id: string; full_name: string | null }> | null)?.forEach((user) => {
-    userMap.set(user.id, user.full_name || 'Unknown User')
-  })
+    ; (users as Array<{ id: string; full_name: string | null }> | null)?.forEach((user) => {
+      userMap.set(user.id, user.full_name || 'Unknown User')
+    })
 
   const transformedData = followUpsList.map((item) => ({
     id: item.id,

@@ -3,11 +3,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { LeadStatus } from '@/lib/leads/actions'
 import { ListboxDropdown } from '@/app/components/ui/listbox-dropdown'
+import { SearchInput } from '@/app/components/ui/search-input'
 
 type FollowUpDateFilter = 'all' | 'today' | 'this_week' | 'this_month' | 'overdue' | 'no_followup'
 
-const SEARCH_DEBOUNCE_MS = 500
-const MIN_SEARCH_LENGTH = 3
+const SEARCH_DEBOUNCE_MS = 350
 
 interface LeadsFiltersProps {
   statusFilter: LeadStatus | 'all'
@@ -46,30 +46,7 @@ export function LeadsFilters({
   onFollowUpDateChange,
   onClearFilters,
 }: LeadsFiltersProps) {
-  const [localSearch, setLocalSearch] = useState(searchQuery)
-  const isInitialMount = useRef(true)
-
-  // Sync from URL only on mount and when search is cleared (avoids overwriting user input when navigation completes with old value)
-  useEffect(() => {
-    if (isInitialMount.current) {
-      setLocalSearch(searchQuery)
-      isInitialMount.current = false
-    } else if (searchQuery === '') {
-      setLocalSearch('')
-    }
-  }, [searchQuery])
-
-  // Debounced search: fire only when 3+ chars or empty, after 500ms idle
-  useEffect(() => {
-    const t = setTimeout(() => {
-      if (localSearch === searchQuery) return
-      const shouldSearch = localSearch.length >= MIN_SEARCH_LENGTH || localSearch === ''
-      if (shouldSearch) {
-        onSearchChange(localSearch)
-      }
-    }, SEARCH_DEBOUNCE_MS)
-    return () => clearTimeout(t)
-  }, [localSearch, onSearchChange, searchQuery])
+  // Debounced search logic removed from here as it's now handled by SearchInput component
 
   const hasActiveFilters =
     statusFilter !== 'all' || searchQuery.trim() !== '' || followUpDateFilter !== 'all'
@@ -81,30 +58,13 @@ export function LeadsFilters({
         <div className="flex flex-1 flex-col gap-4 sm:flex-row sm:items-center">
           {/* Search Input */}
           <div className="flex-1 sm:max-w-xs">
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                <svg
-                  className="h-5 w-5 text-gray-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-              </div>
-              <input
-                type="text"
-                value={localSearch}
-                onChange={(e) => setLocalSearch(e.target.value)}
-                placeholder="Search by name or company..."
-                className="block w-full rounded-lg border border-gray-200 bg-white pl-10 pr-4 py-2 text-sm text-[#1E1B4B] placeholder-gray-400 shadow-sm transition-all duration-200 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-opacity-20"
-              />
-            </div>
+            <SearchInput
+              value={searchQuery}
+              onChange={onSearchChange}
+              placeholder="Search by name or company..."
+              debounceMs={SEARCH_DEBOUNCE_MS}
+              minLength={3}
+            />
           </div>
 
           {/* Status + Follow-up: side by side horizontally on mobile and desktop */}

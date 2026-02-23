@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { UserRole } from '@/lib/users/actions'
 import { ListboxDropdown } from '@/app/components/ui/listbox-dropdown'
+import { SearchInput } from '@/app/components/ui/search-input'
 
 interface UsersFiltersProps {
     roleFilter: UserRole | 'all'
@@ -27,22 +28,7 @@ export function UsersFilters({
     onSearchChange,
     onClearFilters,
 }: UsersFiltersProps) {
-    const [localSearch, setLocalSearch] = useState(searchQuery)
-
-    // Sync local search with external prop (e.g. when clear filters is clicked)
-    useEffect(() => {
-        setLocalSearch(searchQuery)
-    }, [searchQuery])
-
-    // Debounce search
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            if (localSearch !== searchQuery) {
-                onSearchChange(localSearch)
-            }
-        }, 350)
-        return () => clearTimeout(timer)
-    }, [localSearch, onSearchChange, searchQuery])
+    // Debounced search logic removed as handled by SearchInput component
 
     const hasActiveFilters =
         roleFilter !== 'all' || searchQuery.trim() !== ''
@@ -54,30 +40,11 @@ export function UsersFilters({
                 <div className="flex flex-1 flex-col gap-4 sm:flex-row sm:items-center">
                     {/* Search Input */}
                     <div className="flex-1 sm:max-w-xs">
-                        <div className="relative">
-                            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                                <svg
-                                    className="h-5 w-5 text-gray-400"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                                    />
-                                </svg>
-                            </div>
-                            <input
-                                type="text"
-                                value={localSearch}
-                                onChange={(e) => setLocalSearch(e.target.value)}
-                                placeholder="Search by name or email..."
-                                className="block w-full rounded-lg border border-gray-200 bg-white pl-10 pr-4 py-2 text-sm text-[#1E1B4B] placeholder-gray-400 shadow-sm transition-all duration-200 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-opacity-20"
-                            />
-                        </div>
+                        <SearchInput
+                            value={searchQuery}
+                            onChange={onSearchChange}
+                            placeholder="Search by name or email..."
+                        />
                     </div>
 
                     {/* Role Filter */}

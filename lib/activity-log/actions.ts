@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser, hasPermission } from '@/lib/auth/utils'
 import { MODULE_PERMISSION_IDS } from '@/lib/permissions'
 import { createActivityLogEntry } from '@/lib/activity-log/logger'
+import { prepareSearchTerm } from '@/lib/supabase/utils'
 
 export type ActivityLogActionType = 'Create' | 'Update' | 'Delete' | 'Login' | 'Logout'
 export type ActivityLogStatusFilter = 'Success' | 'Failed' | 'all'
@@ -76,10 +77,10 @@ export async function getActivityLogsPage(options: GetActivityLogsOptions): Prom
   if (options.status && options.status !== 'all') {
     query = query.eq('status', options.status)
   }
-  if (options.search?.trim()) {
-    const term = `%${options.search.trim()}%`
+  const searchTerm = prepareSearchTerm(options.search)
+  if (searchTerm) {
     query = query.or(
-      `user_name.ilike.${term},module_name.ilike.${term},description.ilike.${term},record_id.ilike.${term}`
+      `user_name.ilike.%${searchTerm}%,module_name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,record_id.ilike.%${searchTerm}%`
     )
   }
 

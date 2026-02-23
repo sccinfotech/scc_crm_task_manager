@@ -8,6 +8,7 @@ import { getCurrentUser, hasPermission } from '@/lib/auth/utils'
 import { MODULE_PERMISSION_IDS } from '@/lib/permissions'
 import { createActivityLogEntry } from '@/lib/activity-log/logger'
 import { computeMemberWorkSeconds, computeWorkHistoryByDay } from '@/lib/projects/work-utils'
+import { prepareSearchTerm } from '@/lib/supabase/utils'
 import type { WorkHistoryDay, WorkHistorySegment } from '@/lib/projects/work-utils'
 
 export type ProjectStatus = 'pending' | 'in_progress' | 'hold' | 'completed'
@@ -176,7 +177,7 @@ function getEnvVar(name: string, isPublic = false): string {
     const visibility = isPublic ? 'public' : 'server-only'
     throw new Error(
       `Missing required ${visibility} environment variable: ${name}. ` +
-        'Add it to .env.local and restart the dev server.'
+      'Add it to .env.local and restart the dev server.'
     )
   }
   return value
@@ -367,20 +368,11 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
       .eq('project_team_members.user_id', staffUserId)
   }
 
-  if (options.search?.trim()) {
-    const term = options.search.trim()
-    const { data: clientMatches } = await supabase
-      .from('clients')
-      .select('id')
-      .or(`name.ilike.%${term}%,company_name.ilike.%${term}%`)
-
-    const clientIds = (clientMatches as Array<{ id: string }> | null)?.map((c) => c.id) ?? []
-
-    if (clientIds.length > 0) {
-      query = query.or(`name.ilike.%${term}%,client_id.in.(${clientIds.join(',')})`)
-    } else {
-      query = query.ilike('name', `%${term}%`)
-    }
+  const searchTerm = prepareSearchTerm(options.search)
+  if (searchTerm) {
+    // Single query using OR with subquery for client names/companies
+    // This is more efficient than the previous 2-step manual filtering
+    query = query.or(`name.ilike.%${searchTerm}%,clients.name.ilike.%${searchTerm}%,clients.company_name.ilike.%${searchTerm}%`)
   }
 
   if (options.status && options.status !== 'all') {
@@ -583,10 +575,10 @@ export async function getProject(projectId: string): Promise<{ data: Project | n
     updated_at: row.updated_at,
     client: client
       ? {
-          id: client.id,
-          name: client.name,
-          company_name: client.company_name ?? null,
-        }
+        id: client.id,
+        name: client.name,
+        company_name: client.company_name ?? null,
+      }
       : null,
     technology_tools: tools,
     team_members: teamMembers,
@@ -1184,9 +1176,9 @@ export async function getProjectFollowUps(projectId: string): Promise<ProjectFol
     .in('id', userIds)
 
   const userMap = new Map<string, string>()
-  ;(users as Array<{ id: string; full_name: string | null }> | null)?.forEach((user) => {
-    userMap.set(user.id, user.full_name || 'Unknown User')
-  })
+    ; (users as Array<{ id: string; full_name: string | null }> | null)?.forEach((user) => {
+      userMap.set(user.id, user.full_name || 'Unknown User')
+    })
 
   const transformedData = followUpsList.map((item) => ({
     id: item.id,
@@ -1309,9 +1301,9 @@ export async function getProjectWorkHistory(
     }
 
     const userMap = new Map<string, { name: string | null; email: string | null }>()
-    ;(users as Array<{ id: string; full_name: string | null; email: string | null }> | null)?.forEach((user) => {
-      userMap.set(user.id, { name: user.full_name, email: user.email })
-    })
+      ; (users as Array<{ id: string; full_name: string | null; email: string | null }> | null)?.forEach((user) => {
+        userMap.set(user.id, { name: user.full_name, email: user.email })
+      })
 
     const dayMap = new Map<string, ProjectWorkHistoryTeamDay>()
     for (const userId of userIds) {
@@ -1433,16 +1425,16 @@ export async function getProjectAnalytics(
     { userName: string | null; userEmail: string | null; isAssigned: boolean }
   >()
 
-  ;(teamRows as Array<{ user_id: string; users?: { id?: string; full_name?: string | null; email?: string | null } | Array<{ id?: string; full_name?: string | null; email?: string | null }> }> | null)?.forEach((row) => {
-    const userNode = Array.isArray(row.users) ? row.users[0] : row.users
-    const userId = userNode?.id ?? row.user_id
-    if (!userId) return
-    userMetaById.set(userId, {
-      userName: userNode?.full_name ?? null,
-      userEmail: userNode?.email ?? null,
-      isAssigned: true,
+    ; (teamRows as Array<{ user_id: string; users?: { id?: string; full_name?: string | null; email?: string | null } | Array<{ id?: string; full_name?: string | null; email?: string | null }> }> | null)?.forEach((row) => {
+      const userNode = Array.isArray(row.users) ? row.users[0] : row.users
+      const userId = userNode?.id ?? row.user_id
+      if (!userId) return
+      userMetaById.set(userId, {
+        userName: userNode?.full_name ?? null,
+        userEmail: userNode?.email ?? null,
+        isAssigned: true,
+      })
     })
-  })
 
   const { data: timeEventRows, error: timeEventsError } = await supabase
     .from('project_team_member_time_events')
@@ -1478,7 +1470,7 @@ export async function getProjectAnalytics(
       return { data: null, error: missingUsersError.message || 'Failed to fetch analytics users' }
     }
 
-    ;(missingUsers as Array<{ id: string; full_name: string | null; email: string | null }> | null)?.forEach((user) => {
+    ; (missingUsers as Array<{ id: string; full_name: string | null; email: string | null }> | null)?.forEach((user) => {
       userMetaById.set(user.id, {
         userName: user.full_name,
         userEmail: user.email,

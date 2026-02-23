@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react'
 import { ProjectStatus } from '@/lib/projects/actions'
 import type { StaffSelectOption } from '@/lib/users/actions'
 import { ListboxDropdown } from '@/app/components/ui/listbox-dropdown'
+import { SearchInput } from '@/app/components/ui/search-input'
 
-const SEARCH_DEBOUNCE_MS = 300
+const SEARCH_DEBOUNCE_MS = 350
 
 interface ProjectsFiltersProps {
   title?: string
@@ -49,20 +50,7 @@ export function ProjectsFilters({
   onSearchChange,
   onClearFilters,
 }: ProjectsFiltersProps) {
-  const [localSearch, setLocalSearch] = useState(searchQuery)
-
-  useEffect(() => {
-    setLocalSearch(searchQuery)
-  }, [searchQuery])
-
-  useEffect(() => {
-    const t = setTimeout(() => {
-      if (localSearch !== searchQuery) {
-        onSearchChange(localSearch)
-      }
-    }, SEARCH_DEBOUNCE_MS)
-    return () => clearTimeout(t)
-  }, [localSearch, onSearchChange, searchQuery])
+  // Debounced search logic removed as handled by SearchInput component
 
   const hasStaffWorkStatusFilter =
     typeof staffWorkStatusFilter === 'string' &&
@@ -89,30 +77,12 @@ export function ProjectsFilters({
 
           {/* Search Input */}
           <div className={`flex-1 ${compact ? 'sm:max-w-[13rem]' : 'sm:max-w-xs'}`}>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                <svg
-                  className="h-5 w-5 text-gray-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-              </div>
-              <input
-                type="text"
-                value={localSearch}
-                onChange={(e) => setLocalSearch(e.target.value)}
-                placeholder="Search by project or client..."
-                className="block w-full rounded-lg border border-gray-200 bg-white pl-10 pr-4 py-2 text-sm text-[#1E1B4B] placeholder-gray-400 shadow-sm transition-all duration-200 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-opacity-20"
-              />
-            </div>
+            <SearchInput
+              value={searchQuery}
+              onChange={onSearchChange}
+              placeholder="Search by project or client..."
+              debounceMs={SEARCH_DEBOUNCE_MS}
+            />
           </div>
 
           {/* Status Filter */}

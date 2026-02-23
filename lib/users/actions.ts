@@ -17,6 +17,7 @@ import {
   normalizeRequiredEmail,
 } from '@/lib/validation/email'
 import { createActivityLogEntry } from '@/lib/activity-log/logger'
+import { prepareSearchTerm } from '@/lib/supabase/utils'
 
 export type UserRole = Database['public']['Enums']['user_role']
 export type ModulePermissions = PermissionMap
@@ -283,8 +284,9 @@ export async function getUsers(filters?: GetUsersOptions) {
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
-  if (filters?.search) {
-    query = query.or(`full_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%`)
+  const searchTerm = prepareSearchTerm(filters?.search)
+  if (searchTerm) {
+    query = query.or(`full_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
   }
 
   if (filters?.role && filters.role !== 'all') {

@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { SidebarToggleButton } from '@/app/components/dashboard/sidebar-context'
 import { Pagination } from '@/app/components/ui/pagination'
 import { ListboxDropdown } from '@/app/components/ui/listbox-dropdown'
+import { SearchInput } from '@/app/components/ui/search-input'
 import { useToast } from '@/app/components/ui/toast-context'
 import {
   deleteActivityLogsByDateRange,
@@ -71,9 +72,8 @@ function StatusPill({ status }: { status: string }) {
   const isSuccess = status === 'Success'
   return (
     <span
-      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-        isSuccess ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20' : 'bg-red-50 text-red-700 ring-1 ring-red-600/20'
-      }`}
+      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${isSuccess ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20' : 'bg-red-50 text-red-700 ring-1 ring-red-600/20'
+        }`}
     >
       {status}
     </span>
@@ -99,6 +99,7 @@ export function LogsClient({
 }: LogsClientProps) {
   const router = useRouter()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { success: showSuccess, error: showError } = useToast()
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [deleteFromDate, setDeleteFromDate] = useState(initialFromDate)
@@ -112,6 +113,10 @@ export function LogsClient({
   const [localModule, setLocalModule] = useState(initialModuleName)
   const [localStatus, setLocalStatus] = useState(initialStatus)
   const [localSearch, setLocalSearch] = useState(initialSearch)
+
+  const handleSearchChange = (newSearch: string) => {
+    setLocalSearch(newSearch)
+  }
 
   useEffect(() => {
     setLocalFromDate(initialFromDate)
@@ -211,11 +216,20 @@ export function LogsClient({
   ]
 
   const hasActiveFilters =
-    localUser !== '' ||
-    localActionType !== '' ||
-    localModule !== '' ||
-    localStatus !== 'all' ||
-    localSearch.trim() !== ''
+    localFromDate !== initialFromDate ||
+    localToDate !== initialToDate ||
+    localUser !== initialUserId ||
+    localActionType !== initialActionType ||
+    localModule !== initialModuleName ||
+    localStatus !== initialStatus ||
+    localSearch.trim() !== initialSearch.trim() ||
+    initialUserId !== '' ||
+    initialActionType !== '' ||
+    initialModuleName !== '' ||
+    initialStatus !== 'all' ||
+    initialSearch.trim() !== '' ||
+    searchParams.has('fromDate') ||
+    searchParams.has('toDate')
 
   const handleApplyFilters = () => {
     router.push(
@@ -238,18 +252,13 @@ export function LogsClient({
     setLocalModule('')
     setLocalStatus('all')
     setLocalSearch('')
-    router.push(
-      `${pathname}?${buildSearchParams({
-        fromDate: initialFromDate,
-        toDate: initialToDate,
-        user: '',
-        actionType: '',
-        module: '',
-        status: 'all',
-        search: '',
-        page: 1,
-      })}`
-    )
+
+    const params = new URLSearchParams()
+    if (initialSortField) {
+      params.set('sort', initialSortField)
+      params.set('sortDir', initialSortDirection)
+    }
+    router.push(`${pathname}?${params.toString()}`)
   }
 
   return (
@@ -351,20 +360,11 @@ export function LogsClient({
                 </div>
                 <div className="min-w-[180px] flex-1 sm:max-w-xs">
                   <label className="mb-1 block text-xs font-medium text-slate-500">Search</label>
-                  <div className="relative">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                      <svg className="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                      </svg>
-                    </div>
-                    <input
-                      type="text"
-                      value={localSearch}
-                      onChange={(e) => setLocalSearch(e.target.value)}
-                      placeholder="Keyword..."
-                      className="block w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 py-2 text-sm text-slate-700 placeholder-slate-400 shadow-[0_1px_2px_rgba(15,23,42,0.05)] transition-all duration-200 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/20 min-h-9"
-                    />
-                  </div>
+                  <SearchInput
+                    value={initialSearch}
+                    onChange={handleSearchChange}
+                    placeholder="Keyword..."
+                  />
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -390,84 +390,84 @@ export function LogsClient({
 
           {/* Table */}
           <div className="min-h-0 flex-1 overflow-y-auto">
-          <table className="w-full border-collapse text-left text-sm">
-            <thead className="sticky top-0 z-10 bg-slate-50">
-              <tr>
-                <th className="border-b border-slate-200 px-4 py-3 font-semibold text-slate-700 sm:px-6">
-                  <button
-                    type="button"
-                    onClick={() => handleSort('created_at')}
-                    className="group flex items-center gap-1"
-                  >
-                    Date & Time
-                    {initialSortField === 'created_at' && (
-                      <span className="text-[#06B6D4]">{initialSortDirection === 'asc' ? '↑' : '↓'}</span>
-                    )}
-                  </button>
-                </th>
-                <th className="border-b border-slate-200 px-4 py-3 font-semibold text-slate-700 sm:px-6">
-                  <button type="button" onClick={() => handleSort('user_name')} className="group flex items-center gap-1">
-                    User Name
-                    {initialSortField === 'user_name' && (
-                      <span className="text-[#06B6D4]">{initialSortDirection === 'asc' ? '↑' : '↓'}</span>
-                    )}
-                  </button>
-                </th>
-                <th className="border-b border-slate-200 px-4 py-3 font-semibold text-slate-700 sm:px-6">
-                  <button type="button" onClick={() => handleSort('action_type')} className="group flex items-center gap-1">
-                    Action Type
-                    {initialSortField === 'action_type' && (
-                      <span className="text-[#06B6D4]">{initialSortDirection === 'asc' ? '↑' : '↓'}</span>
-                    )}
-                  </button>
-                </th>
-                <th className="border-b border-slate-200 px-4 py-3 font-semibold text-slate-700 sm:px-6">
-                  <button type="button" onClick={() => handleSort('module_name')} className="group flex items-center gap-1">
-                    Module Name
-                    {initialSortField === 'module_name' && (
-                      <span className="text-[#06B6D4]">{initialSortDirection === 'asc' ? '↑' : '↓'}</span>
-                    )}
-                  </button>
-                </th>
-                <th className="border-b border-slate-200 px-4 py-3 font-semibold text-slate-700 sm:px-6">Description</th>
-                <th className="border-b border-slate-200 px-4 py-3 font-semibold text-slate-700 sm:px-6">
-                  <button type="button" onClick={() => handleSort('status')} className="group flex items-center gap-1">
-                    Status
-                    {initialSortField === 'status' && (
-                      <span className="text-[#06B6D4]">{initialSortDirection === 'asc' ? '↑' : '↓'}</span>
-                    )}
-                  </button>
-                </th>
-                <th className="border-b border-slate-200 px-4 py-3 font-semibold text-slate-700 sm:px-6">IP Address</th>
-              </tr>
-            </thead>
-            <tbody>
-              {logs.length === 0 ? (
+            <table className="w-full border-collapse text-left text-sm">
+              <thead className="sticky top-0 z-10 bg-slate-50">
                 <tr>
-                  <td colSpan={7} className="border-b border-slate-200 px-4 py-8 text-center text-slate-500 sm:px-6">
-                    No activity logs found for the selected filters.
-                  </td>
+                  <th className="border-b border-slate-200 px-4 py-3 font-semibold text-slate-700 sm:px-6">
+                    <button
+                      type="button"
+                      onClick={() => handleSort('created_at')}
+                      className="group flex items-center gap-1"
+                    >
+                      Date & Time
+                      {initialSortField === 'created_at' && (
+                        <span className="text-[#06B6D4]">{initialSortDirection === 'asc' ? '↑' : '↓'}</span>
+                      )}
+                    </button>
+                  </th>
+                  <th className="border-b border-slate-200 px-4 py-3 font-semibold text-slate-700 sm:px-6">
+                    <button type="button" onClick={() => handleSort('user_name')} className="group flex items-center gap-1">
+                      User Name
+                      {initialSortField === 'user_name' && (
+                        <span className="text-[#06B6D4]">{initialSortDirection === 'asc' ? '↑' : '↓'}</span>
+                      )}
+                    </button>
+                  </th>
+                  <th className="border-b border-slate-200 px-4 py-3 font-semibold text-slate-700 sm:px-6">
+                    <button type="button" onClick={() => handleSort('action_type')} className="group flex items-center gap-1">
+                      Action Type
+                      {initialSortField === 'action_type' && (
+                        <span className="text-[#06B6D4]">{initialSortDirection === 'asc' ? '↑' : '↓'}</span>
+                      )}
+                    </button>
+                  </th>
+                  <th className="border-b border-slate-200 px-4 py-3 font-semibold text-slate-700 sm:px-6">
+                    <button type="button" onClick={() => handleSort('module_name')} className="group flex items-center gap-1">
+                      Module Name
+                      {initialSortField === 'module_name' && (
+                        <span className="text-[#06B6D4]">{initialSortDirection === 'asc' ? '↑' : '↓'}</span>
+                      )}
+                    </button>
+                  </th>
+                  <th className="border-b border-slate-200 px-4 py-3 font-semibold text-slate-700 sm:px-6">Description</th>
+                  <th className="border-b border-slate-200 px-4 py-3 font-semibold text-slate-700 sm:px-6">
+                    <button type="button" onClick={() => handleSort('status')} className="group flex items-center gap-1">
+                      Status
+                      {initialSortField === 'status' && (
+                        <span className="text-[#06B6D4]">{initialSortDirection === 'asc' ? '↑' : '↓'}</span>
+                      )}
+                    </button>
+                  </th>
+                  <th className="border-b border-slate-200 px-4 py-3 font-semibold text-slate-700 sm:px-6">IP Address</th>
                 </tr>
-              ) : (
-                logs.map((log) => (
-                  <tr key={log.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                    <td className="whitespace-nowrap px-4 py-3 text-slate-700 sm:px-6">{formatDateTime(log.created_at)}</td>
-                    <td className="px-4 py-3 text-slate-700 sm:px-6">{log.user_name}</td>
-                    <td className="px-4 py-3 text-slate-700 sm:px-6">{log.action_type}</td>
-                    <td className="px-4 py-3 text-slate-700 sm:px-6">{log.module_name}</td>
-                    <td className="max-w-[240px] truncate px-4 py-3 text-slate-700 sm:px-6" title={log.description}>
-                      {log.description}
+              </thead>
+              <tbody>
+                {logs.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="border-b border-slate-200 px-4 py-8 text-center text-slate-500 sm:px-6">
+                      No activity logs found for the selected filters.
                     </td>
-                    <td className="px-4 py-3 sm:px-6">
-                      <StatusPill status={log.status} />
-                    </td>
-                    <td className="px-4 py-3 text-slate-600 sm:px-6">{log.ip_address ?? '—'}</td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ) : (
+                  logs.map((log) => (
+                    <tr key={log.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                      <td className="whitespace-nowrap px-4 py-3 text-slate-700 sm:px-6">{formatDateTime(log.created_at)}</td>
+                      <td className="px-4 py-3 text-slate-700 sm:px-6">{log.user_name}</td>
+                      <td className="px-4 py-3 text-slate-700 sm:px-6">{log.action_type}</td>
+                      <td className="px-4 py-3 text-slate-700 sm:px-6">{log.module_name}</td>
+                      <td className="max-w-[240px] truncate px-4 py-3 text-slate-700 sm:px-6" title={log.description}>
+                        {log.description}
+                      </td>
+                      <td className="px-4 py-3 sm:px-6">
+                        <StatusPill status={log.status} />
+                      </td>
+                      <td className="px-4 py-3 text-slate-600 sm:px-6">{log.ip_address ?? '—'}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
           <Pagination
             currentPage={page}

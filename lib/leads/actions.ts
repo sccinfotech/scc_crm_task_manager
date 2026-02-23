@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser, hasPermission } from '@/lib/auth/utils'
 import { MODULE_PERMISSION_IDS } from '@/lib/permissions'
 import { createActivityLogEntry } from '@/lib/activity-log/logger'
+import { prepareSearchTerm } from '@/lib/supabase/utils'
 
 export type LeadStatus = 'new' | 'contacted' | 'follow_up' | 'converted' | 'lost'
 
@@ -251,12 +252,10 @@ export async function getLeadsPage(options: GetLeadsPageOptions = {}) {
       count: 'exact',
     })
 
-  if (options.search?.trim()) {
-    const term = options.search.trim()
-    // Escape ILIKE special chars (%, _, \) so they are matched literally
-    const escaped = term.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')
+  const searchTerm = prepareSearchTerm(options.search)
+  if (searchTerm) {
     // Trigram indexes will optimize this query automatically
-    query = query.or(`name.ilike.%${escaped}%,company_name.ilike.%${escaped}%`)
+    query = query.or(`name.ilike.%${searchTerm}%,company_name.ilike.%${searchTerm}%`)
   }
 
   if (options.status && options.status !== 'all') {
@@ -471,9 +470,9 @@ export async function getLeadFollowUps(leadId: string): Promise<LeadFollowUpsRes
     .in('id', userIds)
 
   const userMap = new Map<string, string>()
-  ;(users as Array<{ id: string; full_name: string | null }> | null)?.forEach((user) => {
-    userMap.set(user.id, user.full_name || 'Unknown User')
-  })
+    ; (users as Array<{ id: string; full_name: string | null }> | null)?.forEach((user) => {
+      userMap.set(user.id, user.full_name || 'Unknown User')
+    })
 
   const transformedData = followUpsList.map((item) => ({
     id: item.id,
