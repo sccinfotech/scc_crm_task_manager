@@ -747,21 +747,21 @@ export function ProjectDetailView({
   const websiteLinks = parseLinks(project.website_links)
   const referenceLinks = parseLinks(project.reference_links)
 
-  const staffMember = userRole === 'staff' && currentUserId
+  const staffMember = currentUserId
     ? project.team_members?.find((m) => m.id === currentUserId)
     : null
   const staffWorkState = staffMember
     ? {
-        status: (optimisticWork?.status ?? staffMember.work_status ?? 'not_started') as 'not_started' | 'start' | 'hold' | 'end',
-        runningSince: optimisticWork?.status === 'start' ? optimisticWork.runningSince : (staffMember.work_running_since ?? null),
-        totalSeconds: optimisticWork?.status === 'start' ? 0 : (staffMember.total_work_seconds ?? 0),
-        isUpdating: myWorkStatusUpdating,
-      }
+      status: (optimisticWork?.status ?? staffMember.work_status ?? 'not_started') as 'not_started' | 'start' | 'hold' | 'end',
+      runningSince: optimisticWork?.status === 'start' ? optimisticWork.runningSince : (staffMember.work_running_since ?? null),
+      totalSeconds: optimisticWork?.status === 'start' ? 0 : (staffMember.total_work_seconds ?? 0),
+      isUpdating: myWorkStatusUpdating,
+    }
     : null
 
   return (
     <>
-        <div className="flex h-full flex-col gap-2 sm:gap-3">
+      <div className="flex h-full flex-col gap-2 sm:gap-3">
         <div className="flex-shrink-0 rounded-2xl border border-slate-200/80 bg-white px-3 pt-1.5 sm:px-4 sm:pt-2">
           <div className="flex items-stretch overflow-x-auto scrollbar-hide" role="tablist" aria-label="Project detail tabs">
             {visibleTabs.map(({ id, label }, index) => {
@@ -802,368 +802,368 @@ export function ProjectDetailView({
             <div className="flex h-full flex-col gap-3 overflow-y-auto lg:flex-row lg:overflow-hidden">
               {/* LEFT COLUMN: Project Details */}
               <div className="w-full lg:w-2/5 flex flex-col gap-3 pb-24 scrollbar-hide lg:overflow-y-auto lg:pb-0">
-          <div className="rounded-2xl bg-white shadow-sm border border-slate-200 relative">
-            <div className="px-4 pt-4 pb-2 border-b border-slate-100">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">Project Details</h2>
-            </div>
-            <div className="relative rounded-t-2xl border-b border-gray-100 bg-white p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="flex min-w-0 items-start gap-3 sm:gap-5">
-                  {project.logo_url ? (
-                    <img
-                      src={project.logo_url}
-                      alt={project.name}
-                      className="h-20 w-20 rounded-2xl object-cover shadow-xl ring-2 ring-white"
-                    />
-                  ) : (
-                    <div className="relative h-20 w-20 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-xl transform -rotate-3 hover:rotate-0 transition-transform duration-300">
-                      <span className="text-3xl font-extrabold text-white drop-shadow-sm">
-                        {getInitials(project.name)}
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="flex-1 min-w-0">
-                    <h1 className="mb-3 truncate text-xl font-extrabold text-[#1E1B4B] sm:text-2xl" title={project.name}>{project.name}</h1>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5 sm:gap-x-6 sm:gap-y-3">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Status</span>
-                        {canEditClientStatus ? (
-                          <StatusSegment
-                            status={project.status}
-                            onStatusChange={handleClientStatusChange}
-                            disabled={statusUpdating}
+                <div className="rounded-2xl bg-white shadow-sm border border-slate-200 relative">
+                  <div className="px-4 pt-4 pb-2 border-b border-slate-100">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">Project Details</h2>
+                  </div>
+                  <div className="relative rounded-t-2xl border-b border-gray-100 bg-white p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="flex min-w-0 items-start gap-3 sm:gap-5">
+                        {project.logo_url ? (
+                          <img
+                            src={project.logo_url}
+                            alt={project.name}
+                            className="h-20 w-20 rounded-2xl object-cover shadow-xl ring-2 ring-white"
                           />
                         ) : (
-                          <StatusPill status={project.status} />
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Priority</span>
-                        <PriorityPill priority={project.priority} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1 self-end sm:self-auto">
-                  {canEdit && (
-                    <Tooltip content="Edit project">
-                      <button
-                        type="button"
-                        onClick={handleEdit}
-                        disabled={editDependenciesLoading}
-                        className="rounded-lg p-2 text-slate-400 transition-colors duration-200 hover:bg-indigo-50 hover:text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:ring-offset-1 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
-                        aria-label="Edit project"
-                      >
-                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
-                    </Tooltip>
-                  )}
-                  {canDelete && (
-                    <Tooltip content="Delete project">
-                      <button
-                        type="button"
-                        onClick={handleDelete}
-                        className="rounded-lg p-2 text-slate-400 transition-colors duration-200 hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:ring-offset-1 cursor-pointer"
-                        aria-label="Delete project"
-                      >
-                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </Tooltip>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-slate-50/30 p-4">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {userRole !== 'staff' && (
-                  project.client?.id ? (
-                    <Link
-                      href={`/dashboard/clients/${project.client.id}`}
-                      className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200 hover:border-cyan-300 hover:bg-cyan-50/30 transition-colors cursor-pointer group"
-                    >
-                      <div className="h-12 w-12 rounded-xl bg-cyan-50 flex items-center justify-center group-hover:bg-cyan-200 group-hover:scale-105 transition-all duration-200">
-                        <svg className="h-6 w-6 text-cyan-600 group-hover:text-cyan-700 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Client</p>
-                        <p className="text-sm font-semibold text-slate-700 group-hover:text-cyan-700 line-clamp-2">{clientLabel}</p>
-                      </div>
-                    </Link>
-                  ) : (
-                    <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200">
-                      <div className="h-12 w-12 rounded-xl bg-cyan-50 flex items-center justify-center">
-                        <svg className="h-6 w-6 text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Client</p>
-                        <p className="text-sm font-semibold text-slate-700 line-clamp-2">{clientLabel}</p>
-                      </div>
-                    </div>
-                  )
-                )}
-
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200">
-                  <div className="h-12 w-12 rounded-xl bg-amber-50 flex items-center justify-center">
-                    <svg className="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Start Date</p>
-                    <p className="text-sm font-semibold text-slate-700">{formatDate(project.start_date)}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200">
-                  <div className="h-12 w-12 rounded-xl bg-cyan-50 flex items-center justify-center">
-                    <svg className="h-6 w-6 text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Staff Deadline</p>
-                    <p className="text-sm font-semibold text-slate-700">
-                      {project.developer_deadline_date ? formatDate(project.developer_deadline_date) : '--'}
-                    </p>
-                  </div>
-                </div>
-
-                {userRole !== 'staff' && (
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200">
-                    <div className="h-12 w-12 rounded-xl bg-amber-50 flex items-center justify-center">
-                      <svg className="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Client Deadline</p>
-                      <p className="text-sm font-semibold text-slate-700">
-                        {project.client_deadline_date ? formatDate(project.client_deadline_date) : '--'}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200">
-                  <div className="h-12 w-12 rounded-xl bg-slate-50 flex items-center justify-center">
-                    <svg className="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Created</p>
-                    <p className="text-sm font-semibold text-slate-700">{formatDate(project.created_at)}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {canViewTeamMembers && (
-            <div className="rounded-2xl bg-white shadow-sm border border-slate-200 p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-[#1E1B4B]">Team Members</h3>
-              </div>
-              {project.team_members && project.team_members.length > 0 ? (
-                <div className="space-y-4">
-                  {project.team_members.map((member: ProjectTeamMember) => {
-                    const status = member.work_status ?? 'not_started'
-                    const todayWorkSeconds = getMemberTodayWorkSeconds(member)
-                    const statusStyles: Record<string, string> = {
-                      not_started: 'bg-slate-100 text-slate-600 border-slate-200',
-                      start: 'bg-cyan-100 text-cyan-800 border-cyan-200',
-                      hold: 'bg-amber-100 text-amber-800 border-amber-200',
-                      end: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-                    }
-                    const statusStyle = statusStyles[status] || statusStyles.not_started
-                    return (
-                      <div
-                        key={member.id}
-                        className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50/50 p-4"
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-slate-800">
-                              {member.full_name || member.email || 'Staff Member'}
-                            </span>
-                            <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${statusStyle}`}>
-                              {formatWorkStatus(status)}
+                          <div className="relative h-20 w-20 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-xl transform -rotate-3 hover:rotate-0 transition-transform duration-300">
+                            <span className="text-3xl font-extrabold text-white drop-shadow-sm">
+                              {getInitials(project.name)}
                             </span>
                           </div>
-                          <div className="text-sm text-slate-500">
-                            Today Spent:
-                            <span className="ml-2 font-semibold text-slate-700 tabular-nums">
-                              {formatWorkSeconds(todayWorkSeconds)}
-                            </span>
+                        )}
+
+                        <div className="flex-1 min-w-0">
+                          <h1 className="mb-3 truncate text-xl font-extrabold text-[#1E1B4B] sm:text-2xl" title={project.name}>{project.name}</h1>
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5 sm:gap-x-6 sm:gap-y-3">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Status</span>
+                              {canEditClientStatus ? (
+                                <StatusSegment
+                                  status={project.status}
+                                  onStatusChange={handleClientStatusChange}
+                                  disabled={statusUpdating}
+                                />
+                              ) : (
+                                <StatusPill status={project.status} />
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Priority</span>
+                              <PriorityPill priority={project.priority} />
+                            </div>
                           </div>
                         </div>
                       </div>
-                    )
-                  })}
+
+                      <div className="flex items-center gap-1 self-end sm:self-auto">
+                        {canEdit && (
+                          <Tooltip content="Edit project">
+                            <button
+                              type="button"
+                              onClick={handleEdit}
+                              disabled={editDependenciesLoading}
+                              className="rounded-lg p-2 text-slate-400 transition-colors duration-200 hover:bg-indigo-50 hover:text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:ring-offset-1 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+                              aria-label="Edit project"
+                            >
+                              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                          </Tooltip>
+                        )}
+                        {canDelete && (
+                          <Tooltip content="Delete project">
+                            <button
+                              type="button"
+                              onClick={handleDelete}
+                              className="rounded-lg p-2 text-slate-400 transition-colors duration-200 hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:ring-offset-1 cursor-pointer"
+                              aria-label="Delete project"
+                            >
+                              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </Tooltip>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50/30 p-4">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {userRole !== 'staff' && (
+                        project.client?.id ? (
+                          <Link
+                            href={`/dashboard/clients/${project.client.id}`}
+                            className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200 hover:border-cyan-300 hover:bg-cyan-50/30 transition-colors cursor-pointer group"
+                          >
+                            <div className="h-12 w-12 rounded-xl bg-cyan-50 flex items-center justify-center group-hover:bg-cyan-200 group-hover:scale-105 transition-all duration-200">
+                              <svg className="h-6 w-6 text-cyan-600 group-hover:text-cyan-700 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Client</p>
+                              <p className="text-sm font-semibold text-slate-700 group-hover:text-cyan-700 line-clamp-2">{clientLabel}</p>
+                            </div>
+                          </Link>
+                        ) : (
+                          <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200">
+                            <div className="h-12 w-12 rounded-xl bg-cyan-50 flex items-center justify-center">
+                              <svg className="h-6 w-6 text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                            <div>
+                              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Client</p>
+                              <p className="text-sm font-semibold text-slate-700 line-clamp-2">{clientLabel}</p>
+                            </div>
+                          </div>
+                        )
+                      )}
+
+                      <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200">
+                        <div className="h-12 w-12 rounded-xl bg-amber-50 flex items-center justify-center">
+                          <svg className="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Start Date</p>
+                          <p className="text-sm font-semibold text-slate-700">{formatDate(project.start_date)}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200">
+                        <div className="h-12 w-12 rounded-xl bg-cyan-50 flex items-center justify-center">
+                          <svg className="h-6 w-6 text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Staff Deadline</p>
+                          <p className="text-sm font-semibold text-slate-700">
+                            {project.developer_deadline_date ? formatDate(project.developer_deadline_date) : '--'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {userRole !== 'staff' && (
+                        <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200">
+                          <div className="h-12 w-12 rounded-xl bg-amber-50 flex items-center justify-center">
+                            <svg className="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Client Deadline</p>
+                            <p className="text-sm font-semibold text-slate-700">
+                              {project.client_deadline_date ? formatDate(project.client_deadline_date) : '--'}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200">
+                        <div className="h-12 w-12 rounded-xl bg-slate-50 flex items-center justify-center">
+                          <svg className="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Created</p>
+                          <p className="text-sm font-semibold text-slate-700">{formatDate(project.created_at)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              ) : (
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
-                  No team members assigned.
+
+                {canViewTeamMembers && (
+                  <div className="rounded-2xl bg-white shadow-sm border border-slate-200 p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-bold text-[#1E1B4B]">Team Members</h3>
+                    </div>
+                    {project.team_members && project.team_members.length > 0 ? (
+                      <div className="space-y-4">
+                        {project.team_members.map((member: ProjectTeamMember) => {
+                          const status = member.work_status ?? 'not_started'
+                          const todayWorkSeconds = getMemberTodayWorkSeconds(member)
+                          const statusStyles: Record<string, string> = {
+                            not_started: 'bg-slate-100 text-slate-600 border-slate-200',
+                            start: 'bg-cyan-100 text-cyan-800 border-cyan-200',
+                            hold: 'bg-amber-100 text-amber-800 border-amber-200',
+                            end: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+                          }
+                          const statusStyle = statusStyles[status] || statusStyles.not_started
+                          return (
+                            <div
+                              key={member.id}
+                              className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50/50 p-4"
+                            >
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-slate-800">
+                                    {member.full_name || member.email || 'Staff Member'}
+                                  </span>
+                                  <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${statusStyle}`}>
+                                    {formatWorkStatus(status)}
+                                  </span>
+                                </div>
+                                <div className="text-sm text-slate-500">
+                                  Today Spent:
+                                  <span className="ml-2 font-semibold text-slate-700 tabular-nums">
+                                    {formatWorkSeconds(todayWorkSeconds)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+                        No team members assigned.
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="rounded-2xl bg-white shadow-sm border border-slate-200 p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-[#1E1B4B]">Technology & Tools</h3>
+                  </div>
+                  {project.technology_tools && project.technology_tools.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {project.technology_tools.map((tool) => (
+                        <span
+                          key={tool.id}
+                          className="rounded-full border border-cyan-100 bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700"
+                        >
+                          {tool.name}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-500">No tools selected yet.</p>
+                  )}
                 </div>
-              )}
+
+                <div className="rounded-2xl bg-white shadow-sm border border-slate-200 p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-[#1E1B4B]">Website Links</h3>
+                    {canEditLinks && (
+                      <Tooltip content="Edit website and reference links">
+                        <button
+                          type="button"
+                          onClick={openLinksModal}
+                          className="rounded-lg p-2 text-slate-400 transition-colors duration-200 hover:bg-cyan-50 hover:text-cyan-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:ring-offset-1 cursor-pointer"
+                          aria-label="Edit links"
+                        >
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                      </Tooltip>
+                    )}
+                  </div>
+                  {websiteLinks.length > 0 ? (
+                    <div className="flex flex-col gap-2">
+                      {websiteLinks.map((link, index) => (
+                        <a
+                          key={`${link}-${index}`}
+                          href={normalizeLink(link)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-sm font-semibold text-cyan-700 hover:text-cyan-800 hover:underline"
+                        >
+                          {link}
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-500">No website links added.</p>
+                  )}
+                </div>
+
+                <div className="rounded-2xl bg-white shadow-sm border border-slate-200 p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-[#1E1B4B]">Reference Site Links</h3>
+                    {canEditLinks && (
+                      <Tooltip content="Edit website and reference links">
+                        <button
+                          type="button"
+                          onClick={openLinksModal}
+                          className="rounded-lg p-2 text-slate-400 transition-colors duration-200 hover:bg-cyan-50 hover:text-cyan-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:ring-offset-1 cursor-pointer"
+                          aria-label="Edit links"
+                        >
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                      </Tooltip>
+                    )}
+                  </div>
+                  {referenceLinks.length > 0 ? (
+                    <div className="flex flex-col gap-2">
+                      {referenceLinks.map((link, index) => (
+                        <a
+                          key={`${link}-${index}`}
+                          href={normalizeLink(link)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-sm font-semibold text-cyan-700 hover:text-cyan-800 hover:underline"
+                        >
+                          {link}
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-500">No reference links added.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* RIGHT COLUMN: Tabs – desktop only (mobile opens this via Updates full-screen) */}
+              <div className="hidden w-full lg:w-3/5 lg:flex lg:flex-col lg:gap-3 lg:overflow-y-auto lg:pb-0 scrollbar-hide">
+                <ProjectDetailRightPanel
+                  projectId={project.id}
+                  initialFollowUps={initialFollowUps}
+                  canManageFollowUps={canManageFollowUps}
+                  userRole={userRole}
+                  currentUserId={currentUserId}
+                  teamMembers={project.team_members ?? null}
+                  staffWorkState={staffWorkState}
+                  onStaffWorkStatus={handleMyWorkStatus}
+                  activeTabOverride={activeDetailsPanelTab}
+                  onTabChange={handleDetailsPanelTabChange}
+                />
+              </div>
             </div>
           )}
 
-          <div className="rounded-2xl bg-white shadow-sm border border-slate-200 p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-[#1E1B4B]">Technology & Tools</h3>
-            </div>
-            {project.technology_tools && project.technology_tools.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {project.technology_tools.map((tool) => (
-                  <span
-                    key={tool.id}
-                    className="rounded-full border border-cyan-100 bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700"
-                  >
-                    {tool.name}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-slate-500">No tools selected yet.</p>
-            )}
-          </div>
+          {activeTab === 'requirements' && (
+            <ProjectRequirements
+              projectId={project.id}
+              canWrite={canManageProject}
+              canViewAmount={canViewAmount}
+              isActiveTab={activeTab === 'requirements'}
+              className="h-full"
+            />
+          )}
 
-          <div className="rounded-2xl bg-white shadow-sm border border-slate-200 p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-[#1E1B4B]">Website Links</h3>
-              {canEditLinks && (
-                <Tooltip content="Edit website and reference links">
-                  <button
-                    type="button"
-                    onClick={openLinksModal}
-                    className="rounded-lg p-2 text-slate-400 transition-colors duration-200 hover:bg-cyan-50 hover:text-cyan-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:ring-offset-1 cursor-pointer"
-                    aria-label="Edit links"
-                  >
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </button>
-                </Tooltip>
-              )}
+          {activeTab === 'payments' && (
+            <div className="h-full overflow-y-auto p-0.5">
+              <PaymentSummarySection
+                projectAmount={project.project_amount}
+                canViewAmount={canViewAmount}
+              />
             </div>
-            {websiteLinks.length > 0 ? (
-              <div className="flex flex-col gap-2">
-                {websiteLinks.map((link, index) => (
-                  <a
-                    key={`${link}-${index}`}
-                    href={normalizeLink(link)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-sm font-semibold text-cyan-700 hover:text-cyan-800 hover:underline"
-                  >
-                    {link}
-                  </a>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-slate-500">No website links added.</p>
-            )}
-          </div>
+          )}
 
-          <div className="rounded-2xl bg-white shadow-sm border border-slate-200 p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-[#1E1B4B]">Reference Site Links</h3>
-              {canEditLinks && (
-                <Tooltip content="Edit website and reference links">
-                  <button
-                    type="button"
-                    onClick={openLinksModal}
-                    className="rounded-lg p-2 text-slate-400 transition-colors duration-200 hover:bg-cyan-50 hover:text-cyan-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:ring-offset-1 cursor-pointer"
-                    aria-label="Edit links"
-                  >
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </button>
-                </Tooltip>
-              )}
-            </div>
-            {referenceLinks.length > 0 ? (
-              <div className="flex flex-col gap-2">
-                {referenceLinks.map((link, index) => (
-                  <a
-                    key={`${link}-${index}`}
-                    href={normalizeLink(link)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-sm font-semibold text-cyan-700 hover:text-cyan-800 hover:underline"
-                  >
-                    {link}
-                  </a>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-slate-500">No reference links added.</p>
-            )}
-          </div>
-        </div>
-
-        {/* RIGHT COLUMN: Tabs – desktop only (mobile opens this via Updates full-screen) */}
-        <div className="hidden w-full lg:w-3/5 lg:flex lg:flex-col lg:gap-3 lg:overflow-y-auto lg:pb-0 scrollbar-hide">
-          <ProjectDetailRightPanel
-            projectId={project.id}
-            initialFollowUps={initialFollowUps}
-            canManageFollowUps={canManageFollowUps}
-            userRole={userRole}
-            currentUserId={currentUserId}
-            teamMembers={project.team_members ?? null}
-            staffWorkState={staffWorkState}
-            onStaffWorkStatus={handleMyWorkStatus}
-            activeTabOverride={activeDetailsPanelTab}
-            onTabChange={handleDetailsPanelTabChange}
-          />
+          {activeTab === 'tasks' && (
+            <ProjectTasks
+              projectId={project.id}
+              canManageTasks={canManageProject}
+              userRole={userRole}
+              currentUserId={currentUserId}
+              teamMembers={taskAssigneeOptions}
+              className="h-full"
+            />
+          )}
         </div>
       </div>
-      )}
-
-      {activeTab === 'requirements' && (
-        <ProjectRequirements
-          projectId={project.id}
-          canWrite={canManageProject}
-          canViewAmount={canViewAmount}
-          isActiveTab={activeTab === 'requirements'}
-          className="h-full"
-        />
-      )}
-
-      {activeTab === 'payments' && (
-        <div className="h-full overflow-y-auto p-0.5">
-          <PaymentSummarySection
-            projectAmount={project.project_amount}
-            canViewAmount={canViewAmount}
-          />
-        </div>
-      )}
-
-      {activeTab === 'tasks' && (
-        <ProjectTasks
-          projectId={project.id}
-          canManageTasks={canManageProject}
-          userRole={userRole}
-          currentUserId={currentUserId}
-          teamMembers={taskAssigneeOptions}
-          className="h-full"
-        />
-      )}
-    </div>
-  </div>
 
       {activeTab === 'details' && (
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white p-3 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] safe-area-bottom lg:hidden">

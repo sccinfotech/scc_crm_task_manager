@@ -193,7 +193,7 @@ export function ProjectWorkHistory({
   const isStaff = userRole === 'staff'
   const isAdminOrManager = userRole === 'admin' || userRole === 'manager'
   const isTeamView = !isStaff && isAdminOrManager
-  const showStaffActions = isStaff && Boolean(staffWorkState && onStaffWorkStatus)
+  const showStaffActions = Boolean(staffWorkState && onStaffWorkStatus)
   const singleDays = historyData?.mode === 'single' ? historyData.days : []
   const teamDays = historyData?.mode === 'team' ? historyData.days : []
 
@@ -317,180 +317,179 @@ export function ProjectWorkHistory({
           {loading ? (
             <WorkHistoryLoadingSkeleton isTeamView={isTeamView} />
           ) : error ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-            {error}
-          </div>
-        ) : isStaff && !currentUserId ? (
-          <div className="text-sm text-slate-500">Sign in to see your work history.</div>
-        ) : !isTeamView && !currentUserId ? (
-          <div className="text-sm text-slate-500">Sign in to see your work history.</div>
-        ) : isTeamView && teamMembers && teamMembers.length === 0 ? (
-          <div className="text-sm text-slate-500">No team members assigned to this project.</div>
-        ) : isTeamView && teamDays.length === 0 ? (
-          <div className="flex h-full min-h-[200px] items-center justify-center">
-            <div className="w-full max-w-[280px]">
-              <EmptyState
-                variant="followups"
-                title="No work history"
-                description="No logged work yet for this project team."
-              />
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+              {error}
             </div>
-          </div>
-        ) : !isTeamView && singleDays.length === 0 ? (
-          <div className="flex h-full min-h-[200px] items-center justify-center">
-            <div className="w-full max-w-[280px]">
-              <EmptyState
-                variant="followups"
-                title="No work history"
-                description="When you start and end work sessions, they will appear here."
-              />
+          ) : (!isTeamView && !currentUserId) ? (
+            <div className="text-sm text-slate-500">Sign in to see your work history.</div>
+          ) : isTeamView && teamMembers && teamMembers.length === 0 ? (
+            <div className="text-sm text-slate-500">No team members assigned to this project.</div>
+          ) : isTeamView && teamDays.length === 0 ? (
+            <div className="flex h-full min-h-[200px] items-center justify-center">
+              <div className="w-full max-w-[280px]">
+                <EmptyState
+                  variant="followups"
+                  title="No work history"
+                  description="No logged work yet for this project team."
+                />
+              </div>
             </div>
-          </div>
-        ) : isTeamView ? (
-          <div className="space-y-6">
-            {teamDays.map((day: ProjectWorkHistoryTeamDay) => (
-              <div
-                key={day.date}
-                className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 shadow-sm"
-              >
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-base font-bold text-cyan-600">
-                    {formatHistoryDate(day.date)}
-                  </span>
-                  <span className="text-base font-bold text-cyan-600 tabular-nums">
-                    {formatTotalHours(day.totalSeconds)}
-                  </span>
-                </div>
+          ) : !isTeamView && singleDays.length === 0 ? (
+            <div className="flex h-full min-h-[200px] items-center justify-center">
+              <div className="w-full max-w-[280px]">
+                <EmptyState
+                  variant="followups"
+                  title="No work history"
+                  description="When you start and end work sessions, they will appear here."
+                />
+              </div>
+            </div>
+          ) : isTeamView ? (
+            <div className="space-y-6">
+              {teamDays.map((day: ProjectWorkHistoryTeamDay) => (
+                <div
+                  key={day.date}
+                  className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 shadow-sm"
+                >
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-base font-bold text-cyan-600">
+                      {formatHistoryDate(day.date)}
+                    </span>
+                    <span className="text-base font-bold text-cyan-600 tabular-nums">
+                      {formatTotalHours(day.totalSeconds)}
+                    </span>
+                  </div>
 
-                {day.members.length > 0 ? (
-                  <div className="space-y-3">
-                    {day.members.map((member) => (
-                      <section
-                        key={`${day.date}-${member.userId}`}
-                        className="rounded-xl border border-slate-200/80 bg-white shadow-sm"
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-3 py-2.5">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-bold text-[#0C4A6E]">
-                              {member.userName || member.userEmail || 'Staff'}
-                            </p>
-                            {member.userEmail && member.userEmail !== member.userName && (
-                              <p className="truncate text-xs text-slate-500">{member.userEmail}</p>
-                            )}
+                  {day.members.length > 0 ? (
+                    <div className="space-y-3">
+                      {day.members.map((member) => (
+                        <section
+                          key={`${day.date}-${member.userId}`}
+                          className="rounded-xl border border-slate-200/80 bg-white shadow-sm"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-3 py-2.5">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-bold text-[#0C4A6E]">
+                                {member.userName || member.userEmail || 'Staff'}
+                              </p>
+                              {member.userEmail && member.userEmail !== member.userName && (
+                                <p className="truncate text-xs text-slate-500">{member.userEmail}</p>
+                              )}
+                            </div>
+                            <span className="text-sm font-bold text-[#0C4A6E] tabular-nums whitespace-nowrap">
+                              {formatTotalHours(member.totalSeconds)}
+                            </span>
                           </div>
-                          <span className="text-sm font-bold text-[#0C4A6E] tabular-nums whitespace-nowrap">
-                            {formatTotalHours(member.totalSeconds)}
-                          </span>
-                        </div>
 
-                        {member.segments.length > 0 ? (
-                          <ul className="list-none space-y-2 p-3">
-                            {member.segments.map((seg, i) => {
-                              const segmentSec = (new Date(seg.endAt).getTime() - new Date(seg.startAt).getTime()) / 1000
-                              return (
-                                <li
-                                  key={i}
-                                  className="rounded-lg border border-slate-200/80 bg-slate-50/50 p-3"
-                                >
-                                  <div className="flex items-center justify-between gap-2 text-slate-700">
-                                    <div className="flex min-w-0 items-center gap-2">
-                                      <span className="inline-flex size-6 flex-shrink-0 items-center justify-center rounded-full bg-cyan-100 text-xs font-bold text-cyan-700">
-                                        {i + 1}
-                                      </span>
-                                      <span className="text-sm font-semibold tabular-nums text-[#0C4A6E]">
-                                        {formatTimeRange(seg.startAt, seg.endAt)}
-                                      </span>
-                                    </div>
-                                    <span className="flex-shrink-0 text-sm font-bold tabular-nums text-[#0C4A6E]">
-                                      {formatWorkSecondsHhMmSs(segmentSec)}
-                                    </span>
-                                  </div>
-                                  {seg.note && seg.note.trim() ? (
-                                    <div className="mt-2.5 ml-8 border-l-2 border-cyan-200/80 pl-3">
-                                      <div className="rounded-md bg-white px-3 py-2 text-sm text-slate-700">
-                                        <span className="whitespace-pre-wrap break-words" style={{ wordBreak: 'break-word' }}>
-                                          {seg.note.trim()}
+                          {member.segments.length > 0 ? (
+                            <ul className="list-none space-y-2 p-3">
+                              {member.segments.map((seg, i) => {
+                                const segmentSec = (new Date(seg.endAt).getTime() - new Date(seg.startAt).getTime()) / 1000
+                                return (
+                                  <li
+                                    key={i}
+                                    className="rounded-lg border border-slate-200/80 bg-slate-50/50 p-3"
+                                  >
+                                    <div className="flex items-center justify-between gap-2 text-slate-700">
+                                      <div className="flex min-w-0 items-center gap-2">
+                                        <span className="inline-flex size-6 flex-shrink-0 items-center justify-center rounded-full bg-cyan-100 text-xs font-bold text-cyan-700">
+                                          {i + 1}
+                                        </span>
+                                        <span className="text-sm font-semibold tabular-nums text-[#0C4A6E]">
+                                          {formatTimeRange(seg.startAt, seg.endAt)}
                                         </span>
                                       </div>
+                                      <span className="flex-shrink-0 text-sm font-bold tabular-nums text-[#0C4A6E]">
+                                        {formatWorkSecondsHhMmSs(segmentSec)}
+                                      </span>
                                     </div>
-                                  ) : (
-                                    <p className="mt-1.5 ml-8 text-xs italic text-slate-400">No notes for this session.</p>
-                                  )}
-                                </li>
-                              )
-                            })}
-                          </ul>
-                        ) : (
-                          <p className="px-3 py-3 text-sm text-slate-500 italic">No segments recorded for this staff on this day.</p>
-                        )}
-                      </section>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-slate-500 italic">No staff sessions recorded for this day.</p>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {singleDays.map((day) => (
-              <div
-                key={day.date}
-                className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 shadow-sm"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                  <span className="text-base font-bold text-cyan-600">
-                    {formatHistoryDate(day.date)}
-                  </span>
-                  <span className="text-base font-bold text-cyan-600 tabular-nums">
-                    {formatTotalHours(day.totalSeconds)}
-                  </span>
+                                    {seg.note && seg.note.trim() ? (
+                                      <div className="mt-2.5 ml-8 border-l-2 border-cyan-200/80 pl-3">
+                                        <div className="rounded-md bg-white px-3 py-2 text-sm text-slate-700">
+                                          <span className="whitespace-pre-wrap break-words" style={{ wordBreak: 'break-word' }}>
+                                            {seg.note.trim()}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <p className="mt-1.5 ml-8 text-xs italic text-slate-400">No notes for this session.</p>
+                                    )}
+                                  </li>
+                                )
+                              })}
+                            </ul>
+                          ) : (
+                            <p className="px-3 py-3 text-sm text-slate-500 italic">No segments recorded for this staff on this day.</p>
+                          )}
+                        </section>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-500 italic">No staff sessions recorded for this day.</p>
+                  )}
                 </div>
-                {day.segments.length > 0 && (
-                  <ul className="list-none space-y-3 pl-0">
-                    {day.segments.map((seg, i) => {
-                      const segmentSec = (new Date(seg.endAt).getTime() - new Date(seg.startAt).getTime()) / 1000
-                      return (
-                      <li
-                        key={i}
-                        className="rounded-lg border border-slate-200/80 bg-white p-3 shadow-sm transition-shadow hover:shadow-md"
-                      >
-                        <div className="flex items-center justify-between gap-2 text-slate-700">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="flex-shrink-0 size-6 rounded-full bg-cyan-100 text-cyan-700 inline-flex items-center justify-center text-xs font-bold">
-                              {i + 1}
-                            </span>
-                            <span className="text-sm font-semibold tabular-nums text-[#0C4A6E]">
-                              {formatTimeRange(seg.startAt, seg.endAt)}
-                            </span>
-                          </div>
-                          <span className="flex-shrink-0 text-sm font-bold tabular-nums text-[#0C4A6E]">
-                            {formatWorkSecondsHhMmSs(segmentSec)}
-                          </span>
-                        </div>
-                        {seg.note && seg.note.trim() ? (
-                          <div className="mt-2.5 ml-8 pl-3 border-l-2 border-cyan-200/80">
-                            <div className="rounded-md bg-slate-50/80 px-3 py-2 text-sm text-slate-700">
-                              <span className="whitespace-pre-wrap break-words" style={{ wordBreak: 'break-word' }}>
-                                {seg.note.trim()}
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {singleDays.map((day) => (
+                <div
+                  key={day.date}
+                  className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 shadow-sm"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <span className="text-base font-bold text-cyan-600">
+                      {formatHistoryDate(day.date)}
+                    </span>
+                    <span className="text-base font-bold text-cyan-600 tabular-nums">
+                      {formatTotalHours(day.totalSeconds)}
+                    </span>
+                  </div>
+                  {day.segments.length > 0 && (
+                    <ul className="list-none space-y-3 pl-0">
+                      {day.segments.map((seg, i) => {
+                        const segmentSec = (new Date(seg.endAt).getTime() - new Date(seg.startAt).getTime()) / 1000
+                        return (
+                          <li
+                            key={i}
+                            className="rounded-lg border border-slate-200/80 bg-white p-3 shadow-sm transition-shadow hover:shadow-md"
+                          >
+                            <div className="flex items-center justify-between gap-2 text-slate-700">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="flex-shrink-0 size-6 rounded-full bg-cyan-100 text-cyan-700 inline-flex items-center justify-center text-xs font-bold">
+                                  {i + 1}
+                                </span>
+                                <span className="text-sm font-semibold tabular-nums text-[#0C4A6E]">
+                                  {formatTimeRange(seg.startAt, seg.endAt)}
+                                </span>
+                              </div>
+                              <span className="flex-shrink-0 text-sm font-bold tabular-nums text-[#0C4A6E]">
+                                {formatWorkSecondsHhMmSs(segmentSec)}
                               </span>
                             </div>
-                          </div>
-                        ) : (
-                          <p className="mt-1.5 ml-8 text-xs text-slate-400 italic">No notes for this session.</p>
-                        )}
-                      </li>
-                    )})}
-                  </ul>
-                )}
-                {day.segments.length === 0 && (
-                  <p className="text-sm text-slate-500 italic">No segments recorded for this day.</p>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+                            {seg.note && seg.note.trim() ? (
+                              <div className="mt-2.5 ml-8 pl-3 border-l-2 border-cyan-200/80">
+                                <div className="rounded-md bg-slate-50/80 px-3 py-2 text-sm text-slate-700">
+                                  <span className="whitespace-pre-wrap break-words" style={{ wordBreak: 'break-word' }}>
+                                    {seg.note.trim()}
+                                  </span>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="mt-1.5 ml-8 text-xs text-slate-400 italic">No notes for this session.</p>
+                            )}
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                  {day.segments.length === 0 && (
+                    <p className="text-sm text-slate-500 italic">No segments recorded for this day.</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {showStaffActions && staffWorkState && onStaffWorkStatus && (

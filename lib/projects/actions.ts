@@ -346,7 +346,7 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
   let query = supabase
     .from('projects')
     .select(
-      'id, name, logo_url, client_id, project_amount, status, priority, start_date, developer_deadline_date, website_links, created_at, created_by, clients(id, name, company_name)',
+      'id, name, logo_url, client_id, project_amount, status, priority, start_date, developer_deadline_date, website_links, created_at, created_by, clients(id, name, company_name), project_team_members(user_id, work_status, work_started_at)',
       { count: 'exact' }
     )
 
@@ -395,7 +395,6 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
   }
 
   const canViewAmount = canViewProjectAmount(currentUser.role)
-  const includeMyWorkStatus = (isStaff && !isAdmin) || Boolean(staffUserId)
   const projectIds = (data || []).map((row: any) => row.id) as string[]
 
   // Next follow-up date per project (latest follow-up's follow_up_date, same as detail view setup)
@@ -418,8 +417,10 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
   const list = (data || []).map((row: any) => {
     const client = normalizeClient(row.clients)
     const raw = row.project_team_members
-    const members = includeMyWorkStatus && raw ? (Array.isArray(raw) ? raw : [raw]) : []
-    const myMember = (members as Array<{ work_status?: string; work_started_at?: string }>)[0] ?? null
+    const members = raw ? (Array.isArray(raw) ? raw : [raw]) : []
+    const targetUserId = staffUserId || currentUser.id
+    const myMember = members.find((m: any) => m.user_id === targetUserId) ?? null
+
     return {
       id: row.id,
       name: row.name,
@@ -436,10 +437,8 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
       created_at: row.created_at,
       created_by: row.created_by,
       follow_up_date: followUpDateByProject.get(row.id) ?? null,
-      ...(includeMyWorkStatus && myMember && {
-        my_work_status: myMember.work_status ?? null,
-        my_work_started_at: myMember.work_started_at ?? null,
-      }),
+      my_work_status: myMember?.work_status ?? null,
+      my_work_started_at: myMember?.work_started_at ?? null,
     }
   }) as ProjectListItem[]
 

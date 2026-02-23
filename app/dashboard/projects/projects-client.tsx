@@ -374,7 +374,7 @@ export function ProjectsClient({
                 projects={mobileProjects}
                 canWrite={canWrite}
                 showClientColumn={showClientColumn}
-                showWorkActions={userRole === 'staff'}
+                showWorkActions={true}
                 onView={handleView}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
@@ -391,7 +391,7 @@ export function ProjectsClient({
                 projects={projects}
                 canWrite={canWrite}
                 showClientColumn={showClientColumn}
-                showWorkActions={userRole === 'staff'}
+                showWorkActions={true}
                 onWorkUpdated={() => router.refresh()}
                 onView={handleView}
                 onEdit={handleEdit}

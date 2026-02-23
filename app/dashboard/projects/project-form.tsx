@@ -402,6 +402,7 @@ export function ProjectForm({
               ariaLabel="Select client"
               placeholder="Select a client"
               className="min-h-[2.75rem]"
+              searchable={true}
             />
             {clients.length === 0 && !clientsError && (
               <p className="mt-2 text-xs text-slate-500">No clients found. Add a client first or create one.</p>
@@ -658,6 +659,7 @@ export function ProjectForm({
                 ariaLabel="Add staff member"
                 placeholder="Select a staff member"
                 className="min-h-[2.75rem]"
+                searchable={true}
               />
             </div>
             {selectedMemberIds.length > 0 && (

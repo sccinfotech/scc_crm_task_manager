@@ -184,8 +184,8 @@ export function ProjectDetailRightPanel({
               currentUserId={currentUserId}
               teamMembers={teamMembers ?? undefined}
               hideHeader={true}
-              staffWorkState={isStaff ? staffWorkState ?? null : null}
-              onStaffWorkStatus={isStaff ? onStaffWorkStatus : undefined}
+              staffWorkState={staffWorkState ?? null}
+              onStaffWorkStatus={onStaffWorkStatus}
               isActiveTab={tab === 'work-history'}
               className="!rounded-none !border-t-0 h-full"
             />

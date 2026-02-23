@@ -328,7 +328,6 @@ export async function getStaffForSelect(): Promise<{ data: StaffSelectOption[]; 
   const { data, error } = await supabase
     .from('users')
     .select('id, full_name, email, role')
-    .eq('role', 'staff')
     .eq('is_active', true)
     .is('deleted_at', null)
     .order('full_name', { ascending: true })
