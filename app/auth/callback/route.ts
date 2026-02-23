@@ -118,7 +118,14 @@ export async function GET(request: NextRequest) {
     return denyAccess(request, supabase, 'not_allowed', true, user.id)
   }
 
-  const profileResult = await supabase
+  // Use the admin client for ALL profile lookups.
+  // The regular anon client is subject to RLS policies. On a first-time login,
+  // the pre-added user's UUID in public.users doesn't match auth.uid() yet,
+  // so RLS may silently filter the row out. The admin (service-role) client
+  // bypasses RLS and always returns the correct row.
+  const supabaseAdmin = createAdminClient()
+
+  const profileResult = await supabaseAdmin
     .from('users')
     .select('id, email, full_name, is_active, deleted_at')
     .eq('id', user.id)
@@ -131,7 +138,10 @@ export async function GET(request: NextRequest) {
   }
 
   if (!profile) {
-    const { data: rawProfileByEmail, error: profileByEmailError } = await supabase
+    // Profile not found by auth UUID — this is a FIRST-TIME login.
+    // The admin pre-added this user by email with a placeholder UUID.
+    // Look them up by email using the admin client (bypasses RLS).
+    const { data: rawProfileByEmail, error: profileByEmailError } = await supabaseAdmin
       .from('users')
       .select('id, email, is_active, deleted_at')
       .eq('email', email)
@@ -139,27 +149,27 @@ export async function GET(request: NextRequest) {
       .maybeSingle()
     const profileByEmail = rawProfileByEmail as unknown as AccessProfile | null
 
-    const supabaseAdmin = createAdminClient()
-
     if (profileByEmailError) {
       return denyAccess(request, supabase, 'not_allowed', true, user.id)
     }
 
     if (profileByEmail) {
-      const { error: syncError } = await supabaseAdmin
-        .from('users')
-        .update({
-          id: user.id,
-          email,
-          updated_at: new Date().toISOString(),
-        } as never)
-        .eq('id', profileByEmail.id)
+      // Found by email. Sync the placeholder UUID → real Google auth UUID.
+      // We use an RPC function here because PostgREST blocks primary-key
+      // column updates via the standard .update() REST call.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: syncError } = await (supabaseAdmin as any).rpc('sync_user_auth_id', {
+        p_old_id: profileByEmail.id,
+        p_new_id: user.id,
+      })
 
       if (syncError) {
+        console.error('UUID sync failed:', syncError)
         return denyAccess(request, supabase, 'not_allowed')
       }
 
-      const { data: rawSyncedProfile, error: syncedProfileError } = await supabase
+      // Re-fetch the now-synced profile using the admin client.
+      const { data: rawSyncedProfile, error: syncedProfileError } = await supabaseAdmin
         .from('users')
         .select('id, email, is_active, deleted_at')
         .eq('id', user.id)
@@ -172,7 +182,8 @@ export async function GET(request: NextRequest) {
 
       profile = syncedProfile
     } else {
-      // Optional bootstrap path: allow one controlled self-provision user via env guard.
+      // Email not found in public.users — not a pre-added user.
+      // Optional bootstrap path: allow one controlled self-provision via env guard.
       if (!canAutoCreateForEmail(email)) {
         return denyAccess(request, supabase, 'not_allowed', true, user.id)
       }
