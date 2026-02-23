@@ -345,62 +345,74 @@ export async function getProjectTasks(
 
   const supabase = await createClient()
 
+  // Optimize: Get task IDs for assignee filters using a more efficient approach
   let taskIdFilter: string[] | null = null
   const assigneeIds = filters.assignee_ids ? uniqueIds(filters.assignee_ids) : []
+  
   if (filters.mine_only && currentUser.id) {
+    // Get all task IDs assigned to current user, then filter by project in one query
     const { data: assignedRows } = await (supabase as any)
       .from('project_task_assignees')
       .select('task_id')
       .eq('user_id', currentUser.id)
-    const ids = (assignedRows || []).map((row: { task_id: string }) => row.task_id)
-    if (ids.length === 0) {
+    
+    if (!assignedRows || assignedRows.length === 0) {
       return { data: [], error: null }
     }
-    const { data: projectTaskRows } = await (supabase as any)
-      .from('project_tasks')
-      .select('id')
-      .eq('project_id', projectId)
-      .in('id', ids)
-    const mineIds = (projectTaskRows || []).map((row: { id: string }) => row.id)
-    if (mineIds.length === 0) {
-      return { data: [], error: null }
-    }
-    taskIdFilter = mineIds
-  } else if (assigneeIds.length > 0) {
-    const { data: assignedRows } = await (supabase as any)
-      .from('project_task_assignees')
-      .select('task_id')
-      .in('user_id', assigneeIds)
-    const allTaskIds = (assignedRows || []).map((row: { task_id: string }) => row.task_id)
-    if (allTaskIds.length === 0) {
-      return { data: [], error: null }
-    }
+    
+    const allTaskIds = assignedRows.map((row: { task_id: string }) => row.task_id)
+    // Filter by project in a single query
     const { data: projectTaskRows } = await (supabase as any)
       .from('project_tasks')
       .select('id')
       .eq('project_id', projectId)
       .in('id', allTaskIds)
-    const assigneeTaskIds = (projectTaskRows || []).map((row: { id: string }) => row.id)
-    if (assigneeTaskIds.length === 0) {
+    
+    if (!projectTaskRows || projectTaskRows.length === 0) {
       return { data: [], error: null }
     }
-    taskIdFilter = assigneeTaskIds
+    taskIdFilter = projectTaskRows.map((row: { id: string }) => row.id)
+  } else if (assigneeIds.length > 0) {
+    // Get all task IDs for specified assignees, then filter by project
+    const { data: assignedRows } = await (supabase as any)
+      .from('project_task_assignees')
+      .select('task_id')
+      .in('user_id', assigneeIds)
+    
+    if (!assignedRows || assignedRows.length === 0) {
+      return { data: [], error: null }
+    }
+    
+    // Deduplicate task IDs
+    const allTaskIds = Array.from(new Set(assignedRows.map((row: { task_id: string }) => row.task_id)))
+    // Filter by project in a single query
+    const { data: projectTaskRows } = await (supabase as any)
+      .from('project_tasks')
+      .select('id')
+      .eq('project_id', projectId)
+      .in('id', allTaskIds)
+    
+    if (!projectTaskRows || projectTaskRows.length === 0) {
+      return { data: [], error: null }
+    }
+    taskIdFilter = projectTaskRows.map((row: { id: string }) => row.id)
   }
 
+  // Build main query - removed description_html from list query for better performance
   let query = (supabase as any)
     .from('project_tasks')
     .select(
-      'id, project_id, title, description_html, task_type, priority, status, due_date, created_by, created_at, updated_at, in_progress_at, completed_at, actual_minutes, assignees:project_task_assignees(user_id, users!project_task_assignees_user_id_fkey(full_name, email, role))'
+      // Removed description_html - only load it in detail view to reduce data transfer and improve performance
+      'id, project_id, title, task_type, priority, status, due_date, created_by, created_at, updated_at, in_progress_at, completed_at, actual_minutes, assignees:project_task_assignees(user_id, users!project_task_assignees_user_id_fkey(full_name, email, role))'
     )
     .eq('project_id', projectId)
-    .order('created_at', { ascending: false })
-
-  if (currentUser.role === 'client') {
-    query = query.eq('status', 'completed')
-  }
 
   if (taskIdFilter) {
     query = query.in('id', taskIdFilter)
+  }
+
+  if (currentUser.role === 'client') {
+    query = query.eq('status', 'completed')
   }
 
   if (filters.search) {
@@ -425,6 +437,9 @@ export async function getProjectTasks(
     query = query.in('task_type', types)
   }
 
+  // Add limit to prevent loading too many tasks at once (500 is reasonable for most use cases)
+  query = query.order('created_at', { ascending: false }).limit(500)
+
   const { data, error } = await query
 
   if (error) {
@@ -438,7 +453,7 @@ export async function getProjectTasks(
       id: row.id,
       project_id: row.project_id,
       title: row.title,
-      description_html: row.description_html,
+      description_html: null, // Not loaded in list view for performance
       task_type: row.task_type,
       priority: row.priority,
       status: row.status,

@@ -469,11 +469,15 @@ export function ProjectTasks({
     else if (selectedTaskId !== CREATE_TASK_SENTINEL) setTaskDetail(null)
   }, [selectedTaskId, loadTaskDetail])
 
+  // Lazy load mentionable users only when task detail panel opens (for comments/mentions)
+  // This improves initial page load performance
   useEffect(() => {
-    getTaskMentionableUsers().then((r) => {
-      if (r.data) setMentionableUsers(r.data)
-    })
-  }, [])
+    if (selectedTaskId && mentionableUsers.length === 0) {
+      getTaskMentionableUsers().then((r) => {
+        if (r.data) setMentionableUsers(r.data)
+      })
+    }
+  }, [selectedTaskId, mentionableUsers.length])
 
   const handleStatusChange = async (taskId: string, nextStatus: TaskStatus) => {
     const result = await updateTaskStatus(taskId, nextStatus)
