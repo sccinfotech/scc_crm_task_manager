@@ -432,19 +432,21 @@ export async function createUser(formData: CreateUserFormData) {
     .from('users')
     .insert(userInsert as never)
     .select('id')
-    .single()
+    .single<{ id: string }>()
 
   if (dbError) {
     console.error('User profile sync error:', dbError)
     return { error: 'Failed to create user profile' }
   }
 
+  const insertedUserId = insertedUser?.id
+
   await createActivityLogEntry({
     userId: currentUser.id,
     userName: currentUser.fullName ?? currentUser.email,
     actionType: 'Create',
     moduleName: 'User Management',
-    recordId: insertedUser?.id ?? undefined,
+    recordId: insertedUserId,
     description: `Created user "${validation.data!.fullName}" (${email})`,
     status: 'Success',
   })

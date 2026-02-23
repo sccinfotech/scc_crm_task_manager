@@ -5,15 +5,15 @@ import { useState, useEffect, useRef } from 'react'
 const TRIGGER_BASE_CLASSES =
   'flex w-full items-center gap-2 text-left rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-medium text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.05)] transition-all duration-200 hover:border-slate-300 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/20 min-h-9'
 
-export interface ListboxDropdownOption {
-  value: string
+export interface ListboxDropdownOption<T extends string = string> {
+  value: T
   label: string
 }
 
-interface ListboxDropdownProps {
-  value: string
-  options: ListboxDropdownOption[]
-  onChange: (value: string) => void
+interface ListboxDropdownProps<T extends string = string> {
+  value: T
+  options: ListboxDropdownOption<T>[]
+  onChange: (value: T) => void
   ariaLabel: string
   /** Optional placeholder when value is empty and no matching option (e.g. "Select...") */
   placeholder?: string
@@ -24,7 +24,7 @@ interface ListboxDropdownProps {
   disabled?: boolean
 }
 
-export function ListboxDropdown({
+export function ListboxDropdown<T extends string = string>({
   value,
   options,
   onChange,
@@ -33,7 +33,7 @@ export function ListboxDropdown({
   id,
   className = '',
   disabled = false,
-}: ListboxDropdownProps) {
+}: ListboxDropdownProps<T>) {
   const [open, setOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const selectedOption = options.find((opt) => opt.value === value)
