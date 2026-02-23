@@ -345,7 +345,7 @@ export function LogsClient({
                   <ListboxDropdown
                     value={localStatus}
                     options={STATUS_OPTIONS}
-                    onChange={setLocalStatus}
+                    onChange={(value) => setLocalStatus(value as ActivityLogStatusFilter)}
                     ariaLabel="Filter by status"
                   />
                 </div>
