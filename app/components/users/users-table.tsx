@@ -93,6 +93,7 @@ export function UsersTable({ users, canWrite, onRowClick, onEdit, onManagePermis
                 <UserAvatar user={user} />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-gray-900">{user.full_name || user.email}</p>
+                  <p className="truncate text-xs text-slate-500">{user.email}</p>
                   <p className="truncate text-xs text-slate-500">{user.designation || '-'}</p>
                 </div>
               </div>
@@ -124,7 +125,20 @@ export function UsersTable({ users, canWrite, onRowClick, onEdit, onManagePermis
               )}
             </div>
 
-            <p className="mt-2 truncate text-sm text-slate-500">{user.email}</p>
+            <p className="mt-2 text-sm font-medium text-slate-600">
+              Mobile:{' '}
+              {user.personal_mobile_no ? (
+                <a
+                  href={`tel:${user.personal_mobile_no}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-indigo-600 hover:text-indigo-700 hover:underline"
+                >
+                  {user.personal_mobile_no}
+                </a>
+              ) : (
+                <span className="text-slate-500">-</span>
+              )}
+            </p>
 
             <div className="mt-3 flex items-center justify-between gap-2">
               <RolePill role={user.role} />
@@ -138,16 +152,19 @@ export function UsersTable({ users, canWrite, onRowClick, onEdit, onManagePermis
         <table className="w-full table-fixed divide-y divide-gray-100">
           <thead className="sticky top-0 z-10 bg-white">
             <tr className="bg-gray-50/50">
-              <th className="w-[45%] sm:w-[30%] px-4 sm:px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <th className="w-[45%] sm:w-[25%] px-4 sm:px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                 User
               </th>
-              <th className="hidden sm:table-cell sm:w-[28%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                Email
+              <th className="hidden sm:table-cell sm:w-[20%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                Designation
               </th>
-              <th className="w-[20%] sm:w-[14%] px-4 sm:px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <th className="hidden sm:table-cell sm:w-[17%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                Mobile
+              </th>
+              <th className="w-[20%] sm:w-[12%] px-4 sm:px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                 Role
               </th>
-              <th className="w-[17%] sm:w-[14%] px-4 sm:px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <th className="w-[17%] sm:w-[12%] px-4 sm:px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                 Status
               </th>
               <th className="w-[18%] sm:w-[14%] px-4 sm:px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">
@@ -166,13 +183,28 @@ export function UsersTable({ users, canWrite, onRowClick, onEdit, onManagePermis
                   <div className="flex items-center gap-2 sm:gap-3">
                     <UserAvatar user={user} />
                     <div className="flex flex-col min-w-0">
-                      <span className="truncate text-sm sm:text-base font-semibold text-gray-900 leading-tight">{user.full_name}</span>
-                      <span className="truncate text-xs text-slate-500">{user.designation || '-'}</span>
+                      <span className="truncate text-sm sm:text-base font-semibold text-gray-900 leading-tight">{user.full_name || user.email}</span>
+                      <span className="truncate text-xs text-slate-500 mt-0.5">{user.email}</span>
                     </div>
                   </div>
                 </td>
                 <td className="hidden sm:table-cell px-6 py-3">
-                  <div className="truncate text-sm text-gray-500">{user.email}</div>
+                  <div className="truncate text-sm text-gray-500">{user.designation || '-'}</div>
+                </td>
+                <td className="hidden sm:table-cell px-6 py-3">
+                  <div className="truncate text-sm">
+                    {user.personal_mobile_no ? (
+                      <a
+                        href={`tel:${user.personal_mobile_no}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-indigo-600 hover:text-indigo-700 hover:underline"
+                      >
+                        {user.personal_mobile_no}
+                      </a>
+                    ) : (
+                      <span className="text-gray-500">-</span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 sm:px-6 py-3 text-sm">
                   <RolePill role={user.role} />

@@ -411,7 +411,27 @@ export async function createUser(formData: CreateUserFormData) {
     return { error: 'A user with this company email already exists' }
   }
 
+  // Step 1: Create the auth.users record first to get the real Supabase UUID.
+  // This ensures public.users.id always satisfies the FK → auth.users.id,
+  // so the Google OAuth login callback can find the user by id on first login.
+  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    email,
+    email_confirm: true, // admin-provisioned: skip email verification
+    user_metadata: {
+      full_name: validation.data.fullName,
+    },
+  })
+
+  if (authError || !authData?.user) {
+    console.error('Auth user creation error:', authError)
+    return { error: 'Failed to create user account. The email may already be registered.' }
+  }
+
+  const authUserId = authData.user.id
+
+  // Step 2: Insert the public profile row using the real auth UUID.
   const userInsert: UserInsert = {
+    id: authUserId,
     email,
     full_name: validation.data.fullName,
     designation: validation.data.designation,
@@ -437,6 +457,8 @@ export async function createUser(formData: CreateUserFormData) {
 
   if (dbError) {
     console.error('User profile sync error:', dbError)
+    // Cleanup: delete the orphaned auth user so the email can be retried
+    await supabaseAdmin.auth.admin.deleteUser(authUserId)
     return { error: 'Failed to create user profile' }
   }
 
