@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { TechnologyToolsTable } from './technology-tools-table'
+import { TechnologyToolsGrid } from './technology-tools-grid'
 import { TechnologyToolModal } from './technology-tool-modal'
 import { TechnologyToolDeleteModal } from './technology-tool-delete-modal'
 import {
@@ -111,19 +111,19 @@ export function TechnologyToolsClient({ tools, canWrite }: TechnologyToolsClient
           </div>
         </div>
 
-        <div className="flex-1 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm flex flex-col">
-          <TechnologyToolsTable
-          tools={tools}
-          canWrite={canWrite}
-          onEdit={(tool) => {
-            setSelectedTool(tool)
-            setEditModalOpen(true)
-          }}
-          onDelete={(tool) => {
-            setSelectedTool(tool)
-            setDeleteModalOpen(true)
-          }}
-        />
+        <div className="flex-1 overflow-hidden rounded-xl bg-transparent flex flex-col">
+          <TechnologyToolsGrid
+            tools={tools}
+            canWrite={canWrite}
+            onEdit={(tool) => {
+              setSelectedTool(tool)
+              setEditModalOpen(true)
+            }}
+            onDelete={(tool) => {
+              setSelectedTool(tool)
+              setDeleteModalOpen(true)
+            }}
+          />
         </div>
       </section>
 

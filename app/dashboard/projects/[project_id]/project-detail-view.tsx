@@ -181,9 +181,9 @@ function PriorityPill({ priority }: { priority: ProjectPriority }) {
 function formatDate(dateString: string) {
   const date = new Date(dateString)
   return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
+    month: 'short',
     day: 'numeric',
+    year: 'numeric'
   })
 }
 
@@ -880,87 +880,103 @@ export function ProjectDetailView({
                     </div>
                   </div>
 
-                  <div className="bg-slate-50/30 p-4">
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      {userRole !== 'staff' && (
-                        project.client?.id ? (
-                          <Link
-                            href={`/dashboard/clients/${project.client.id}`}
-                            className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200 hover:border-cyan-300 hover:bg-cyan-50/30 transition-colors cursor-pointer group"
-                          >
-                            <div className="h-12 w-12 rounded-xl bg-cyan-50 flex items-center justify-center group-hover:bg-cyan-200 group-hover:scale-105 transition-all duration-200">
-                              <svg className="h-6 w-6 text-cyan-600 group-hover:text-cyan-700 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Client</p>
-                              <p className="text-sm font-semibold text-slate-700 group-hover:text-cyan-700 line-clamp-2">{clientLabel}</p>
-                            </div>
-                          </Link>
-                        ) : (
-                          <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200">
-                            <div className="h-12 w-12 rounded-xl bg-cyan-50 flex items-center justify-center">
-                              <svg className="h-6 w-6 text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                            </div>
-                            <div>
-                              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Client</p>
-                              <p className="text-sm font-semibold text-slate-700 line-clamp-2">{clientLabel}</p>
-                            </div>
+                  <div className="bg-slate-50/30 p-4 space-y-3">
+                    {userRole !== 'staff' && (
+                      project.client?.id ? (
+                        <Link
+                          href={`/dashboard/clients/${project.client.id}`}
+                          className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200 hover:border-cyan-300 hover:bg-cyan-50/30 transition-colors cursor-pointer group w-full shadow-sm"
+                        >
+                          <div className="h-12 w-12 rounded-xl bg-cyan-50 flex items-center justify-center group-hover:bg-cyan-200 group-hover:scale-105 transition-all duration-200">
+                            <svg className="h-6 w-6 text-cyan-600 group-hover:text-cyan-700 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
                           </div>
-                        )
-                      )}
-
-                      {(userRole === 'staff' || userRole === 'admin' || userRole === 'manager') && (
-                        <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Client</p>
+                            <p className="text-sm font-semibold text-slate-700 group-hover:text-cyan-700 line-clamp-2">{clientLabel}</p>
+                          </div>
+                          <div className="text-slate-300 group-hover:text-cyan-400 transition-colors">
+                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </div>
+                        </Link>
+                      ) : (
+                        <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200 w-full shadow-sm">
                           <div className="h-12 w-12 rounded-xl bg-cyan-50 flex items-center justify-center">
                             <svg className="h-6 w-6 text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                             </svg>
                           </div>
                           <div>
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Approx. Deadline</p>
-                            <p className="text-sm font-semibold text-slate-700">
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Client</p>
+                            <p className="text-sm font-semibold text-slate-700 line-clamp-2">{clientLabel}</p>
+                          </div>
+                        </div>
+                      )
+                    )}
+
+                    <div className="rounded-xl bg-white border border-slate-200 shadow-sm overflow-hidden">
+                      <div className="bg-slate-50/50 px-3 py-1.5 border-b border-slate-100 flex items-center justify-between">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Project Timeline</p>
+                        <svg className="h-3 w-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      <div className="divide-y divide-slate-50">
+                        {(userRole === 'staff' || userRole === 'admin' || userRole === 'manager') && (
+                          <div className="flex items-center justify-between gap-4 py-1.5 px-3 hover:bg-slate-50/50 transition-colors group">
+                            <div className="flex items-center gap-2.5">
+                              <div className="h-7 w-7 flex-shrink-0 rounded-lg bg-cyan-50 flex items-center justify-center group-hover:bg-cyan-100 transition-colors">
+                                <svg className="h-3.5 w-3.5 text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              </div>
+                              <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-tight">Staff Deadline</p>
+                            </div>
+                            <p className="text-xs font-bold text-slate-700 whitespace-nowrap">
                               {(() => {
                                 const approx = calculateStaffApproxDeadline(project.created_at, project.client_deadline_date)
                                 return approx ? formatDate(approx) : '--'
                               })()}
                             </p>
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                      {userRole !== 'staff' && (
-                        <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200">
-                          <div className="h-12 w-12 rounded-xl bg-amber-50 flex items-center justify-center">
-                            <svg className="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          </div>
-                          <div>
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Client Deadline</p>
-                            <p className="text-sm font-semibold text-slate-700">
+                        {userRole !== 'staff' && (
+                          <div className="flex items-center justify-between gap-4 py-1.5 px-3 hover:bg-slate-50/50 transition-colors group">
+                            <div className="flex items-center gap-2.5">
+                              <div className="h-7 w-7 flex-shrink-0 rounded-lg bg-amber-50 flex items-center justify-center group-hover:bg-amber-100 transition-colors">
+                                <svg className="h-3.5 w-3.5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                              </div>
+                              <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-tight">Client Deadline</p>
+                            </div>
+                            <p className="text-xs font-bold text-slate-700 whitespace-nowrap">
                               {project.client_deadline_date ? formatDate(project.client_deadline_date) : '--'}
                             </p>
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                      <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200">
-                        <div className="h-12 w-12 rounded-xl bg-slate-50 flex items-center justify-center">
-                          <svg className="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Created</p>
-                          <p className="text-sm font-semibold text-slate-700">{formatDate(project.created_at)}</p>
+                        <div className="flex items-center justify-between gap-4 py-1.5 px-3 hover:bg-slate-50/50 transition-colors group">
+                          <div className="flex items-center gap-2.5">
+                            <div className="h-7 w-7 flex-shrink-0 rounded-lg bg-slate-50 flex items-center justify-center group-hover:bg-slate-100 transition-colors">
+                              <svg className="h-3.5 w-3.5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </div>
+                            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-tight">Created On</p>
+                          </div>
+                          <p className="text-xs font-bold text-slate-700 whitespace-nowrap">{formatDate(project.created_at)}</p>
                         </div>
                       </div>
                     </div>
+
+
                   </div>
+
                 </div>
 
                 {canViewTeamMembers && (
