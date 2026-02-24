@@ -1406,7 +1406,7 @@ export async function getProjectAnalytics(
 
   const { data: teamRows, error: teamError } = await supabase
     .from('project_team_members')
-    .select('user_id, users(id, full_name, email)')
+    .select('user_id, users!user_id(id, full_name, email)')
     .eq('project_id', projectId)
 
   if (teamError) {
