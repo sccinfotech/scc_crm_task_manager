@@ -259,13 +259,21 @@ function normalizeTool(row: any): ProjectTechnologyTool | null {
 function normalizeTeamMember(row: any): ProjectTeamMember | null {
   if (!row) return null
   if (Array.isArray(row)) return normalizeTeamMember(row[0])
-  const user = row.users ?? row
-  const id = user?.id ?? row?.user_id
+
+  // PostgREST might return plural 'users' as an array or object depending on join complexity
+  const rawUser = row.users
+  const user = Array.isArray(rawUser) ? rawUser[0] : rawUser
+  const userData = user ?? row
+
+  // Always prefer user_id from the join if available, then top-level user_id, 
+  // then fallback to userData.id (which might be the row PK if join is missing)
+  const id = user?.id ?? row?.user_id ?? userData?.id
   if (!id) return null
+
   return {
     id,
-    full_name: user.full_name ?? null,
-    email: user.email ?? null,
+    full_name: userData?.full_name ?? null,
+    email: userData?.email ?? null,
     work_status: row.work_status ?? 'not_started',
     work_started_at: row.work_started_at ?? null,
     work_ended_at: row.work_ended_at ?? null,
@@ -497,17 +505,21 @@ export async function getProject(projectId: string): Promise<{ data: Project | n
     .eq('project_id', projectId)
 
   let teamRows: any[] | null = null
+  // Use users!user_id to disambiguate which foreign key to use (user_id vs created_by)
   const { data: teamRowsWithWork, error: teamWorkError } = await supabase
     .from('project_team_members')
-    .select('user_id, work_status, work_started_at, work_ended_at, work_done_notes, users(id, full_name, email)')
+    .select('user_id, work_status, work_started_at, work_ended_at, work_done_notes, users!user_id(id, full_name, email)')
     .eq('project_id', projectId)
 
   if (!teamWorkError && teamRowsWithWork) {
     teamRows = teamRowsWithWork
   } else {
+    if (teamWorkError) {
+      console.warn('Falling back to basic project_team_members fetch due to error:', teamWorkError.message)
+    }
     const { data: teamRowsBasic } = await supabase
       .from('project_team_members')
-      .select('user_id, users(id, full_name, email)')
+      .select('user_id, users!user_id(id, full_name, email)')
       .eq('project_id', projectId)
     teamRows = teamRowsBasic || []
   }
@@ -669,18 +681,21 @@ export async function createProject(formData: ProjectFormData): Promise<ProjectA
     }
   }
 
-  const project = data as unknown as Project
   await createActivityLogEntry({
     userId: currentUser.id,
     userName: currentUser.fullName ?? currentUser.email,
     actionType: 'Create',
     moduleName: 'Projects',
-    recordId: project.id,
-    description: `Created project "${project.name}"`,
+    recordId: (data as { id: string }).id,
+    description: `Created project "${formData.name}"`,
     status: 'Success',
   })
   revalidatePath('/dashboard/projects')
-  return { data: project, error: null }
+  const result = await getProject((data as { id: string }).id)
+  if (result.error || !result.data) {
+    return { data: null, error: result.error || 'Project created but failed to load complete details' }
+  }
+  return { data: result.data, error: null }
 }
 
 export async function updateProject(projectId: string, formData: ProjectFormData): Promise<ProjectActionResult> {
@@ -842,7 +857,12 @@ export async function updateProject(projectId: string, formData: ProjectFormData
   }
 
   revalidatePath('/dashboard/projects')
-  return { data: data as unknown as Project, error: null }
+  revalidatePath(`/dashboard/projects/${projectId}`)
+  const result = await getProject(projectId)
+  if (result.error || !result.data) {
+    return { data: null, error: result.error || 'Project updated but failed to load complete details' }
+  }
+  return { data: result.data, error: null }
 }
 
 export type UpdateProjectLinksPayload = {
