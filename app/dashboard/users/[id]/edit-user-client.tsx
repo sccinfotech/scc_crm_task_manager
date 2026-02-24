@@ -28,8 +28,7 @@ type DetailTab = 'assigned-projects' | 'details'
 type SortField =
   | 'name'
   | 'status'
-  | 'start_date'
-  | 'developer_deadline_date'
+  | 'client_deadline_date'
   | 'follow_up_date'
   | 'created_at'
   | 'project_amount'
@@ -150,21 +149,9 @@ function compareProjects(
   }
 
   const dateA =
-    field === 'start_date'
-      ? a.start_date
-      : field === 'developer_deadline_date'
-        ? a.developer_deadline_date
-        : field === 'follow_up_date'
-          ? a.follow_up_date
-          : a.created_at
+    field === 'follow_up_date' ? a.follow_up_date : field === 'client_deadline_date' ? a.client_deadline_date : a.created_at
   const dateB =
-    field === 'start_date'
-      ? b.start_date
-      : field === 'developer_deadline_date'
-        ? b.developer_deadline_date
-        : field === 'follow_up_date'
-          ? b.follow_up_date
-          : b.created_at
+    field === 'follow_up_date' ? b.follow_up_date : field === 'client_deadline_date' ? b.client_deadline_date : b.created_at
 
   const timeA = dateA ? new Date(dateA).getTime() : 0
   const timeB = dateB ? new Date(dateB).getTime() : 0
@@ -437,18 +424,18 @@ export function EditUserClient({
     const payload: UpdateUserFormData =
       'email' in formData
         ? {
-            full_name: formData.full_name,
-            designation: formData.designation,
-            joining_date: formData.joining_date,
-            role: formData.role,
-            is_active: formData.is_active,
-            personal_email: formData.personal_email,
-            personal_mobile_no: formData.personal_mobile_no,
-            home_mobile_no: formData.home_mobile_no,
-            address: formData.address,
-            date_of_birth: formData.date_of_birth,
-            photo_url: formData.photo_url,
-          }
+          full_name: formData.full_name,
+          designation: formData.designation,
+          joining_date: formData.joining_date,
+          role: formData.role,
+          is_active: formData.is_active,
+          personal_email: formData.personal_email,
+          personal_mobile_no: formData.personal_mobile_no,
+          home_mobile_no: formData.home_mobile_no,
+          address: formData.address,
+          date_of_birth: formData.date_of_birth,
+          photo_url: formData.photo_url,
+        }
         : formData
 
     const result = await updateUser(userState.id, payload)
@@ -708,9 +695,8 @@ export function EditUserClient({
                         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</p>
                         <div className="mt-2 flex items-center justify-between gap-3">
                           <span
-                            className={`text-sm font-semibold ${
-                              userState.is_active ? 'text-emerald-700' : 'text-rose-700'
-                            }`}
+                            className={`text-sm font-semibold ${userState.is_active ? 'text-emerald-700' : 'text-rose-700'
+                              }`}
                           >
                             {userState.is_active ? 'Active' : 'Inactive'}
                           </span>
@@ -721,14 +707,12 @@ export function EditUserClient({
                             aria-label="Toggle user status"
                             disabled={!canWrite || isStatusUpdating}
                             onClick={() => handleSetUserActive(!userState.is_active)}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                              userState.is_active ? 'bg-emerald-500' : 'bg-slate-300'
-                            } ${!canWrite || isStatusUpdating ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${userState.is_active ? 'bg-emerald-500' : 'bg-slate-300'
+                              } ${!canWrite || isStatusUpdating ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
                           >
                             <span
-                              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                                userState.is_active ? 'translate-x-5' : 'translate-x-1'
-                              }`}
+                              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${userState.is_active ? 'translate-x-5' : 'translate-x-1'
+                                }`}
                             />
                           </button>
                         </div>

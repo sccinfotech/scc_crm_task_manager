@@ -159,8 +159,6 @@ export function ProjectForm({
         client_id: (formData.get('client_id') as string) || '',
         project_amount: Number.isFinite(amountValue) ? amountValue : undefined,
         priority: (formData.get('priority') as ProjectPriority) || 'medium',
-        start_date: (formData.get('start_date') as string) || '',
-        developer_deadline_date: (formData.get('developer_deadline_date') as string) || '',
         client_deadline_date: (formData.get('client_deadline_date') as string) || '',
         website_links: (formData.get('website_links') as string) || undefined,
         reference_links: (formData.get('reference_links') as string) || undefined,
@@ -181,8 +179,6 @@ export function ProjectForm({
     'block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder-slate-400 shadow-sm transition-all duration-200 focus:border-[#06B6D4] focus:outline-none focus:ring-4 focus:ring-[#06B6D4]/10 sm:text-sm hover:border-slate-300'
   const labelClasses = 'block text-sm font-semibold text-slate-700 mb-1.5'
 
-  const startDateValue = formatDateValue(initialData?.start_date)
-  const developerDeadlineValue = formatDateValue(initialData?.developer_deadline_date)
   const clientDeadlineValue = formatDateValue(initialData?.client_deadline_date)
 
   const handleLogoClick = () => {
@@ -444,32 +440,6 @@ export function ProjectForm({
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Status & Schedule</h3>
 
         <div className="grid gap-5 md:grid-cols-2">
-          <div>
-            <label htmlFor="start_date" className={labelClasses}>
-              Start Date <span className="text-rose-500">*</span>
-            </label>
-            <input
-              type="date"
-              id="start_date"
-              name="start_date"
-              required
-              defaultValue={startDateValue}
-              className={inputClasses}
-            />
-          </div>
-          <div>
-            <label htmlFor="developer_deadline_date" className={labelClasses}>
-              Project Deadline <span className="text-rose-500">*</span>
-            </label>
-            <input
-              type="date"
-              id="developer_deadline_date"
-              name="developer_deadline_date"
-              required
-              defaultValue={developerDeadlineValue}
-              className={inputClasses}
-            />
-          </div>
           <div>
             <label htmlFor="client_deadline_date" className={labelClasses}>
               Client Deadline <span className="text-rose-500">*</span>

@@ -313,12 +313,9 @@ export function ProjectsCardList({
                         {workingStatusLabel}
                       </span>
                     ) : null}
-                    <span className="text-xs text-gray-500">
-                      Start {formatDate(project.start_date)}
-                    </span>
-                    {project.developer_deadline_date && (
+                    {project.client_deadline_date && (
                       <span className="text-xs text-gray-500">
-                        Deadline {formatDate(project.developer_deadline_date)}
+                        Client Deadline {formatDate(project.client_deadline_date)}
                       </span>
                     )}
                     {project.follow_up_date && (

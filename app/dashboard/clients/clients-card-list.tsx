@@ -48,6 +48,7 @@ export function ClientsCardList({
   clients,
   canWrite,
   canManageInternalNotes = false,
+  onView,
   onEdit,
   onDelete,
   onOpenInternalNotes,
@@ -100,33 +101,59 @@ export function ClientsCardList({
           key={client.id}
           className="rounded-xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-cyan-500 focus-within:ring-offset-2"
         >
-          <Link
-            href={`/dashboard/clients/${client.id}`}
-            prefetch
-            className="block no-underline text-inherit outline-none"
+          <div
+            onClick={(e) => {
+              // Only trigger if we didn't click on a button or link
+              if ((e.target as HTMLElement).closest('button, a')) return;
+              onView(client.id);
+            }}
+            className="block no-underline text-inherit outline-none cursor-pointer"
           >
+            {/* Keep Link around for prefetching next.js routes, but visually hidden, or just rely on router */}
+            <Link href={`/dashboard/clients/${client.id}`} prefetch className="hidden" aria-hidden="true" />
             <div className="flex items-start gap-3 p-4">
               <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 text-sm font-bold text-white shadow-sm ring-2 ring-white">
                 {client.name.substring(0, 2).toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">
                 <h3 className="truncate text-base font-semibold text-gray-900">{client.name}</h3>
+                {client.email && (
+                  <p className="mt-0.5 truncate text-xs text-gray-400">{client.email}</p>
+                )}
                 {client.company_name && (
                   <p className="mt-0.5 truncate text-sm text-gray-500">{client.company_name}</p>
                 )}
-                <p className="mt-1 text-sm font-medium text-gray-600">{client.phone}</p>
-                {client.email && (
-                  <p className="mt-0.5 truncate text-sm text-gray-500">{client.email}</p>
+                {client.phone && (
+                  <p className="mt-1 text-sm font-medium text-gray-600">
+                    <a
+                      href={`tel:${client.phone}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-indigo-600 hover:text-indigo-700 hover:underline"
+                    >
+                      {client.phone}
+                    </a>
+                  </p>
+                )}
+                {client.remark && (
+                  <p
+                    className="mt-1 text-sm text-gray-500"
+                    style={{
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                    }}
+                    title={client.remark}
+                  >
+                    {client.remark}
+                  </p>
                 )}
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <StatusPill status={client.status} />
-                  <span className="text-xs text-gray-400">
-                    Created {formatDate(client.created_at)}
-                  </span>
                 </div>
               </div>
             </div>
-          </Link>
+          </div>
           <div className="flex items-center justify-end gap-1 border-t border-gray-100 px-4 py-2">
             {canManageInternalNotes && onOpenInternalNotes && (
               <button

@@ -9,6 +9,7 @@ type Client = {
   phone: string
   email: string | null
   status: 'active' | 'inactive'
+  remark: string | null
   created_at: string
   created_by?: string
 }
@@ -154,9 +155,9 @@ export function ClientsTable({
               </div>
             </th>
             <th
-              className="group hidden md:table-cell md:w-[15%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-colors"
+              className="group hidden md:table-cell md:w-[20%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-colors"
             >
-              Email
+              Remark
             </th>
             <th
               className="group w-[15%] sm:w-[12%] px-4 sm:px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-colors"
@@ -165,15 +166,6 @@ export function ClientsTable({
               <div className="flex items-center">
                 Status
                 <SortIcon direction={sortField === 'status' ? sortDirection : null} />
-              </div>
-            </th>
-            <th
-              className="group hidden lg:table-cell lg:w-[13%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
-              onClick={() => handleSort('created_at')}
-            >
-              <div className="flex items-center">
-                Created
-                <SortIcon direction={sortField === 'created_at' ? sortDirection : null} />
               </div>
             </th>
             <th className="w-[15%] sm:w-[12%] px-4 sm:px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 transition-all duration-200">
@@ -204,6 +196,11 @@ export function ClientsTable({
                       <span className="truncate text-sm sm:text-base font-semibold text-gray-900 leading-tight" title={client.name}>
                         {client.name}
                       </span>
+                      {client.email && (
+                        <span className="truncate text-xs text-gray-400 leading-tight" title={client.email}>
+                          {client.email}
+                        </span>
+                      )}
                     </div>
                   </Link>
                 </td>
@@ -213,23 +210,43 @@ export function ClientsTable({
                   </Link>
                 </td>
                 <td className="px-4 sm:px-6 py-3">
-                  <Link href={`/dashboard/clients/${client.id}`} prefetch className="block truncate text-sm text-gray-500 font-medium no-underline text-inherit" title={client.phone}>
-                    {client.phone}
-                  </Link>
+                  <div className="truncate text-sm">
+                    {client.phone ? (
+                      <a
+                        href={`tel:${client.phone}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-indigo-600 hover:text-indigo-700 hover:underline font-medium"
+                      >
+                        {client.phone}
+                      </a>
+                    ) : (
+                      <span className="text-gray-500 font-medium">—</span>
+                    )}
+                  </div>
                 </td>
                 <td className="hidden px-6 py-3 md:table-cell">
-                  <Link href={`/dashboard/clients/${client.id}`} prefetch className="block truncate text-sm text-gray-500 no-underline text-inherit" title={client.email || '—'}>
-                    {client.email || '—'}
+                  <Link href={`/dashboard/clients/${client.id}`} prefetch className="block no-underline text-inherit">
+                    {client.remark ? (
+                      <span
+                        className="text-sm text-gray-500"
+                        style={{
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                        }}
+                        title={client.remark}
+                      >
+                        {client.remark}
+                      </span>
+                    ) : (
+                      <span className="text-sm text-gray-400">—</span>
+                    )}
                   </Link>
                 </td>
                 <td className="px-4 sm:px-6 py-3">
                   <Link href={`/dashboard/clients/${client.id}`} prefetch className="block no-underline text-inherit">
                     <StatusPill status={client.status} />
-                  </Link>
-                </td>
-                <td className="hidden px-6 py-3 text-sm text-gray-500 lg:table-cell">
-                  <Link href={`/dashboard/clients/${client.id}`} prefetch className="block no-underline text-inherit">
-                    {formatDate(client.created_at)}
                   </Link>
                 </td>
                 <td className="px-4 sm:px-6 py-3 text-right text-sm">

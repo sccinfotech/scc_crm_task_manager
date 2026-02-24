@@ -17,7 +17,9 @@ import {
   updateMyProjectWorkStatus,
   deleteProject,
   ProjectFormData,
+  ProjectListItem,
 } from '@/lib/projects/actions'
+import { calculateStaffApproxDeadline } from '@/lib/projects/utils'
 import type { ProjectTeamMember, ProjectTeamMemberWorkStatus } from '@/lib/projects/actions'
 import { getClientsForSelect, type ClientSelectOption } from '@/lib/clients/actions'
 import { getTechnologyTools, type TechnologyTool } from '@/lib/settings/technology-tools-actions'
@@ -718,8 +720,6 @@ export function ProjectDetailView({
       client_id: project.client_id,
       project_amount: project.project_amount ?? undefined,
       priority: project.priority ?? 'medium',
-      start_date: project.start_date,
-      developer_deadline_date: project.developer_deadline_date ?? undefined,
       client_deadline_date: project.client_deadline_date ?? undefined,
       website_links: project.website_links ?? undefined,
       reference_links: project.reference_links ?? undefined,
@@ -913,31 +913,24 @@ export function ProjectDetailView({
                         )
                       )}
 
-                      <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200">
-                        <div className="h-12 w-12 rounded-xl bg-amber-50 flex items-center justify-center">
-                          <svg className="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
+                      {(userRole === 'staff' || userRole === 'admin' || userRole === 'manager') && (
+                        <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200">
+                          <div className="h-12 w-12 rounded-xl bg-cyan-50 flex items-center justify-center">
+                            <svg className="h-6 w-6 text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Approx. Deadline</p>
+                            <p className="text-sm font-semibold text-slate-700">
+                              {(() => {
+                                const approx = calculateStaffApproxDeadline(project.created_at, project.client_deadline_date)
+                                return approx ? formatDate(approx) : '--'
+                              })()}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Start Date</p>
-                          <p className="text-sm font-semibold text-slate-700">{formatDate(project.start_date)}</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200">
-                        <div className="h-12 w-12 rounded-xl bg-cyan-50 flex items-center justify-center">
-                          <svg className="h-6 w-6 text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Staff Deadline</p>
-                          <p className="text-sm font-semibold text-slate-700">
-                            {project.developer_deadline_date ? formatDate(project.developer_deadline_date) : '--'}
-                          </p>
-                        </div>
-                      </div>
+                      )}
 
                       {userRole !== 'staff' && (
                         <div className="flex items-center gap-3 p-3 rounded-xl bg-white border border-slate-200">

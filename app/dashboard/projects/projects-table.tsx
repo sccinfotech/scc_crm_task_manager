@@ -14,8 +14,7 @@ type Project = {
   client_name: string | null
   client_company_name: string | null
   status: ProjectStatus
-  start_date: string
-  developer_deadline_date: string | null
+  client_deadline_date: string | null
   project_amount: number | null
   website_links: string | null
   created_at: string
@@ -27,8 +26,7 @@ type Project = {
 type SortField =
   | 'name'
   | 'status'
-  | 'start_date'
-  | 'developer_deadline_date'
+  | 'client_deadline_date'
   | 'follow_up_date'
   | 'created_at'
   | 'project_amount' // kept for URL/API compatibility; column not shown
@@ -335,21 +333,12 @@ export function ProjectsTable({
               </th>
             )}
             <th
-              className="group hidden md:table-cell md:w-[11%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
-              onClick={() => handleSort('start_date')}
+              className="group hidden md:table-cell md:w-[15%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
+              onClick={() => handleSort('client_deadline_date')}
             >
               <div className="flex items-center">
-                Start
-                <SortIcon direction={sortField === 'start_date' ? sortDirection : null} />
-              </div>
-            </th>
-            <th
-              className="group hidden md:table-cell md:w-[11%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
-              onClick={() => handleSort('developer_deadline_date')}
-            >
-              <div className="flex items-center">
-                Deadline
-                <SortIcon direction={sortField === 'developer_deadline_date' ? sortDirection : null} />
+                Client Deadline
+                <SortIcon direction={sortField === 'client_deadline_date' ? sortDirection : null} />
               </div>
             </th>
             <th
@@ -451,12 +440,7 @@ export function ProjectsTable({
                 )}
                 <td className="hidden px-6 py-3 text-sm text-gray-500 md:table-cell">
                   <Link href={projectHref} prefetch className="block no-underline text-inherit">
-                    {formatDate(project.start_date)}
-                  </Link>
-                </td>
-                <td className="hidden px-6 py-3 text-sm text-gray-500 md:table-cell">
-                  <Link href={projectHref} prefetch className="block no-underline text-inherit">
-                    {project.developer_deadline_date ? formatDate(project.developer_deadline_date) : '--'}
+                    {project.client_deadline_date ? formatDate(project.client_deadline_date) : '--'}
                   </Link>
                 </td>
                 <td className="hidden px-6 py-3 text-sm text-gray-500 lg:table-cell">

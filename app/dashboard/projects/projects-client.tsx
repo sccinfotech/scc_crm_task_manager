@@ -254,8 +254,6 @@ export function ProjectsClient({
       client_id: selectedProject.client_id,
       project_amount: selectedProject.project_amount ?? undefined,
       priority: selectedProject.priority ?? 'medium',
-      start_date: selectedProject.start_date,
-      developer_deadline_date: selectedProject.developer_deadline_date || undefined,
       client_deadline_date: selectedProject.client_deadline_date || undefined,
       website_links: selectedProject.website_links || undefined,
       reference_links: selectedProject.reference_links || undefined,

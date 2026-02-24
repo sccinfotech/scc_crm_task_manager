@@ -52,6 +52,7 @@ export type ClientListItem = {
   phone: string
   email: string | null
   status: ClientStatus
+  remark: string | null
   created_at: string
   created_by?: string
 }
@@ -78,7 +79,7 @@ export async function getClientsPage(options: GetClientsPageOptions = {}) {
 
   let query = supabase
     .from('clients')
-    .select('id, name, company_name, phone, email, status, created_at, created_by', {
+    .select('id, name, company_name, phone, email, status, remark, created_at, created_by', {
       count: 'exact',
     })
 

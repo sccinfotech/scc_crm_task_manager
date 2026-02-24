@@ -21,8 +21,6 @@ export type ProjectFormData = {
   client_id: string
   project_amount?: number
   priority?: ProjectPriority
-  start_date: string
-  developer_deadline_date?: string
   client_deadline_date?: string
   website_links?: string
   reference_links?: string
@@ -75,8 +73,6 @@ export type Project = {
   status: ProjectStatus
   staff_status: ProjectStaffStatus | null
   priority: ProjectPriority
-  start_date: string
-  developer_deadline_date: string | null
   client_deadline_date: string | null
   website_links: string | null
   reference_links: string | null
@@ -92,8 +88,7 @@ export type Project = {
 export type ProjectSortField =
   | 'name'
   | 'status'
-  | 'start_date'
-  | 'developer_deadline_date'
+  | 'client_deadline_date'
   | 'follow_up_date'
   | 'created_at'
   | 'project_amount'
@@ -118,8 +113,7 @@ export type ProjectListItem = {
   project_amount: number | null
   status: ProjectStatus
   priority?: ProjectPriority
-  start_date: string
-  developer_deadline_date: string | null
+  client_deadline_date: string | null
   website_links: string | null
   created_at: string
   created_by?: string
@@ -346,7 +340,7 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
   let query = supabase
     .from('projects')
     .select(
-      'id, name, logo_url, client_id, project_amount, status, priority, start_date, developer_deadline_date, website_links, created_at, created_by, clients(id, name, company_name), project_team_members(user_id, work_status, work_started_at)',
+      'id, name, logo_url, client_id, project_amount, status, priority, client_deadline_date, website_links, created_at, created_by, clients(id, name, company_name), project_team_members(user_id, work_status, work_started_at)',
       { count: 'exact' }
     )
 
@@ -354,7 +348,7 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
     query = supabase
       .from('projects')
       .select(
-        'id, name, logo_url, client_id, project_amount, status, priority, start_date, developer_deadline_date, website_links, created_at, created_by, clients(id, name, company_name), project_team_members!inner(user_id, work_status, work_started_at)',
+        'id, name, logo_url, client_id, project_amount, status, priority, client_deadline_date, website_links, created_at, created_by, clients(id, name, company_name), project_team_members!inner(user_id, work_status, work_started_at)',
         { count: 'exact' }
       )
       .eq('project_team_members.user_id', currentUser.id)
@@ -362,7 +356,7 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
     query = supabase
       .from('projects')
       .select(
-        'id, name, logo_url, client_id, project_amount, status, priority, start_date, developer_deadline_date, website_links, created_at, created_by, clients(id, name, company_name), project_team_members!inner(user_id, work_status, work_started_at)',
+        'id, name, logo_url, client_id, project_amount, status, priority, client_deadline_date, website_links, created_at, created_by, clients(id, name, company_name), project_team_members!inner(user_id, work_status, work_started_at)',
         { count: 'exact' }
       )
       .eq('project_team_members.user_id', staffUserId)
@@ -431,8 +425,7 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
       project_amount: canViewAmount ? decryptAmount(row.project_amount) : null,
       status: row.status,
       priority: row.priority ?? 'medium',
-      start_date: row.start_date,
-      developer_deadline_date: row.developer_deadline_date ?? null,
+      client_deadline_date: row.client_deadline_date ?? null,
       website_links: row.website_links ?? null,
       created_at: row.created_at,
       created_by: row.created_by,
@@ -488,8 +481,6 @@ export async function getProject(projectId: string): Promise<{ data: Project | n
     status: string
     staff_status?: string | null
     priority?: string | null
-    start_date: string
-    developer_deadline_date?: string | null
     client_deadline_date?: string | null
     website_links?: string | null
     reference_links?: string | null
@@ -564,8 +555,6 @@ export async function getProject(projectId: string): Promise<{ data: Project | n
     status: row.status as ProjectStatus,
     staff_status: (row.staff_status ?? null) as ProjectStaffStatus | null,
     priority: (row.priority ?? 'medium') as ProjectPriority,
-    start_date: row.start_date,
-    developer_deadline_date: row.developer_deadline_date ?? null,
     client_deadline_date: row.client_deadline_date ?? null,
     website_links: row.website_links ?? null,
     reference_links: row.reference_links ?? null,
@@ -598,13 +587,8 @@ export async function createProject(formData: ProjectFormData): Promise<ProjectA
     return { data: null, error: 'You do not have permission to create projects' }
   }
 
-  if (!formData.name || !formData.client_id || !formData.start_date) {
-    return { data: null, error: 'Project name, client, and start date are required' }
-  }
-
-  const developerDeadlineError = validateSingleDate(formData.developer_deadline_date, 'Project deadline date')
-  if (developerDeadlineError) {
-    return { data: null, error: developerDeadlineError }
+  if (!formData.name || !formData.client_id) {
+    return { data: null, error: 'Project name and client are required' }
   }
 
   const clientDeadlineError = validateSingleDate(formData.client_deadline_date, 'Client deadline date')
@@ -636,8 +620,6 @@ export async function createProject(formData: ProjectFormData): Promise<ProjectA
       status: 'pending',
       staff_status: 'start',
       priority,
-      start_date: formData.start_date,
-      developer_deadline_date: formData.developer_deadline_date || null,
       client_deadline_date: formData.client_deadline_date || null,
       website_links: websiteLinks,
       reference_links: referenceLinks,
@@ -723,13 +705,8 @@ export async function updateProject(projectId: string, formData: ProjectFormData
     return { data: null, error: 'Project not found' }
   }
 
-  if (!formData.name || !formData.client_id || !formData.start_date) {
-    return { data: null, error: 'Project name, client, and start date are required' }
-  }
-
-  const developerDeadlineError = validateSingleDate(formData.developer_deadline_date, 'Project deadline date')
-  if (developerDeadlineError) {
-    return { data: null, error: developerDeadlineError }
+  if (!formData.name || !formData.client_id) {
+    return { data: null, error: 'Project name and client are required' }
   }
 
   const clientDeadlineError = validateSingleDate(formData.client_deadline_date, 'Client deadline date')
@@ -746,8 +723,6 @@ export async function updateProject(projectId: string, formData: ProjectFormData
     name: formData.name.trim(),
     logo_url: formData.logo_url?.trim() || null,
     client_id: formData.client_id,
-    start_date: formData.start_date,
-    developer_deadline_date: formData.developer_deadline_date || null,
     client_deadline_date: formData.client_deadline_date || null,
     website_links: websiteLinks,
     reference_links: referenceLinks,
