@@ -48,4 +48,5 @@ Every dashboard module **must** have a route-level `loading.tsx` file that shows
 ## Related docs
 
 - [LOADING_AND_SKELETONS.md](./LOADING_AND_SKELETONS.md) – Skeletons, spinners, delays, and format guidelines
+- [LIST_VIEW_DATA_FETCHING.md](./LIST_VIEW_DATA_FETCHING.md) – Fetch only required fields for table/list views
 - [SETUP.md](../SETUP.md) – Authentication and environment setup

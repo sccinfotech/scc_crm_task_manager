@@ -278,9 +278,13 @@ export async function getUsers(filters?: GetUsersOptions) {
   const page = Math.max(1, filters?.page ?? 1)
   const pageSize = Math.min(100, Math.max(1, filters?.pageSize ?? DEFAULT_PAGE_SIZE))
 
+  // Optimize: Only select fields needed for list view + edit/permissions modals (excludes deleted_at, updated_at)
   let query = supabase
     .from('users')
-    .select('*', { count: 'exact' })
+    .select(
+      'id, email, full_name, designation, joining_date, personal_email, personal_mobile_no, home_mobile_no, address, date_of_birth, photo_url, role, module_permissions, is_active, created_at',
+      { count: 'exact' }
+    )
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
 

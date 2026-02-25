@@ -56,9 +56,12 @@ export async function getActivityLogsPage(options: GetActivityLogsOptions): Prom
   const page = Math.max(1, options.page ?? 1)
   const pageSize = Math.min(100, Math.max(1, options.pageSize ?? 20))
 
+  // Optimize: Only select fields needed for list view (excludes user_id, record_id)
   let query = supabase
     .from('activity_log')
-    .select('*', { count: 'exact' })
+    .select('id, user_name, action_type, module_name, description, status, ip_address, created_at', {
+      count: 'exact',
+    })
 
   // Mandatory date range (inclusive): fromDate start of day to toDate end of day
   const fromStart = `${options.fromDate}T00:00:00.000Z`
