@@ -175,8 +175,8 @@ export default function UsersClient({
   }
 
   return (
-    <div className="flex h-full flex-col p-4 lg:p-6">
-      <div className="mb-4 flex items-center justify-between">
+    <div className="flex h-full flex-col p-2 sm:p-3 lg:p-4">
+      <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <SidebarToggleButton />
           <h1 className="text-2xl font-bold text-slate-900 font-display">User Management</h1>

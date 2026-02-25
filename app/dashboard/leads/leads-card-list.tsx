@@ -63,6 +63,13 @@ const getFollowUpDateColor = (dateString: string | null): string => {
   return 'text-gray-900 font-medium'
 }
 
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  if (parts.length === 0 || !parts[0]) return '?'
+  if (parts.length === 1) return parts[0][0].toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
 // Memoized card component to prevent unnecessary re-renders
 const LeadCard = memo(function LeadCard({
   lead,
@@ -97,14 +104,36 @@ const LeadCard = memo(function LeadCard({
       >
         <div className="flex items-start gap-3 p-4">
           <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 text-sm font-bold text-white shadow-sm ring-2 ring-white">
-            {lead.name.substring(0, 2).toUpperCase()}
+            {getInitials(lead.name)}
           </div>
           <div className="min-w-0 flex-1">
             <h3 className="truncate text-base font-semibold text-gray-900">{lead.name}</h3>
+            {/* Phone — clickable tel: link */}
+            <a
+              href={`tel:${lead.phone}`}
+              onClick={(e) => e.stopPropagation()}
+              className="mt-0.5 block truncate text-xs font-medium text-indigo-600 hover:text-indigo-700 hover:underline"
+            >
+              {lead.phone}
+            </a>
             {lead.company_name && (
               <p className="mt-0.5 truncate text-sm text-gray-500">{lead.company_name}</p>
             )}
-            <p className="mt-1 text-sm font-medium text-gray-600">{lead.phone}</p>
+            {/* Notes with 2-line clamp */}
+            {lead.notes && (
+              <p
+                className="mt-1 text-sm text-gray-500"
+                style={{
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                }}
+                title={lead.notes}
+              >
+                {lead.notes}
+              </p>
+            )}
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <StatusPill status={lead.status} />
               {lead.follow_up_date && (

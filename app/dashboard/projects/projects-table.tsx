@@ -159,7 +159,7 @@ function getWorkingStatusBadgeClasses(label: string): string {
 function WorkActionIcon({ action }: { action: 'start' | 'hold' | 'resume' | 'end' }) {
   if (action === 'hold') {
     return (
-      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     )
@@ -167,7 +167,7 @@ function WorkActionIcon({ action }: { action: 'start' | 'hold' | 'resume' | 'end
 
   if (action === 'end') {
     return (
-      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9.5 9.5h5v5h-5z" />
         <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
@@ -211,10 +211,10 @@ function WorkActionButton({
         onClick={onClick}
         disabled={disabled}
         aria-label={label}
-        className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${toneClasses[tone]}`}
+        className={`inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${toneClasses[tone]}`}
       >
         {isLoading ? (
-          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <circle className="opacity-20" cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
             <path className="opacity-90" d="M21 12a9 9 0 00-9-9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
           </svg>
@@ -305,7 +305,7 @@ export function ProjectsTable({
         <thead className="sticky top-0 z-10 bg-white">
           <tr className="bg-gray-50/50">
             <th
-              className="group w-[36%] min-w-[140px] sm:w-[28%] md:w-[26%] px-4 sm:px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-colors"
+              className="group w-[36%] min-w-[140px] sm:w-[28%] md:w-[26%] px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-colors"
               onClick={() => handleSort('name')}
             >
               <div className="flex items-center">
@@ -314,12 +314,12 @@ export function ProjectsTable({
               </div>
             </th>
             {showClientColumn && (
-              <th className="hidden sm:table-cell sm:w-[16%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <th className="hidden sm:table-cell sm:w-[16%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                 Client
               </th>
             )}
             <th
-              className="group w-[14%] sm:w-[10%] px-4 sm:px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-colors"
+              className="group w-[14%] sm:w-[10%] px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-colors"
               onClick={() => handleSort('status')}
             >
               <div className="flex items-center">
@@ -328,12 +328,12 @@ export function ProjectsTable({
               </div>
             </th>
             {showWorkingStatusColumn && (
-              <th className="hidden md:table-cell md:w-[12%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <th className="hidden md:table-cell md:w-[12%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                 Working Status
               </th>
             )}
             <th
-              className="group hidden md:table-cell md:w-[15%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
+              className="group hidden md:table-cell md:w-[15%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
               onClick={() => handleSort('client_deadline_date')}
             >
               <div className="flex items-center">
@@ -342,7 +342,7 @@ export function ProjectsTable({
               </div>
             </th>
             <th
-              className="group hidden lg:table-cell lg:w-[10%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
+              className="group hidden lg:table-cell lg:w-[10%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
               onClick={() => handleSort('follow_up_date')}
             >
               <div className="flex items-center">
@@ -351,7 +351,7 @@ export function ProjectsTable({
               </div>
             </th>
             <th
-              className="group hidden xl:table-cell xl:w-[10%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
+              className="group hidden xl:table-cell xl:w-[10%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
               onClick={() => handleSort('created_at')}
             >
               <div className="flex items-center">
@@ -360,11 +360,11 @@ export function ProjectsTable({
               </div>
             </th>
             {showWorkActions && (
-              <th className="w-[120px] sm:w-[100px] px-4 sm:px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <th className="w-[120px] sm:w-[100px] px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                 Work
               </th>
             )}
-            <th className="w-[12%] sm:w-[10%] px-4 sm:px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 transition-all duration-200">
+            <th className="w-[12%] sm:w-[10%] px-3 sm:px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 transition-all duration-200">
               {canWrite ? 'Actions' : 'View'}
             </th>
           </tr>
@@ -383,7 +383,7 @@ export function ProjectsTable({
                 key={project.id}
                 className="group transition-all duration-200 hover:bg-slate-50 cursor-pointer relative"
               >
-                <td className="px-4 sm:px-6 py-3">
+                <td className="px-3 sm:px-4 py-3">
                   <Link
                     href={projectHref}
                     prefetch
@@ -408,19 +408,19 @@ export function ProjectsTable({
                   </Link>
                 </td>
                 {showClientColumn && (
-                  <td className="hidden px-6 py-3 sm:table-cell">
+                  <td className="hidden px-4 py-3 sm:table-cell">
                     <div className="truncate text-sm text-gray-500" title={clientLabel}>
                       {clientLabel}
                     </div>
                   </td>
                 )}
-                <td className="px-4 sm:px-6 py-3">
+                <td className="px-4 sm:px-4 py-3">
                   <Link href={projectHref} prefetch className="block no-underline text-inherit">
                     <StatusPill status={project.status} />
                   </Link>
                 </td>
                 {showWorkingStatusColumn && (
-                  <td className="hidden md:table-cell px-6 py-3">
+                  <td className="hidden md:table-cell px-4 py-3">
                     <Link href={projectHref} prefetch className="block no-underline text-inherit">
                       {(() => {
                         const statusLabel = getWorkingStatusLabel?.(project)
@@ -438,12 +438,12 @@ export function ProjectsTable({
                     </Link>
                   </td>
                 )}
-                <td className="hidden px-6 py-3 text-sm text-gray-500 md:table-cell">
+                <td className="hidden px-4 py-3 text-sm text-gray-500 md:table-cell">
                   <Link href={projectHref} prefetch className="block no-underline text-inherit">
                     {project.client_deadline_date ? formatDate(project.client_deadline_date) : '--'}
                   </Link>
                 </td>
-                <td className="hidden px-6 py-3 text-sm text-gray-500 lg:table-cell">
+                <td className="hidden px-4 py-3 text-sm text-gray-500 lg:table-cell">
                   <Link href={projectHref} prefetch className="block no-underline text-inherit">
                     {project.follow_up_date ? (
                       <span className={getFollowUpDateColor(project.follow_up_date)}>
@@ -454,15 +454,15 @@ export function ProjectsTable({
                     )}
                   </Link>
                 </td>
-                <td className="hidden px-6 py-3 text-sm text-gray-500 xl:table-cell">
+                <td className="hidden px-4 py-3 text-sm text-gray-500 xl:table-cell">
                   <Link href={projectHref} prefetch className="block no-underline text-inherit">
                     {formatDate(project.created_at)}
                   </Link>
                 </td>
                 {showWorkActions && (
-                  <td className="px-4 sm:px-6 py-3 text-sm">
+                  <td className="px-3 sm:px-4 py-3 text-sm">
                     {project.my_work_status != null ? (
-                      <div className="flex flex-wrap items-center gap-1.5">
+                      <div className="flex items-center gap-2">
                         {project.my_work_status === 'not_started' && (
                           <WorkActionButton
                             label="Start"
@@ -529,7 +529,7 @@ export function ProjectsTable({
                     )}
                   </td>
                 )}
-                <td className="px-4 sm:px-6 py-3 text-right text-sm">
+                <td className="px-3 sm:px-4 py-3 text-right text-sm">
                   <div className="flex items-center justify-end gap-2">
                     {canEdit && (
                       <Tooltip content="Edit project" position="left">

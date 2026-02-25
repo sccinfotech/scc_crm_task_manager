@@ -81,9 +81,9 @@ export function TechnologyToolsClient({ tools, canWrite }: TechnologyToolsClient
   }
 
   return (
-    <div className="flex h-full flex-col p-4 lg:p-6">
+    <div className="flex h-full flex-col p-2 sm:p-3 lg:p-4">
       {/* Technology & Tools: single module header (no Settings title) */}
-      <section className="flex-1 flex flex-col space-y-4">
+      <section className="flex-1 flex flex-col space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <SidebarToggleButton />

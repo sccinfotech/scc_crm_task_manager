@@ -228,6 +228,7 @@ export type LeadListItem = {
   status: LeadStatus
   created_at: string
   follow_up_date: string | null
+  notes: string | null
   created_by?: string
 }
 
@@ -248,7 +249,7 @@ export async function getLeadsPage(options: GetLeadsPageOptions = {}) {
   // Optimize: Only select fields needed for list view (removed created_by as it's optional and not displayed)
   let query = supabase
     .from('leads')
-    .select('id, name, company_name, phone, status, created_at, follow_up_date', {
+    .select('id, name, company_name, phone, status, created_at, follow_up_date, notes', {
       count: 'exact',
     })
 

@@ -26,7 +26,7 @@ export function TechnologyToolsGrid({ tools, canWrite, onEdit, onDelete }: Techn
     }
 
     return (
-        <div className="h-full w-full overflow-y-auto p-4 lg:p-6 custom-scrollbar bg-slate-50/20">
+        <div className="h-full w-full overflow-y-auto p-2 sm:p-3 lg:p-4 custom-scrollbar bg-slate-50/20">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                 {tools.map((tool) => (
                     <div
@@ -36,8 +36,8 @@ export function TechnologyToolsGrid({ tools, canWrite, onEdit, onDelete }: Techn
                         {/* Status Dot: Half-inside, Half-outside at top-right */}
                         <div
                             className={`absolute -right-1.5 -top-1.5 z-20 h-3.5 w-3.5 rounded-full border-2 border-white shadow-sm ring-1 ring-slate-200/50 transition-all duration-300 ${tool.is_active
-                                    ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] group-hover:scale-110'
-                                    : 'bg-slate-300 group-hover:scale-110'
+                                ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] group-hover:scale-110'
+                                : 'bg-slate-300 group-hover:scale-110'
                                 }`}
                         />
 

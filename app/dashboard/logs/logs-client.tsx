@@ -263,9 +263,9 @@ export function LogsClient({
 
   return (
     <>
-      <div className="flex h-full flex-col p-3 sm:p-4 lg:p-6">
+      <div className="flex h-full flex-col p-2 sm:p-3 lg:p-4">
         {/* Page Title and optional actions (match Projects) */}
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 sm:mb-4">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2 sm:mb-3">
           <div className="flex items-center gap-3">
             <SidebarToggleButton />
             <h1 className="text-xl font-semibold text-[#1E1B4B] sm:text-2xl">Activity Logs</h1>
@@ -301,7 +301,7 @@ export function LogsClient({
         {/* Full-height white card: filters + toolbar + table + pagination (match Projects) */}
         <div className="flex flex-1 flex-col overflow-hidden rounded-lg bg-white shadow-sm">
           {/* Filters */}
-          <div className="border-b border-slate-200 bg-white px-3 py-3 sm:px-4 sm:py-4 lg:px-6">
+          <div className="border-b border-slate-200 bg-white px-3 sm:px-4 py-3 sm:py-3 lg:px-4">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div className="flex flex-wrap items-end gap-3 sm:gap-4">
                 <div>
@@ -393,7 +393,7 @@ export function LogsClient({
             <table className="w-full border-collapse text-left text-sm">
               <thead className="sticky top-0 z-10 bg-slate-50">
                 <tr>
-                  <th className="border-b border-slate-200 px-4 py-3 font-semibold text-slate-700 sm:px-6">
+                  <th className="border-b border-slate-200 px-3 py-3 font-semibold text-slate-700 sm:px-4">
                     <button
                       type="button"
                       onClick={() => handleSort('created_at')}
@@ -405,7 +405,7 @@ export function LogsClient({
                       )}
                     </button>
                   </th>
-                  <th className="border-b border-slate-200 px-4 py-3 font-semibold text-slate-700 sm:px-6">
+                  <th className="border-b border-slate-200 px-3 py-3 font-semibold text-slate-700 sm:px-4">
                     <button type="button" onClick={() => handleSort('user_name')} className="group flex items-center gap-1">
                       User Name
                       {initialSortField === 'user_name' && (
@@ -413,7 +413,7 @@ export function LogsClient({
                       )}
                     </button>
                   </th>
-                  <th className="border-b border-slate-200 px-4 py-3 font-semibold text-slate-700 sm:px-6">
+                  <th className="border-b border-slate-200 px-3 py-3 font-semibold text-slate-700 sm:px-4">
                     <button type="button" onClick={() => handleSort('action_type')} className="group flex items-center gap-1">
                       Action Type
                       {initialSortField === 'action_type' && (
@@ -421,7 +421,7 @@ export function LogsClient({
                       )}
                     </button>
                   </th>
-                  <th className="border-b border-slate-200 px-4 py-3 font-semibold text-slate-700 sm:px-6">
+                  <th className="border-b border-slate-200 px-3 py-3 font-semibold text-slate-700 sm:px-4">
                     <button type="button" onClick={() => handleSort('module_name')} className="group flex items-center gap-1">
                       Module Name
                       {initialSortField === 'module_name' && (
@@ -429,8 +429,8 @@ export function LogsClient({
                       )}
                     </button>
                   </th>
-                  <th className="border-b border-slate-200 px-4 py-3 font-semibold text-slate-700 sm:px-6">Description</th>
-                  <th className="border-b border-slate-200 px-4 py-3 font-semibold text-slate-700 sm:px-6">
+                  <th className="border-b border-slate-200 px-3 py-3 font-semibold text-slate-700 sm:px-4">Description</th>
+                  <th className="border-b border-slate-200 px-3 py-3 font-semibold text-slate-700 sm:px-4">
                     <button type="button" onClick={() => handleSort('status')} className="group flex items-center gap-1">
                       Status
                       {initialSortField === 'status' && (
@@ -438,30 +438,30 @@ export function LogsClient({
                       )}
                     </button>
                   </th>
-                  <th className="border-b border-slate-200 px-4 py-3 font-semibold text-slate-700 sm:px-6">IP Address</th>
+                  <th className="border-b border-slate-200 px-3 py-3 font-semibold text-slate-700 sm:px-4">IP Address</th>
                 </tr>
               </thead>
               <tbody>
                 {logs.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="border-b border-slate-200 px-4 py-8 text-center text-slate-500 sm:px-6">
+                    <td colSpan={7} className="border-b border-slate-200 px-3 py-8 text-center text-slate-500 sm:px-4">
                       No activity logs found for the selected filters.
                     </td>
                   </tr>
                 ) : (
                   logs.map((log) => (
                     <tr key={log.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                      <td className="whitespace-nowrap px-4 py-3 text-slate-700 sm:px-6">{formatDateTime(log.created_at)}</td>
-                      <td className="px-4 py-3 text-slate-700 sm:px-6">{log.user_name}</td>
-                      <td className="px-4 py-3 text-slate-700 sm:px-6">{log.action_type}</td>
-                      <td className="px-4 py-3 text-slate-700 sm:px-6">{log.module_name}</td>
-                      <td className="max-w-[240px] truncate px-4 py-3 text-slate-700 sm:px-6" title={log.description}>
+                      <td className="whitespace-nowrap px-3 py-3 text-slate-700 sm:px-4">{formatDateTime(log.created_at)}</td>
+                      <td className="px-3 py-3 text-slate-700 sm:px-4">{log.user_name}</td>
+                      <td className="px-3 py-3 text-slate-700 sm:px-4">{log.action_type}</td>
+                      <td className="px-3 py-3 text-slate-700 sm:px-4">{log.module_name}</td>
+                      <td className="max-w-[240px] truncate px-3 py-3 text-slate-700 sm:px-4" title={log.description}>
                         {log.description}
                       </td>
-                      <td className="px-4 py-3 sm:px-6">
+                      <td className="px-3 sm:px-4 py-3">
                         <StatusPill status={log.status} />
                       </td>
-                      <td className="px-4 py-3 text-slate-600 sm:px-6">{log.ip_address ?? '—'}</td>
+                      <td className="px-3 sm:px-4 py-3 text-slate-600">{log.ip_address ?? '—'}</td>
                     </tr>
                   ))
                 )}
@@ -476,7 +476,7 @@ export function LogsClient({
             onPageChange={(p) =>
               router.push(`${pathname}?${buildSearchParams({ page: p })}`)
             }
-            className="sm:px-6"
+            className="sm:px-4"
           />
         </div>
       </div>

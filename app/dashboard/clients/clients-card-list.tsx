@@ -30,6 +30,13 @@ function formatDate(dateString: string) {
   })
 }
 
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  if (parts.length === 0 || !parts[0]) return '?'
+  if (parts.length === 1) return parts[0][0].toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
 export interface ClientsCardListProps {
   clients: ClientListItem[]
   canWrite: boolean
@@ -113,7 +120,7 @@ export function ClientsCardList({
             <Link href={`/dashboard/clients/${client.id}`} prefetch className="hidden" aria-hidden="true" />
             <div className="flex items-start gap-3 p-4">
               <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 text-sm font-bold text-white shadow-sm ring-2 ring-white">
-                {client.name.substring(0, 2).toUpperCase()}
+                {getInitials(client.name)}
               </div>
               <div className="min-w-0 flex-1">
                 <h3 className="truncate text-base font-semibold text-gray-900">{client.name}</h3>

@@ -310,9 +310,9 @@ export function ProjectsClient({
 
   return (
     <>
-      <div className="flex h-full flex-col p-3 sm:p-4 lg:p-6">
+      <div className="flex h-full flex-col p-2 sm:p-3 lg:p-4">
         {/* Page Title, Refresh, and Create Project Button */}
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 sm:mb-4">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2 sm:mb-3">
           <div className="flex items-center gap-3">
             <SidebarToggleButton />
             <h1 className="text-xl font-semibold text-[#1E1B4B] sm:text-2xl">Projects</h1>

@@ -11,6 +11,7 @@ type Lead = {
   status: 'new' | 'contacted' | 'follow_up' | 'converted' | 'lost'
   created_at: string
   follow_up_date: string | null
+  notes: string | null
   created_by?: string
 }
 
@@ -93,18 +94,16 @@ const getFollowUpDateColor = (dateString: string | null): string => {
   const diffTime = followUpDateOnly.getTime() - today.getTime()
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 
-  // Red: today or past dates
-  if (diffDays <= 0) {
-    return 'text-rose-600 font-semibold'
-  }
-
-  // Orange: upcoming dates (within next 7 days)
-  if (diffDays <= 7) {
-    return 'text-amber-600 font-medium'
-  }
-
-  // Normal: other future dates
+  if (diffDays <= 0) return 'text-rose-600 font-semibold'
+  if (diffDays <= 7) return 'text-amber-600 font-medium'
   return 'text-gray-900 font-medium'
+}
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  if (parts.length === 0 || !parts[0]) return '?'
+  if (parts.length === 1) return parts[0][0].toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
 function SortIcon({ direction }: { direction: 'asc' | 'desc' | null }) {
@@ -146,7 +145,7 @@ const LeadTableRow = memo(function LeadTableRow({
 }) {
   const canEdit = canWrite
   const canDelete = canWrite
-  
+
   // Memoize formatted dates
   const formattedCreatedAt = useMemo(() => formatDate(lead.created_at), [lead.created_at])
   const formattedFollowUpDate = useMemo(() => formatFollowUpDate(lead.follow_up_date), [lead.follow_up_date])
@@ -156,14 +155,15 @@ const LeadTableRow = memo(function LeadTableRow({
     <tr
       className="group transition-all duration-200 hover:bg-slate-50 cursor-pointer relative"
     >
-      <td className="px-4 sm:px-6 py-3">
+      {/* Lead Name */}
+      <td className="px-3 sm:px-4 py-3">
         <Link
           href={`/dashboard/leads/${lead.id}`}
           prefetch
           className="flex items-center gap-2 sm:gap-3 no-underline text-inherit"
         >
           <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 text-xs sm:text-sm font-bold text-white shadow-sm flex-shrink-0 ring-2 ring-white">
-            {lead.name.substring(0, 2).toUpperCase()}
+            {getInitials(lead.name)}
           </div>
           <div className="flex flex-col min-w-0">
             <span className="truncate text-sm sm:text-base font-semibold text-gray-900 leading-tight" title={lead.name}>
@@ -172,22 +172,60 @@ const LeadTableRow = memo(function LeadTableRow({
           </div>
         </Link>
       </td>
-      <td className="hidden px-6 py-3 sm:table-cell">
+
+      {/* Phone — separate column, clickable tel: link */}
+      <td className="px-3 sm:px-4 py-3">
+        <div className="truncate text-sm">
+          {lead.phone ? (
+            <a
+              href={`tel:${lead.phone}`}
+              onClick={(e) => e.stopPropagation()}
+              className="text-indigo-600 hover:text-indigo-700 hover:underline font-medium"
+            >
+              {lead.phone}
+            </a>
+          ) : (
+            <span className="text-gray-500 font-medium">—</span>
+          )}
+        </div>
+      </td>
+
+      {/* Company */}
+      <td className="hidden px-4 py-3 sm:table-cell">
         <div className="truncate text-sm text-gray-500" title={lead.company_name || '—'}>
           {lead.company_name || '—'}
         </div>
       </td>
-      <td className="px-4 sm:px-6 py-3">
-        <Link href={`/dashboard/leads/${lead.id}`} prefetch className="block truncate text-sm text-gray-500 font-medium no-underline text-inherit" title={lead.phone}>
-          {lead.phone}
-        </Link>
+
+      {/* Notes / Remark — 3-line clamp with ellipsis */}
+      <td className="hidden px-4 py-3 lg:table-cell">
+        {lead.notes ? (
+          <span
+            className="text-sm text-gray-500"
+            style={{
+              display: '-webkit-box',
+              WebkitLineClamp: 3,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+            }}
+            title={lead.notes}
+          >
+            {lead.notes}
+          </span>
+        ) : (
+          <span className="text-sm text-gray-400">—</span>
+        )}
       </td>
-      <td className="px-4 sm:px-6 py-3">
+
+      {/* Status */}
+      <td className="px-3 sm:px-4 py-3">
         <Link href={`/dashboard/leads/${lead.id}`} prefetch className="block no-underline text-inherit">
           <StatusPill status={lead.status} />
         </Link>
       </td>
-      <td className="hidden px-6 py-3 text-sm md:table-cell">
+
+      {/* Follow-up date */}
+      <td className="hidden px-4 py-3 text-sm md:table-cell">
         <Link href={`/dashboard/leads/${lead.id}`} prefetch className="block no-underline text-inherit">
           {lead.follow_up_date ? (
             <span className={followUpDateColor}>
@@ -198,12 +236,16 @@ const LeadTableRow = memo(function LeadTableRow({
           )}
         </Link>
       </td>
-      <td className="hidden px-6 py-3 text-sm text-gray-500 lg:table-cell">
+
+      {/* Created date */}
+      <td className="hidden px-4 py-3 text-sm text-gray-500 xl:table-cell">
         <Link href={`/dashboard/leads/${lead.id}`} prefetch className="block no-underline text-inherit">
           {formattedCreatedAt}
         </Link>
       </td>
-      <td className="px-4 sm:px-6 py-3 text-right text-sm">
+
+      {/* Actions */}
+      <td className="px-3 sm:px-4 py-3 text-right text-sm">
         <div className="flex items-center justify-end gap-2">
           {canConvert && onConvert && lead.status !== 'converted' && (
             <Tooltip content="Convert to client" position="left">
@@ -292,8 +334,9 @@ export const LeadsTable = memo(function LeadsTable({
       <table className="w-full table-fixed divide-y divide-gray-100">
         <thead className="sticky top-0 z-10 bg-white">
           <tr className="bg-gray-50/50">
+            {/* Lead Name */}
             <th
-              className="group w-[40%] sm:w-[20%] px-4 sm:px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-colors"
+              className="group w-[35%] sm:w-[20%] px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-colors"
               onClick={() => handleSort('name')}
             >
               <div className="flex items-center">
@@ -301,17 +344,9 @@ export const LeadsTable = memo(function LeadsTable({
                 <SortIcon direction={sortField === 'name' ? sortDirection : null} />
               </div>
             </th>
+            {/* Phone column */}
             <th
-              className="group hidden sm:table-cell sm:w-[15%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
-              onClick={() => handleSort('company_name')}
-            >
-              <div className="flex items-center">
-                Company
-                <SortIcon direction={sortField === 'company_name' ? sortDirection : null} />
-              </div>
-            </th>
-            <th
-              className="group w-[30%] sm:w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-colors"
+              className="group w-[30%] sm:w-[15%] px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-colors"
               onClick={() => handleSort('phone')}
             >
               <div className="flex items-center">
@@ -320,7 +355,22 @@ export const LeadsTable = memo(function LeadsTable({
               </div>
             </th>
             <th
-              className="group w-[15%] sm:w-[12%] px-4 sm:px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-colors"
+              className="group hidden sm:table-cell sm:w-[15%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
+              onClick={() => handleSort('company_name')}
+            >
+              <div className="flex items-center">
+                Company
+                <SortIcon direction={sortField === 'company_name' ? sortDirection : null} />
+              </div>
+            </th>
+            {/* Notes column — only visible on large screens */}
+            <th
+              className="group hidden lg:table-cell lg:w-[20%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500"
+            >
+              Notes
+            </th>
+            <th
+              className="group w-[22%] sm:w-[13%] px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-colors"
               onClick={() => handleSort('status')}
             >
               <div className="flex items-center">
@@ -329,7 +379,7 @@ export const LeadsTable = memo(function LeadsTable({
               </div>
             </th>
             <th
-              className="group hidden md:table-cell md:w-[13%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
+              className="group hidden md:table-cell md:w-[13%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
               onClick={() => handleSort('follow_up_date')}
             >
               <div className="flex items-center">
@@ -338,7 +388,7 @@ export const LeadsTable = memo(function LeadsTable({
               </div>
             </th>
             <th
-              className="group hidden lg:table-cell lg:w-[13%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
+              className="group hidden xl:table-cell xl:w-[12%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
               onClick={() => handleSort('created_at')}
             >
               <div className="flex items-center">
@@ -346,7 +396,7 @@ export const LeadsTable = memo(function LeadsTable({
                 <SortIcon direction={sortField === 'created_at' ? sortDirection : null} />
               </div>
             </th>
-            <th className="w-[15%] sm:w-[12%] px-4 sm:px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 transition-all duration-200">
+            <th className="w-[15%] sm:w-[12%] px-3 sm:px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 transition-all duration-200">
               {canWrite ? 'Actions' : 'View'}
             </th>
           </tr>

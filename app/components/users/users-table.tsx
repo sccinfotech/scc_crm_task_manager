@@ -152,22 +152,22 @@ export function UsersTable({ users, canWrite, onRowClick, onEdit, onManagePermis
         <table className="w-full table-fixed divide-y divide-gray-100">
           <thead className="sticky top-0 z-10 bg-white">
             <tr className="bg-gray-50/50">
-              <th className="w-[45%] sm:w-[25%] px-4 sm:px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <th className="w-[45%] sm:w-[25%] px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                 User
               </th>
-              <th className="hidden sm:table-cell sm:w-[20%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <th className="hidden sm:table-cell sm:w-[20%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                 Designation
               </th>
-              <th className="hidden sm:table-cell sm:w-[17%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <th className="hidden sm:table-cell sm:w-[17%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                 Mobile
               </th>
-              <th className="w-[20%] sm:w-[12%] px-4 sm:px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <th className="w-[20%] sm:w-[12%] px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                 Role
               </th>
-              <th className="w-[17%] sm:w-[12%] px-4 sm:px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <th className="w-[17%] sm:w-[12%] px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                 Status
               </th>
-              <th className="w-[18%] sm:w-[14%] px-4 sm:px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <th className="w-[18%] sm:w-[14%] px-3 sm:px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">
                 {canWrite ? 'Actions' : 'View'}
               </th>
             </tr>
@@ -179,7 +179,7 @@ export function UsersTable({ users, canWrite, onRowClick, onEdit, onManagePermis
                 className="group transition-all duration-200 hover:bg-slate-50 cursor-pointer"
                 onClick={() => onRowClick(user)}
               >
-                <td className="px-4 sm:px-6 py-3">
+                <td className="px-4 sm:px-4 py-3">
                   <div className="flex items-center gap-2 sm:gap-3">
                     <UserAvatar user={user} />
                     <div className="flex flex-col min-w-0">
@@ -188,10 +188,10 @@ export function UsersTable({ users, canWrite, onRowClick, onEdit, onManagePermis
                     </div>
                   </div>
                 </td>
-                <td className="hidden sm:table-cell px-6 py-3">
+                <td className="hidden sm:table-cell px-4 py-3">
                   <div className="truncate text-sm text-gray-500">{user.designation || '-'}</div>
                 </td>
-                <td className="hidden sm:table-cell px-6 py-3">
+                <td className="hidden sm:table-cell px-4 py-3">
                   <div className="truncate text-sm">
                     {user.personal_mobile_no ? (
                       <a
@@ -206,13 +206,13 @@ export function UsersTable({ users, canWrite, onRowClick, onEdit, onManagePermis
                     )}
                   </div>
                 </td>
-                <td className="px-4 sm:px-6 py-3 text-sm">
+                <td className="px-4 sm:px-4 py-3 text-sm">
                   <RolePill role={user.role} />
                 </td>
-                <td className="px-4 sm:px-6 py-3 text-sm">
+                <td className="px-4 sm:px-4 py-3 text-sm">
                   <StatusPill status={user.is_active} />
                 </td>
-                <td className="px-4 sm:px-6 py-3 text-right text-sm" onClick={(e) => e.stopPropagation()}>
+                <td className="px-4 sm:px-4 py-3 text-right text-sm" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-end gap-2">
                     {canWrite && (
                       <>

@@ -359,9 +359,9 @@ export function LeadsClient({
 
   return (
     <>
-      <div className="flex h-full flex-col p-4 lg:p-6">
+      <div className="flex h-full flex-col p-2 sm:p-3 lg:p-4">
         {/* Page Title, Refresh, and Create Lead Button */}
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <SidebarToggleButton />
             <h1 className="text-2xl font-semibold text-[#1E1B4B]">Leads</h1>

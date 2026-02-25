@@ -63,6 +63,13 @@ function formatDate(dateString: string) {
   })
 }
 
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  if (parts.length === 0 || !parts[0]) return '?'
+  if (parts.length === 1) return parts[0][0].toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
 function SortIcon({ direction }: { direction: 'asc' | 'desc' | null }) {
   if (!direction) {
     return (
@@ -128,7 +135,7 @@ export function ClientsTable({
         <thead className="sticky top-0 z-10 bg-white">
           <tr className="bg-gray-50/50">
             <th
-              className="group w-[40%] sm:w-[20%] px-4 sm:px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-colors"
+              className="group w-[40%] sm:w-[20%] px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-colors"
               onClick={() => handleSort('name')}
             >
               <div className="flex items-center">
@@ -137,7 +144,7 @@ export function ClientsTable({
               </div>
             </th>
             <th
-              className="group hidden sm:table-cell sm:w-[15%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
+              className="group hidden sm:table-cell sm:w-[15%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
               onClick={() => handleSort('company_name')}
             >
               <div className="flex items-center">
@@ -146,7 +153,7 @@ export function ClientsTable({
               </div>
             </th>
             <th
-              className="group w-[30%] sm:w-[15%] px-4 sm:px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-colors"
+              className="group w-[30%] sm:w-[15%] px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-colors"
               onClick={() => handleSort('phone')}
             >
               <div className="flex items-center">
@@ -155,12 +162,12 @@ export function ClientsTable({
               </div>
             </th>
             <th
-              className="group hidden md:table-cell md:w-[20%] px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-colors"
+              className="group hidden md:table-cell md:w-[20%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-colors"
             >
               Remark
             </th>
             <th
-              className="group w-[15%] sm:w-[12%] px-4 sm:px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-colors"
+              className="group w-[15%] sm:w-[12%] px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-colors"
               onClick={() => handleSort('status')}
             >
               <div className="flex items-center">
@@ -168,7 +175,7 @@ export function ClientsTable({
                 <SortIcon direction={sortField === 'status' ? sortDirection : null} />
               </div>
             </th>
-            <th className="w-[15%] sm:w-[12%] px-4 sm:px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 transition-all duration-200">
+            <th className="w-[15%] sm:w-[12%] px-3 sm:px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 transition-all duration-200">
               {canWrite || canManageInternalNotes ? 'Actions' : 'View'}
             </th>
           </tr>
@@ -183,14 +190,14 @@ export function ClientsTable({
                 key={client.id}
                 className="group transition-all duration-200 hover:bg-slate-50 cursor-pointer"
               >
-                <td className="px-4 sm:px-6 py-3">
+                <td className="px-3 sm:px-4 py-3">
                   <Link
                     href={`/dashboard/clients/${client.id}`}
                     prefetch
                     className="flex items-center gap-2 sm:gap-3 no-underline text-inherit"
                   >
                     <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 text-xs sm:text-sm font-bold text-white shadow-sm flex-shrink-0 ring-2 ring-white">
-                      {client.name.substring(0, 2).toUpperCase()}
+                      {getInitials(client.name)}
                     </div>
                     <div className="flex flex-col min-w-0">
                       <span className="truncate text-sm sm:text-base font-semibold text-gray-900 leading-tight" title={client.name}>
@@ -204,12 +211,12 @@ export function ClientsTable({
                     </div>
                   </Link>
                 </td>
-                <td className="hidden px-6 py-3 sm:table-cell">
+                <td className="hidden px-4 py-3 sm:table-cell">
                   <Link href={`/dashboard/clients/${client.id}`} prefetch className="block truncate text-sm text-gray-500 no-underline text-inherit" title={client.company_name || '—'}>
                     {client.company_name || '—'}
                   </Link>
                 </td>
-                <td className="px-4 sm:px-6 py-3">
+                <td className="px-3 sm:px-4 py-3">
                   <div className="truncate text-sm">
                     {client.phone ? (
                       <a
@@ -224,7 +231,7 @@ export function ClientsTable({
                     )}
                   </div>
                 </td>
-                <td className="hidden px-6 py-3 md:table-cell">
+                <td className="hidden px-4 py-3 md:table-cell">
                   <Link href={`/dashboard/clients/${client.id}`} prefetch className="block no-underline text-inherit">
                     {client.remark ? (
                       <span
@@ -244,12 +251,12 @@ export function ClientsTable({
                     )}
                   </Link>
                 </td>
-                <td className="px-4 sm:px-6 py-3">
+                <td className="px-3 sm:px-4 py-3">
                   <Link href={`/dashboard/clients/${client.id}`} prefetch className="block no-underline text-inherit">
                     <StatusPill status={client.status} />
                   </Link>
                 </td>
-                <td className="px-4 sm:px-6 py-3 text-right text-sm">
+                <td className="px-3 sm:px-4 py-3 text-right text-sm">
                   <div className="flex items-center justify-end gap-2">
                     {canManageInternalNotes && onOpenInternalNotes && (
                       <Tooltip content="Internal notes" position="left">
