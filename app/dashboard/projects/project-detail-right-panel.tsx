@@ -27,14 +27,6 @@ interface ProjectDetailRightPanelProps {
   userRole: string
   currentUserId: string | undefined
   teamMembers: ProjectTeamMember[] | null | undefined
-  /** Staff only: current user work state and handler for Start/Hold/End (used in Work history bottom) */
-  staffWorkState?: {
-    status: 'not_started' | 'start' | 'hold' | 'end'
-    runningSince: string | null
-    totalSeconds: number
-    isUpdating: boolean
-  } | null
-  onStaffWorkStatus?: (eventType: 'start' | 'hold' | 'resume' | 'end', note?: string) => Promise<void>
   className?: string
   hideTabs?: boolean
   activeTabOverride?: RightPanelTab | null
@@ -69,8 +61,6 @@ export function ProjectDetailRightPanel({
   userRole,
   currentUserId,
   teamMembers,
-  staffWorkState = null,
-  onStaffWorkStatus,
   className = '',
   hideTabs = false,
   activeTabOverride = null,
@@ -193,8 +183,6 @@ export function ProjectDetailRightPanel({
               currentUserId={currentUserId}
               teamMembers={teamMembers ?? undefined}
               hideHeader={true}
-              staffWorkState={staffWorkState ?? null}
-              onStaffWorkStatus={onStaffWorkStatus}
               isActiveTab={tab === 'work-history'}
               className="!rounded-none !border-t-0 h-full"
             />

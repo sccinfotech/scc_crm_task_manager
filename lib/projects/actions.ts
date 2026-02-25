@@ -451,8 +451,17 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
   }
 }
 
-/** Request-scoped cache: deduplicates getProject calls for the same projectId within a request */
-export const getProject = cache(async (projectId: string): Promise<{ data: Project | null; error: string | null }> => {
+/** Options for getProject to control data fetch for performance (e.g. defer heavy data when not needed). */
+export type GetProjectOptions = {
+  /** When false, skips team_member_time_events and work_day_breakdown (for Tasks tab). Default true. */
+  includeTimeEvents?: boolean
+}
+
+/** Request-scoped cache: deduplicates getProject calls for the same projectId+options within a request */
+export const getProject = cache(async (
+  projectId: string,
+  options?: GetProjectOptions
+): Promise<{ data: Project | null; error: string | null }> => {
   const currentUser = await getCurrentUser()
   if (!currentUser) {
     return { data: null, error: 'You must be logged in to view a project' }
@@ -471,9 +480,18 @@ export const getProject = cache(async (projectId: string): Promise<{ data: Proje
       return { data: null, error: 'Project not found' }
     }
   }
+
+  const canViewAmount = canViewProjectAmount(currentUser.role)
+  const includeTimeEvents = options?.includeTimeEvents !== false
+
+  // Explicit columns only: avoid select('*') for performance. Skip project_amount for staff.
+  const projectCols = canViewAmount
+    ? 'id, name, logo_url, client_id, project_amount, status, staff_status, priority, client_deadline_date, website_links, reference_links, created_by, created_at, updated_at'
+    : 'id, name, logo_url, client_id, status, staff_status, priority, client_deadline_date, website_links, reference_links, created_by, created_at, updated_at'
+
   const { data, error } = await supabase
     .from('projects')
-    .select('*, clients(id, name, company_name)')
+    .select(`${projectCols}, clients(id, name, company_name)`)
     .eq('id', projectId)
     .single()
 
@@ -487,7 +505,7 @@ export const getProject = cache(async (projectId: string): Promise<{ data: Proje
     name: string
     logo_url: string | null
     client_id: string
-    project_amount: string | null
+    project_amount?: string | null
     status: string
     staff_status?: string | null
     priority?: string | null
@@ -506,11 +524,11 @@ export const getProject = cache(async (projectId: string): Promise<{ data: Proje
     .select('technology_tools(id, name)')
     .eq('project_id', projectId)
 
+  // Only work_status needed for display; work_started_at/ended_at/done_notes not used in detail view
   let teamRows: any[] | null = null
-  // Use users!user_id to disambiguate which foreign key to use (user_id vs created_by)
   const { data: teamRowsWithWork, error: teamWorkError } = await supabase
     .from('project_team_members')
-    .select('user_id, work_status, work_started_at, work_ended_at, work_done_notes, users!user_id(id, full_name, email)')
+    .select('user_id, work_status, users!user_id(id, full_name, email)')
     .eq('project_id', projectId)
 
   if (!teamWorkError && teamRowsWithWork) {
@@ -527,45 +545,46 @@ export const getProject = cache(async (projectId: string): Promise<{ data: Proje
   }
 
   const tools = ((toolRows as Array<{ technology_tools: ProjectTechnologyTool | ProjectTechnologyTool[] }> | null) || [])
-    .map((row) => normalizeTool(row.technology_tools))
+    .map((r) => normalizeTool(r.technology_tools))
     .filter((tool): tool is ProjectTechnologyTool => Boolean(tool))
 
   let teamMembers = ((teamRows as any[]) || []).map((row) => normalizeTeamMember(row)).filter((member): member is ProjectTeamMember => Boolean(member))
 
   let team_member_time_events: ProjectTeamMemberTimeEvent[] = []
-  const { data: timeEventRows, error: timeEventsError } = await supabase
-    .from('project_team_member_time_events')
-    .select('user_id, event_type, occurred_at, note')
-    .eq('project_id', projectId)
-    .order('occurred_at', { ascending: true })
+  if (includeTimeEvents) {
+    const { data: timeEventRows, error: timeEventsError } = await supabase
+      .from('project_team_member_time_events')
+      .select('user_id, event_type, occurred_at, note')
+      .eq('project_id', projectId)
+      .order('occurred_at', { ascending: true })
 
-  if (!timeEventsError && timeEventRows) {
-    team_member_time_events = timeEventRows.map((e: any) => ({
-      user_id: e.user_id,
-      event_type: e.event_type,
-      occurred_at: e.occurred_at,
-      note: e.note ?? null,
-    }))
+    if (!timeEventsError && timeEventRows) {
+      team_member_time_events = timeEventRows.map((e: any) => ({
+        user_id: e.user_id,
+        event_type: e.event_type,
+        occurred_at: e.occurred_at,
+        note: e.note ?? null,
+      }))
+
+      teamMembers = teamMembers.map((m) => {
+        const computed = computeMemberWorkSeconds(m.id, team_member_time_events)
+        return {
+          ...m,
+          total_work_seconds: computed.totalSeconds,
+          work_running_since: computed.runningSince ?? null,
+          work_day_breakdown: computed.dayBreakdown,
+        }
+      })
+    }
   }
 
-  teamMembers = teamMembers.map((m) => {
-    const computed = computeMemberWorkSeconds(m.id, team_member_time_events)
-    return {
-      ...m,
-      total_work_seconds: computed.totalSeconds,
-      work_running_since: computed.runningSince ?? null,
-      work_day_breakdown: computed.dayBreakdown,
-    }
-  })
-
   const client = normalizeClient(row.clients)
-  const canViewAmount = canViewProjectAmount(currentUser.role)
   const project: Project = {
     id: row.id,
     name: row.name,
     logo_url: row.logo_url,
     client_id: row.client_id,
-    project_amount: canViewAmount ? decryptAmount(row.project_amount) : null,
+    project_amount: canViewAmount && row.project_amount != null ? decryptAmount(row.project_amount) : null,
     status: row.status as ProjectStatus,
     staff_status: (row.staff_status ?? null) as ProjectStaffStatus | null,
     priority: (row.priority ?? 'medium') as ProjectPriority,
@@ -589,6 +608,71 @@ export const getProject = cache(async (projectId: string): Promise<{ data: Proje
 
   return { data: project, error: null }
 })
+
+/** Supplement for Details tab: fetches team_member_time_events and computes work stats. Call when user opens Details tab and project was loaded with includeTimeEvents: false. */
+export async function getProjectDetailsSupplement(
+  projectId: string
+): Promise<{ data: { team_members: ProjectTeamMember[]; team_member_time_events: ProjectTeamMemberTimeEvent[] } | null; error: string | null }> {
+  const currentUser = await getCurrentUser()
+  if (!currentUser) {
+    return { data: null, error: 'You must be logged in' }
+  }
+  const canReadModule = await hasPermission(currentUser, MODULE_PERMISSION_IDS.projects, 'read')
+  const isAdmin = isAdminManager(currentUser.role)
+  const isStaff = currentUser.role === 'staff'
+  if (!isAdmin && !isStaff && !canReadModule) {
+    return { data: null, error: 'You do not have permission' }
+  }
+
+  const supabase = await createClient()
+  if (isStaff && !isAdmin) {
+    const isAssigned = await isUserAssignedToProject(supabase, projectId, currentUser.id)
+    if (!isAssigned) return { data: null, error: 'Project not found' }
+  }
+
+  const [teamRes, timeEventsRes] = await Promise.all([
+    supabase
+      .from('project_team_members')
+      .select('user_id, work_status, users!user_id(id, full_name, email)')
+      .eq('project_id', projectId),
+    supabase
+      .from('project_team_member_time_events')
+      .select('user_id, event_type, occurred_at, note')
+      .eq('project_id', projectId)
+      .order('occurred_at', { ascending: true }),
+  ])
+
+  if (teamRes.error) {
+    return { data: null, error: teamRes.error.message ?? 'Failed to fetch team members' }
+  }
+  if (timeEventsRes.error) {
+    return { data: null, error: timeEventsRes.error.message ?? 'Failed to fetch time events' }
+  }
+
+  const teamRows = (teamRes.data as any[]) || []
+  const timeEventRows = (timeEventsRes.data as any[]) || []
+  const team_member_time_events: ProjectTeamMemberTimeEvent[] = timeEventRows.map((e: any) => ({
+    user_id: e.user_id,
+    event_type: e.event_type,
+    occurred_at: e.occurred_at,
+    note: e.note ?? null,
+  }))
+
+  const teamMembers = teamRows
+    .map((row) => normalizeTeamMember(row))
+    .filter((m): m is ProjectTeamMember => Boolean(m))
+    .map((m) => {
+      const computed = computeMemberWorkSeconds(m.id, team_member_time_events)
+      return {
+        ...m,
+        total_work_seconds: computed.totalSeconds,
+        work_running_since: computed.runningSince ?? null,
+        work_day_breakdown: computed.dayBreakdown,
+      }
+    })
+
+  return { data: { team_members: teamMembers, team_member_time_events }, error: null }
+}
 
 export async function createProject(formData: ProjectFormData): Promise<ProjectActionResult> {
   const currentUser = await getCurrentUser()
@@ -995,8 +1079,14 @@ export async function updateProjectStaffStatus(
   return result.error ? { data: null, error: result.error } : { data: result.data!, error: null }
 }
 
+/** Lightweight response: team members with work stats. Client merges into project instead of full refetch. */
+export type UpdateMyWorkStatusSupplement = {
+  team_members: ProjectTeamMember[]
+  team_member_time_events: ProjectTeamMemberTimeEvent[]
+}
+
 export type UpdateMyWorkStatusResult =
-  | { data: Project; error: null }
+  | { data: UpdateMyWorkStatusSupplement; error: null }
   | { data: null; error: string }
 
 export async function updateMyProjectWorkStatus(
@@ -1010,19 +1100,21 @@ export async function updateMyProjectWorkStatus(
   }
 
   const supabase = await createClient()
-  const isAssigned = await isUserAssignedToProject(supabase, projectId, currentUser.id)
+  const [isAssigned, memberRes] = await Promise.all([
+    isUserAssignedToProject(supabase, projectId, currentUser.id),
+    supabase
+      .from('project_team_members')
+      .select('work_status')
+      .eq('project_id', projectId)
+      .eq('user_id', currentUser.id)
+      .single(),
+  ])
+
   if (!isAssigned) {
     return { data: null, error: 'You are not assigned to this project' }
   }
 
-  const { data: memberRow } = await supabase
-    .from('project_team_members')
-    .select('work_status')
-    .eq('project_id', projectId)
-    .eq('user_id', currentUser.id)
-    .single()
-
-  const currentStatus = (memberRow as any)?.work_status ?? 'not_started'
+  const currentStatus = (memberRes.data as any)?.work_status ?? 'not_started'
   const validTransitions: Record<string, string[]> = {
     not_started: ['start'],
     start: ['hold', 'end'],
@@ -1079,7 +1171,7 @@ export async function updateMyProjectWorkStatus(
 
   revalidatePath(`/dashboard/projects/${projectId}`)
   revalidatePath('/dashboard/projects')
-  const result = await getProject(projectId)
+  const result = await getProjectDetailsSupplement(projectId)
   return result.error ? { data: null, error: result.error } : { data: result.data!, error: null }
 }
 

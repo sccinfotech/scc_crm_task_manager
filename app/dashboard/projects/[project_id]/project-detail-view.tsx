@@ -12,7 +12,7 @@ import {
   ProjectStatus,
   ProjectFollowUp,
   ProjectPriority,
-  getProject,
+  getProjectDetailsSupplement,
   updateProject,
   updateProjectLinks,
   updateProjectStatus,
@@ -27,6 +27,7 @@ import { getClientsForSelect, type ClientSelectOption } from '@/lib/clients/acti
 import { getTechnologyTools, type TechnologyTool } from '@/lib/settings/technology-tools-actions'
 import { getStaffForSelect, type StaffSelectOption } from '@/lib/users/actions'
 import { ProjectDetailRightPanel, type RightPanelTab } from '../project-detail-right-panel'
+import { ProjectWorkStatusBar } from '../project-work-status-bar'
 import { ProjectModal } from '../project-modal'
 import { DeleteConfirmModal } from '../delete-confirm-modal'
 
@@ -97,12 +98,13 @@ function StatusSegment({
     }
   }
 
+  const iconClass = 'h-3.5 w-3.5'
   const segmentButtons: { status: ProjectStatus; label: string; icon: React.ReactNode }[] = [
     {
       status: 'pending',
       label: 'Pending',
       icon: (
-        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
@@ -111,7 +113,7 @@ function StatusSegment({
       status: 'in_progress',
       label: 'In Progress',
       icon: (
-        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
           <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
@@ -121,7 +123,7 @@ function StatusSegment({
       status: 'hold',
       label: 'Hold',
       icon: (
-        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
@@ -130,7 +132,7 @@ function StatusSegment({
       status: 'completed',
       label: 'Completed',
       icon: (
-        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
@@ -139,7 +141,7 @@ function StatusSegment({
 
   return (
     <div
-      className="inline-flex gap-1 rounded-xl border border-slate-200 bg-slate-50/50 p-1 shadow-sm"
+      className="inline-flex gap-0.5 rounded-lg border border-slate-200 bg-slate-50/50 p-0.5 shadow-sm"
       role="group"
       aria-label="Project status"
     >
@@ -153,7 +155,7 @@ function StatusSegment({
             aria-pressed={isSelected}
             aria-label={label}
             className={`
-              flex items-center justify-center w-10 h-10 rounded-lg
+              flex items-center justify-center w-8 h-8 rounded-md
               transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-1
               ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}
               ${isSelected
@@ -423,6 +425,7 @@ export function ProjectDetailView({
   const clientOptionsLoadPromiseRef = useRef<Promise<void> | null>(null)
   const technologyToolOptionsLoadPromiseRef = useRef<Promise<void> | null>(null)
   const taskAssigneeOptionsLoadPromiseRef = useRef<Promise<void> | null>(null)
+  const detailsSupplementLoadedRef = useRef(false)
 
   const visibleTabs = showRequirementsAndPayments
     ? PROJECT_DETAIL_TABS
@@ -459,6 +462,7 @@ export function ProjectDetailView({
 
   useEffect(() => {
     setProject(initialProject)
+    detailsSupplementLoadedRef.current = false
   }, [initialProject])
 
   const ensureClientOptionsLoaded = useCallback(async () => {
@@ -561,6 +565,24 @@ export function ProjectDetailView({
     void ensureEditDependenciesLoaded({ silent: true })
   }, [activeTab, canManageProject, ensureEditDependenciesLoaded])
 
+  /** Load team work stats (work_day_breakdown, etc.) when switching to Details tab if not yet loaded. */
+  useEffect(() => {
+    if (activeTab !== 'details') return
+    if (project.team_members?.length === 0) return
+    const needsSupplement = project.team_members?.[0]?.work_day_breakdown === undefined
+    if (!needsSupplement || detailsSupplementLoadedRef.current) return
+
+    detailsSupplementLoadedRef.current = true
+    getProjectDetailsSupplement(project.id).then((result) => {
+      if (result.error || !result.data) return
+      setProject((prev) => ({
+        ...prev,
+        team_members: result.data!.team_members,
+        team_member_time_events: result.data!.team_member_time_events,
+      }))
+    })
+  }, [activeTab, project.id, project.team_members])
+
   /** Keep tab in sync with URL (handles refresh/back-forward/manual query edits). */
   useEffect(() => {
     const nextTab = resolveProjectDetailTab(
@@ -629,9 +651,12 @@ export function ProjectDetailView({
     setEndWorkModalOpen(false)
     setEndWorkNotes('')
     if (!result.error && result.data) {
-      setProject(result.data)
+      setProject((prev) => ({
+        ...prev,
+        team_members: result.data!.team_members,
+        team_member_time_events: result.data!.team_member_time_events,
+      }))
       showSuccess('Work Status Updated', eventType === 'end' ? 'Work ended and notes saved.' : 'Status updated.')
-      router.refresh()
     } else {
       showError('Update Failed', result.error || 'Failed to update work status')
     }
@@ -677,15 +702,9 @@ export function ProjectDetailView({
     }
   }
 
-  const handleEditSuccess = async () => {
-    setLoading(true)
-    const result = await getProject(project.id)
-    setLoading(false)
-    if (result && 'data' in result && result.data) {
-      setProject(result.data as Project)
-    }
+  const handleEditSuccess = (updatedProject: Project) => {
+    setProject(updatedProject)
     setEditModalOpen(false)
-    router.refresh()
   }
 
   const handleDelete = () => {
@@ -773,38 +792,48 @@ export function ProjectDetailView({
   return (
     <>
       <div className="flex h-full flex-col gap-2 sm:gap-3">
-        <div className="flex-shrink-0 rounded-2xl border border-slate-200/80 bg-white px-3 pt-1.5 sm:px-4 sm:pt-2">
-          <div className="flex items-stretch overflow-x-auto scrollbar-hide" role="tablist" aria-label="Project detail tabs">
-            {visibleTabs.map(({ id, label }, index) => {
-              const isActive = activeTab === id
-              const isLast = index === visibleTabs.length - 1
-              return (
-                <div key={id} className="flex items-stretch">
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={isActive}
-                    onClick={() => handleTabChange(id)}
-                    className={`
-                      relative px-2.5 pb-2 pt-1 text-sm font-semibold whitespace-nowrap transition-colors duration-200 cursor-pointer
-                      border-b-2
-                      focus:outline-none focus-visible:ring-2 focus-visible:ring-[#06B6D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white
-                      ${isActive
-                        ? 'text-[#06B6D4] border-[#06B6D4]'
-                        : 'text-slate-600 border-transparent hover:text-slate-800'}
-                    `}
-                  >
-                    {label}
-                  </button>
-                  {!isLast && (
-                    <span
-                      aria-hidden="true"
-                      className="mx-2 w-px self-stretch bg-gradient-to-b from-slate-200/0 via-slate-200/70 to-slate-200/0 sm:mx-3"
-                    />
-                  )}
-                </div>
-              )
-            })}
+        <div className="flex-shrink-0 rounded-2xl border border-slate-200/80 bg-white px-3 py-2 sm:px-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+            <div className="flex items-stretch overflow-x-auto scrollbar-hide" role="tablist" aria-label="Project detail tabs">
+              {visibleTabs.map(({ id, label }, index) => {
+                const isActive = activeTab === id
+                const isLast = index === visibleTabs.length - 1
+                return (
+                  <div key={id} className="flex items-stretch">
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={isActive}
+                      onClick={() => handleTabChange(id)}
+                      className={`
+                        relative px-2.5 pb-2 pt-1 text-sm font-semibold whitespace-nowrap transition-colors duration-200 cursor-pointer
+                        border-b-2
+                        focus:outline-none focus-visible:ring-2 focus-visible:ring-[#06B6D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white
+                        ${isActive
+                          ? 'text-[#06B6D4] border-[#06B6D4]'
+                          : 'text-slate-600 border-transparent hover:text-slate-800'}
+                      `}
+                    >
+                      {label}
+                    </button>
+                    {!isLast && (
+                      <span
+                        aria-hidden="true"
+                        className="mx-2 w-px self-stretch bg-gradient-to-b from-slate-200/0 via-slate-200/70 to-slate-200/0 sm:mx-3"
+                      />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            {staffWorkState && (
+              <ProjectWorkStatusBar
+                workState={staffWorkState}
+                onWorkStatus={handleMyWorkStatus}
+                onOpenEndModal={() => setEndWorkModalOpen(true)}
+                className="flex-shrink-0 border-t border-slate-100 pt-2 sm:border-t-0 sm:pt-0"
+              />
+            )}
           </div>
         </div>
 
@@ -1140,15 +1169,13 @@ export function ProjectDetailView({
               {/* RIGHT COLUMN: Tabs – desktop only (mobile opens this via Updates full-screen) */}
               <div className="hidden w-full lg:w-3/5 lg:flex lg:flex-col lg:gap-3 lg:overflow-y-auto lg:pb-0 scrollbar-hide">
                 <ProjectDetailRightPanel
-                  projectId={project.id}
-                  initialFollowUps={initialFollowUps}
-                  canManageFollowUps={canManageFollowUps}
-                  userRole={userRole}
-                  currentUserId={currentUserId}
-                  teamMembers={project.team_members ?? null}
-                  staffWorkState={staffWorkState}
-                  onStaffWorkStatus={handleMyWorkStatus}
-                  activeTabOverride={activeDetailsPanelTab}
+                projectId={project.id}
+                initialFollowUps={initialFollowUps}
+                canManageFollowUps={canManageFollowUps}
+                userRole={userRole}
+                currentUserId={currentUserId}
+                teamMembers={project.team_members ?? null}
+                activeTabOverride={activeDetailsPanelTab}
                   onTabChange={handleDetailsPanelTabChange}
                 />
               </div>
@@ -1246,8 +1273,6 @@ export function ProjectDetailView({
                 userRole={userRole}
                 currentUserId={currentUserId}
                 teamMembers={project.team_members ?? null}
-                staffWorkState={staffWorkState}
-                onStaffWorkStatus={handleMyWorkStatus}
                 className="!rounded-none border-0 h-full"
                 activeTabOverride={activeDetailsPanelTab}
                 onTabChange={handleDetailsPanelTabChange}
@@ -1265,10 +1290,10 @@ export function ProjectDetailView({
           initialData={getInitialEditData()}
           onSubmit={async (formData: ProjectFormData) => {
             const result = await updateProject(project.id, formData)
-            if (!result.error) {
+            if (!result.error && result.data) {
               showSuccess('Project Updated', 'Changes have been saved.')
-              await handleEditSuccess()
-            } else {
+              handleEditSuccess(result.data)
+            } else if (result.error) {
               showError('Update Failed', result.error)
             }
             return result

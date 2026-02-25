@@ -32,7 +32,7 @@ function resolveProjectDetailTab(
 
 interface ProjectDetailPageProps {
   params: Promise<{ project_id: string }>
-  searchParams: Promise<{ tab?: string; from?: string; userId?: string; returnTo?: string }>
+  searchParams: Promise<{ tab?: string; detailsTab?: string; from?: string; userId?: string; returnTo?: string }>
 }
 
 function sanitizeDashboardPath(value: string | undefined): string | null {
@@ -70,18 +70,21 @@ export default async function ProjectDetailPage({ params, searchParams }: Projec
     redirect('/dashboard?error=unauthorized')
   }
 
-  const projectResult = await getProject(project_id)
+  const showRequirementsAndPayments = user.role !== 'staff' && user.role !== 'client'
+  const initialResolvedTab = resolveProjectDetailTab(
+    parseProjectDetailTab(query.tab),
+    showRequirementsAndPayments
+  )
+
+  const projectResult = await getProject(project_id, {
+    includeTimeEvents: initialResolvedTab === 'details',
+  })
 
   if (projectResult.error || !projectResult.data) {
     notFound()
   }
 
   const project = projectResult.data
-  const showRequirementsAndPayments = user.role !== 'staff' && user.role !== 'client'
-  const initialResolvedTab = resolveProjectDetailTab(
-    parseProjectDetailTab(query.tab),
-    showRequirementsAndPayments
-  )
   // Load task assignees only when the initial tab needs Tasks.
   const shouldFetchTaskAssignees = initialResolvedTab === 'tasks'
   const staffResult = shouldFetchTaskAssignees

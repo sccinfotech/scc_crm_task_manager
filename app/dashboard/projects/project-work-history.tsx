@@ -21,21 +21,11 @@ export const WORK_HISTORY_DATA_SOURCE = 'project_team_member_time_events'
  * - On hold: shows accumulated time for the current session (up to the Hold event).
  */
 
-export type StaffWorkState = {
-  status: 'not_started' | 'start' | 'hold' | 'end'
-  runningSince: string | null
-  totalSeconds: number
-  isUpdating: boolean
-}
-
 interface ProjectWorkHistoryProps {
   projectId: string
   userRole: string
   currentUserId: string | undefined
   teamMembers: ProjectTeamMember[] | null | undefined
-  /** When staff: show Start/Hold/End at bottom and inline end-notes (no modal) */
-  staffWorkState?: StaffWorkState | null
-  onStaffWorkStatus?: (eventType: 'start' | 'hold' | 'resume' | 'end', note?: string) => Promise<void>
   /** When true, this tab is visible; used to silently refresh list when switching back */
   isActiveTab?: boolean
   className?: string
@@ -76,13 +66,6 @@ function formatWorkSecondsHhMmSs(seconds: number): string {
   const s = Math.floor(seconds % 60)
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${pad(h)}:${pad(m)}:${pad(s)}`
-}
-
-function formatWorkStatus(status: StaffWorkState['status']): string {
-  if (status === 'not_started') return 'Not started'
-  if (status === 'start') return 'In progress'
-  if (status === 'hold') return 'On hold'
-  return 'Ended'
 }
 
 function WorkHistoryLoadingSkeleton({ isTeamView }: { isTeamView: boolean }) {
@@ -174,8 +157,6 @@ export function ProjectWorkHistory({
   userRole,
   currentUserId,
   teamMembers,
-  staffWorkState = null,
-  onStaffWorkStatus,
   isActiveTab = true,
   className = '',
   hideHeader = false,
@@ -183,38 +164,13 @@ export function ProjectWorkHistory({
   const [historyData, setHistoryData] = useState<ProjectWorkHistoryPayload | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [endNotesOpen, setEndNotesOpen] = useState(false)
-  const [endNotes, setEndNotes] = useState('')
-  const [liveTick, setLiveTick] = useState(() => Date.now())
-  // Local anchor for the current running segment to avoid negative time from server/client clock skew.
-  const sessionStartClientMs = useRef<number | null>(null)
   const wasActiveTabRef = useRef(false)
 
   const isStaff = userRole === 'staff'
   const isAdminOrManager = userRole === 'admin' || userRole === 'manager'
   const isTeamView = !isStaff && isAdminOrManager
-  const showStaffActions = Boolean(staffWorkState && onStaffWorkStatus)
   const singleDays = historyData?.mode === 'single' ? historyData.days : []
   const teamDays = historyData?.mode === 'team' ? historyData.days : []
-
-  // Staff only: tick every 2 seconds so the timer updates live when work is in progress
-  // (Reduced from 1s to lower CPU/battery usage while keeping timer reasonably responsive)
-  const WORK_TIMER_TICK_MS = 2000
-  useEffect(() => {
-    if (!showStaffActions || !staffWorkState || staffWorkState.status !== 'start') return
-    const id = setInterval(() => setLiveTick(Date.now()), WORK_TIMER_TICK_MS)
-    return () => clearInterval(id)
-  }, [showStaffActions, staffWorkState?.status])
-
-  // Only show Done points form when user has clicked "End session". Close it when status is no longer start/hold.
-  useEffect(() => {
-    if (!showStaffActions || !staffWorkState) return
-    const { status } = staffWorkState
-    if (status === 'end' || status === 'not_started') {
-      setEndNotesOpen(false)
-      setEndNotes('')
-    }
-  }, [showStaffActions, staffWorkState?.status])
 
   const loadWorkHistory = useCallback(
     (silent: boolean) => {
@@ -493,178 +449,6 @@ export function ProjectWorkHistory({
             </div>
           )}
         </div>
-
-        {showStaffActions && staffWorkState && onStaffWorkStatus && (
-          <div className="flex-shrink-0 border-t border-slate-200 bg-white shadow-[0_-2px_10px_rgba(0,0,0,0.04)]">
-            {(() => {
-              const status = staffWorkState.status
-              const totalSec = staffWorkState.totalSeconds
-              const runningSince = staffWorkState.runningSince
-              const isRunning = status === 'start'
-              const currentMs = isRunning ? liveTick : Date.now()
-              const parsedRunningSince = runningSince ? new Date(runningSince).getTime() : NaN
-              const runningSinceMs = Number.isFinite(parsedRunningSince) ? parsedRunningSince : null
-              // "Current session" shows only THIS session's time (accumulated segments + current running segment).
-              // Keep a local anchor so the timer never goes negative or resets on server response.
-              if (status === 'start') {
-                if (sessionStartClientMs.current === null) {
-                  sessionStartClientMs.current = runningSinceMs ?? Date.now()
-                } else if (runningSinceMs !== null && runningSinceMs < sessionStartClientMs.current) {
-                  sessionStartClientMs.current = runningSinceMs
-                }
-              } else {
-                sessionStartClientMs.current = null
-              }
-              const elapsedSec = (() => {
-                if (status !== 'start') return totalSec
-                const anchorMs = sessionStartClientMs.current
-                const runningDelta = anchorMs !== null ? Math.max(0, currentMs - anchorMs) / 1000 : 0
-                return totalSec + runningDelta
-              })()
-              const statusStyles: Record<string, string> = {
-                not_started: 'bg-slate-100 text-slate-600 border-slate-200',
-                start: 'bg-cyan-100 text-cyan-800 border-cyan-200',
-                hold: 'bg-amber-100 text-amber-800 border-amber-200',
-                end: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-              }
-              const style = statusStyles[status] || statusStyles.not_started
-              const showEndForm = endNotesOpen && (status === 'start' || status === 'hold')
-              const showOnlyStartButton = status === 'not_started' || status === 'end'
-
-              if (showOnlyStartButton) {
-                return (
-                  <div className="px-3 py-2.5">
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => onStaffWorkStatus('start')}
-                        disabled={staffWorkState.isUpdating}
-                        className="w-full rounded-lg bg-cyan-600 px-3 py-1.5 text-sm font-bold text-white hover:bg-cyan-700 disabled:opacity-50 cursor-pointer transition-colors sm:w-auto"
-                      >
-                        {status === 'end' ? 'Start again' : 'Start work'}
-                      </button>
-                    </div>
-                  </div>
-                )
-              }
-
-              return (
-                <div className="px-3 py-2.5">
-                  {/* Single compact block: when End form is open, status + Hold sit on the same panel as Done points */}
-                  <div className="flex flex-wrap items-center gap-2 gap-y-2 mb-0">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Current session</span>
-                    <span className={`inline-flex rounded-full border px-2 py-0.5 text-sm font-bold ${style}`}>
-                      {formatWorkStatus(status)}
-                    </span>
-                    <span className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-100 px-2.5 py-1 text-base font-bold text-slate-800 tabular-nums">
-                      {formatWorkSecondsHhMmSs(elapsedSec) + (isRunning ? ' (live)' : '')}
-                    </span>
-                    {status === 'start' && !showEndForm && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => onStaffWorkStatus('hold')}
-                          disabled={staffWorkState.isUpdating}
-                          className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-bold text-white hover:bg-amber-600 disabled:opacity-50 cursor-pointer transition-colors ml-auto"
-                        >
-                          Hold
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEndNotesOpen(true)}
-                          disabled={staffWorkState.isUpdating}
-                          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50 cursor-pointer transition-colors"
-                        >
-                          End session
-                        </button>
-                      </>
-                    )}
-                    {status === 'hold' && !showEndForm && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => onStaffWorkStatus('resume')}
-                          disabled={staffWorkState.isUpdating}
-                          className="rounded-lg bg-cyan-600 px-3 py-1.5 text-sm font-bold text-white hover:bg-cyan-700 disabled:opacity-50 cursor-pointer transition-colors ml-auto"
-                        >
-                          Resume
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEndNotesOpen(true)}
-                          disabled={staffWorkState.isUpdating}
-                          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50 cursor-pointer transition-colors"
-                        >
-                          End session
-                        </button>
-                      </>
-                    )}
-                    {/* When form is open: Hold/Resume on same row so user can cancel ending */}
-                    {showEndForm && status === 'start' && (
-                      <button
-                        type="button"
-                        onClick={() => onStaffWorkStatus('hold')}
-                        disabled={staffWorkState.isUpdating}
-                        className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-bold text-white hover:bg-amber-600 disabled:opacity-50 cursor-pointer transition-colors ml-auto"
-                      >
-                        Hold
-                      </button>
-                    )}
-                    {showEndForm && status === 'hold' && (
-                      <button
-                        type="button"
-                        onClick={() => onStaffWorkStatus('resume')}
-                        disabled={staffWorkState.isUpdating}
-                        className="rounded-lg bg-cyan-600 px-3 py-1.5 text-sm font-bold text-white hover:bg-cyan-700 disabled:opacity-50 cursor-pointer transition-colors ml-auto"
-                      >
-                        Resume
-                      </button>
-                    )}
-                  </div>
-                  {showEndForm && (
-                    <div className="mt-2 pt-2 border-t border-slate-200/80">
-                      <label className="block text-sm font-bold text-slate-700 mb-1.5">
-                        Done points <span className="text-rose-500">*</span>
-                      </label>
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
-                        <textarea
-                          value={endNotes}
-                          onChange={(e) => setEndNotes(e.target.value)}
-                          placeholder="What did you complete in this session?"
-                          className="flex-1 min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm min-h-[52px] max-h-24 resize-y focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-cyan-500/20 placeholder:text-slate-400"
-                          rows={2}
-                        />
-                        <div className="flex flex-row gap-2 sm:flex-col sm:gap-2 flex-shrink-0 justify-center">
-                          <button
-                            type="button"
-                            onClick={() => { setEndNotesOpen(false); setEndNotes('') }}
-                            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors whitespace-nowrap"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              if (!endNotes.trim()) return
-                              await onStaffWorkStatus('end', endNotes.trim())
-                              setEndNotesOpen(false)
-                              setEndNotes('')
-                              loadWorkHistory(true)
-                            }}
-                            disabled={staffWorkState.isUpdating || !endNotes.trim()}
-                            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50 cursor-pointer transition-colors whitespace-nowrap"
-                          >
-                            {staffWorkState.isUpdating ? 'Saving…' : 'Save & end'}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )
-            })()}
-          </div>
-        )}
       </div>
     </div>
   )
