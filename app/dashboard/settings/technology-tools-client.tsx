@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { TechnologyToolsGrid } from './technology-tools-grid'
 import { TechnologyToolModal } from './technology-tool-modal'
@@ -14,6 +14,16 @@ import {
 } from '@/lib/settings/technology-tools-actions'
 import { useToast } from '@/app/components/ui/toast-context'
 import { SidebarToggleButton } from '@/app/components/dashboard/sidebar-context'
+import { SearchInput } from '@/app/components/ui/search-input'
+import { ListboxDropdown } from '@/app/components/ui/listbox-dropdown'
+
+type StatusFilter = 'all' | 'active' | 'inactive'
+
+const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
+  { value: 'all', label: 'All Status' },
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+]
 
 interface TechnologyToolsClientProps {
   tools: TechnologyTool[]
@@ -28,6 +38,28 @@ export function TechnologyToolsClient({ tools, canWrite }: TechnologyToolsClient
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [selectedTool, setSelectedTool] = useState<TechnologyTool | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+
+  const filteredTools = useMemo(() => {
+    return tools.filter((tool) => {
+      const matchesSearch =
+        !searchQuery.trim() ||
+        tool.name.toLowerCase().includes(searchQuery.trim().toLowerCase())
+      const matchesStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'active' && tool.is_active) ||
+        (statusFilter === 'inactive' && !tool.is_active)
+      return matchesSearch && matchesStatus
+    })
+  }, [tools, searchQuery, statusFilter])
+
+  const hasActiveFilters = statusFilter !== 'all' || searchQuery.trim() !== ''
+
+  const handleClearFilters = () => {
+    setSearchQuery('')
+    setStatusFilter('all')
+  }
 
   const handleCreate = async (formData: TechnologyToolFormData) => {
     if (!canWrite) {
@@ -111,10 +143,40 @@ export function TechnologyToolsClient({ tools, canWrite }: TechnologyToolsClient
           </div>
         </div>
 
+        {/* Search and Filters */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+          <div className="flex-1 sm:max-w-xs">
+            <SearchInput
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Search by name..."
+              debounceMs={300}
+            />
+          </div>
+          <div className="sm:w-40">
+            <ListboxDropdown
+              value={statusFilter}
+              options={STATUS_OPTIONS}
+              onChange={setStatusFilter}
+              ariaLabel="Filter by status"
+            />
+          </div>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={handleClearFilters}
+              className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 whitespace-nowrap"
+            >
+              Clear Filters
+            </button>
+          )}
+        </div>
+
         <div className="flex-1 overflow-hidden rounded-xl bg-transparent flex flex-col">
           <TechnologyToolsGrid
-            tools={tools}
+            tools={filteredTools}
             canWrite={canWrite}
+            hasFilters={hasActiveFilters && filteredTools.length === 0 && tools.length > 0}
             onEdit={(tool) => {
               setSelectedTool(tool)
               setEditModalOpen(true)

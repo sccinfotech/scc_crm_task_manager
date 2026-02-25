@@ -8,16 +8,20 @@ interface TechnologyToolsGridProps {
     canWrite: boolean
     onEdit: (tool: TechnologyTool) => void
     onDelete: (tool: TechnologyTool) => void
+    /** When true, show "no matches" message instead of "no tools" (filters applied) */
+    hasFilters?: boolean
 }
 
-export function TechnologyToolsGrid({ tools, canWrite, onEdit, onDelete }: TechnologyToolsGridProps) {
+export function TechnologyToolsGrid({ tools, canWrite, onEdit, onDelete, hasFilters }: TechnologyToolsGridProps) {
     if (tools.length === 0) {
         return (
             <div className="flex h-full w-full min-h-[400px] items-center justify-center bg-transparent">
                 <div className="w-full max-w-lg">
                     <EmptyState
-                        title="No tools discovered"
-                        description="Start building your tech stack by adding your first technology or tool."
+                        title={hasFilters ? 'No tools match your filters' : 'No tools discovered'}
+                        description={hasFilters
+                            ? 'Try adjusting your search or status filter to see more results.'
+                            : 'Start building your tech stack by adding your first technology or tool.'}
                         variant="default"
                     />
                 </div>

@@ -9,6 +9,7 @@ interface ClientModalProps {
   onClose: () => void
   mode: 'create' | 'edit'
   initialData?: Partial<ClientFormData>
+  isLoading?: boolean
   onSubmit: (formData: ClientFormData) => Promise<{ error: string | null }>
 }
 
@@ -17,6 +18,7 @@ export function ClientModal({
   onClose,
   mode,
   initialData,
+  isLoading = false,
   onSubmit,
 }: ClientModalProps) {
   useEffect(() => {
@@ -79,13 +81,33 @@ export function ClientModal({
 
         {/* Content */}
         <div className="max-h-[calc(100vh-200px)] overflow-y-auto px-6 py-6">
-          <ClientForm
-            initialData={initialData}
-            onSubmit={onSubmit}
-            onSuccess={handleSuccess}
-            submitLabel={mode === 'create' ? 'Create Client' : 'Update Client'}
-            mode={mode}
-          />
+          {mode === 'edit' && isLoading ? (
+            <div className="space-y-6 animate-pulse" aria-busy="true" aria-label="Loading client details">
+              <div className="space-y-4 rounded-2xl border border-slate-100 bg-slate-50/50 p-5">
+                <div className="h-4 w-24 rounded bg-gray-200" />
+                <div className="grid gap-5 md:grid-cols-2">
+                  <div className="h-12 rounded-xl bg-gray-200" />
+                  <div className="h-12 rounded-xl bg-gray-200" />
+                </div>
+                <div className="grid gap-5 md:grid-cols-2">
+                  <div className="h-12 rounded-xl bg-gray-200" />
+                  <div className="h-12 rounded-xl bg-gray-200" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <div className="h-10 w-20 rounded-xl bg-gray-200" />
+                <div className="h-10 w-24 rounded-xl bg-gray-200" />
+              </div>
+            </div>
+          ) : (
+            <ClientForm
+              initialData={initialData}
+              onSubmit={onSubmit}
+              onSuccess={handleSuccess}
+              submitLabel={mode === 'create' ? 'Create Client' : 'Update Client'}
+              mode={mode}
+            />
+          )}
         </div>
       </div>
     </div>

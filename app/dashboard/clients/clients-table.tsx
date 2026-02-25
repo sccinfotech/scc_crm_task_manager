@@ -257,7 +257,7 @@ export function ClientsTable({
                   </Link>
                 </td>
                 <td className="px-3 sm:px-4 py-3 text-right text-sm">
-                  <div className="flex items-center justify-end gap-2">
+                  <div className="flex items-center justify-end gap-1">
                     {canManageInternalNotes && onOpenInternalNotes && (
                       <Tooltip content="Internal notes" position="left">
                         <button

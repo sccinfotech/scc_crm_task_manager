@@ -14,6 +14,7 @@ interface ProjectModalProps {
   onClose: () => void
   mode: 'create' | 'edit'
   initialData?: Partial<ProjectFormData>
+  isLoading?: boolean
   onSubmit: (formData: ProjectFormData) => Promise<{ error: string | null }>
   clients: ClientSelectOption[]
   clientsError: string | null
@@ -33,6 +34,7 @@ export function ProjectModal({
   onClose,
   mode,
   initialData,
+  isLoading = false,
   onSubmit,
   clients,
   clientsError,
@@ -121,6 +123,25 @@ export function ProjectModal({
 
           {/* Content */}
           <div className="max-h-[calc(100dvh-140px)] overflow-y-auto px-4 py-4 sm:max-h-[calc(100vh-200px)] sm:px-6 sm:py-6">
+            {mode === 'edit' && isLoading ? (
+              <div className="space-y-6 animate-pulse" aria-busy="true" aria-label="Loading project details">
+                <div className="space-y-4 rounded-2xl border border-slate-100 bg-slate-50/50 p-5">
+                  <div className="h-4 w-24 rounded bg-gray-200" />
+                  <div className="grid gap-5 md:grid-cols-2">
+                    <div className="h-12 rounded-xl bg-gray-200" />
+                    <div className="h-12 rounded-xl bg-gray-200" />
+                  </div>
+                  <div className="grid gap-5 md:grid-cols-2">
+                    <div className="h-12 rounded-xl bg-gray-200" />
+                    <div className="h-12 rounded-xl bg-gray-200" />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <div className="h-10 w-20 rounded-xl bg-gray-200" />
+                  <div className="h-10 w-24 rounded-xl bg-gray-200" />
+                </div>
+              </div>
+            ) : (
             <ProjectForm
               initialData={initialData}
               onSubmit={onSubmit}
@@ -139,6 +160,7 @@ export function ProjectModal({
               onClientIdChange={onSelectedClientIdChange}
               onCreateClientClick={() => setCreateClientModalOpen(true)}
             />
+            )}
           </div>
         </div>
       </div>

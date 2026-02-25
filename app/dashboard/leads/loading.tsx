@@ -27,7 +27,7 @@ export default function LeadsLoading() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
-              {[...Array(20)].map((_, i) => (
+              {[...Array(10)].map((_, i) => (
                 <tr key={i} className="animate-pulse">
                   <td className="whitespace-nowrap px-3 sm:px-4 py-4"><div className="h-4 w-32 rounded bg-gray-200" /></td>
                   <td className="whitespace-nowrap px-3 sm:px-4 py-4"><div className="h-4 w-24 rounded bg-gray-200" /></td>

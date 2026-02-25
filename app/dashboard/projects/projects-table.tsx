@@ -465,7 +465,7 @@ export const ProjectsTable = memo(function ProjectsTable({
                 {showWorkActions && (
                   <td className="px-3 sm:px-4 py-3 text-sm">
                     {project.my_work_status != null ? (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
                         {project.my_work_status === 'not_started' && (
                           <WorkActionButton
                             label="Start"
@@ -533,7 +533,7 @@ export const ProjectsTable = memo(function ProjectsTable({
                   </td>
                 )}
                 <td className="px-3 sm:px-4 py-3 text-right text-sm">
-                  <div className="flex items-center justify-end gap-2">
+                  <div className="flex items-center justify-end gap-1">
                     {canEdit && (
                       <Tooltip content="Edit project" position="left">
                         <button

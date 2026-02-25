@@ -48,6 +48,7 @@ export function ClientsClient({
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [deleteClientName, setDeleteClientName] = useState<string>('')
   const [loading, setLoading] = useState(false)
+  const [editLoading, setEditLoading] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [internalNotesOpen, setInternalNotesOpen] = useState(false)
   const [internalNotesClientId, setInternalNotesClientId] = useState<string | null>(null)
@@ -154,15 +155,17 @@ export function ClientsClient({
       showError('Read-only Access', 'You do not have permission to edit clients.')
       return
     }
-    setLoading(true)
+    setSelectedClientId(clientId)
+    setEditModalOpen(true)
+    setEditLoading(true)
     const result = await getClient(clientId)
-    setLoading(false)
+    setEditLoading(false)
     if (result.data) {
       setSelectedClient(result.data)
-      setSelectedClientId(clientId)
-      setEditModalOpen(true)
     } else {
       showError('Error', result.error || 'Failed to load client for editing')
+      setEditModalOpen(false)
+      setSelectedClientId(null)
     }
   }
 
@@ -365,9 +368,11 @@ export function ClientsClient({
           setEditModalOpen(false)
           setSelectedClientId(null)
           setSelectedClient(null)
+          setEditLoading(false)
         }}
         mode="edit"
         initialData={getInitialEditData()}
+        isLoading={editLoading}
         onSubmit={handleUpdate}
       />
 

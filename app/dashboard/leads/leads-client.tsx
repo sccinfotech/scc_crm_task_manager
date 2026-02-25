@@ -57,6 +57,7 @@ export function LeadsClient({
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
   const [deleteLeadName, setDeleteLeadName] = useState<string>('')
   const [loading, setLoading] = useState(false)
+  const [editLoading, setEditLoading] = useState(false)
   const [deleting, setDeleting] = useState(false)
   // Mobile: accumulated list for infinite scroll (desktop uses server-driven page)
   const [mobileLeads, setMobileLeads] = useState<LeadListItem[]>(leads)
@@ -172,15 +173,17 @@ export function LeadsClient({
       showError('Read-only Access', 'You do not have permission to edit leads.')
       return
     }
-    setLoading(true)
+    setSelectedLeadId(leadId)
+    setEditModalOpen(true)
+    setEditLoading(true)
     const result = await getLead(leadId)
-    setLoading(false)
+    setEditLoading(false)
     if (result.data) {
       setSelectedLead(result.data)
-      setSelectedLeadId(leadId)
-      setEditModalOpen(true)
     } else {
       showError('Error', result.error || 'Failed to load lead for editing')
+      setEditModalOpen(false)
+      setSelectedLeadId(null)
     }
   }
 
@@ -197,6 +200,7 @@ export function LeadsClient({
 
   const handleCloseEdit = () => {
     setEditModalOpen(false)
+    setEditLoading(false)
     // Only clear selectedLead/selectedLeadId if details view is not open
     if (!detailsModalOpen) {
       setSelectedLeadId(null)
@@ -463,6 +467,7 @@ export function LeadsClient({
         onClose={handleCloseEdit}
         mode="edit"
         initialData={getInitialEditData()}
+        isLoading={editLoading}
         onSubmit={handleUpdate}
       />
 

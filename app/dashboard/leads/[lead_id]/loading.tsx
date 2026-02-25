@@ -1,25 +1,25 @@
-import { Header } from '@/app/components/dashboard/header'
 import Link from 'next/link'
 
+/** Lightweight skeleton—no client components (Header/NotificationsBell) for instant paint. */
 export default function LeadDetailLoading() {
-  const breadcrumb = (
-    <div className="flex items-center gap-2 text-sm">
-      <Link
-        href="/dashboard/leads"
-        className="font-medium text-[#06B6D4] hover:text-[#0891b2] hover:underline transition-colors"
-      >
-        Leads
-      </Link>
-      <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-      </svg>
-      <span className="h-5 w-32 animate-pulse rounded bg-gray-200" />
-    </div>
-  )
-
   return (
     <div className="flex flex-col h-full">
-      <Header pageTitle="Lead Details" breadcrumb={breadcrumb} />
+      <header className="sticky top-0 z-30 h-16 bg-white border-b border-gray-100 shadow-sm">
+        <div className="flex h-full items-center px-4 lg:px-6">
+          <div className="flex items-center gap-2 text-sm">
+            <Link
+              href="/dashboard/leads"
+              className="font-medium text-[#06B6D4] hover:text-[#0891b2] hover:underline transition-colors"
+            >
+              Leads
+            </Link>
+            <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            <span className="h-5 w-32 animate-pulse rounded bg-gray-200" />
+          </div>
+        </div>
+      </header>
       <div className="flex-1 overflow-hidden px-2 sm:px-3 lg:px-4 pt-2 lg:pt-3 pb-2">
         <div className="flex h-full flex-col lg:flex-row gap-4">
           {/* Left column skeleton */}

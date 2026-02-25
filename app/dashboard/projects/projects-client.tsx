@@ -82,6 +82,7 @@ export function ProjectsClient({
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
   const [deleteProjectName, setDeleteProjectName] = useState<string>('')
   const [loading, setLoading] = useState(false)
+  const [editLoading, setEditLoading] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [selectedClientIdForNewProject, setSelectedClientIdForNewProject] = useState('')
   // Mobile: accumulated list for infinite scroll (desktop uses server-driven page)
@@ -190,15 +191,17 @@ export function ProjectsClient({
       showError('Read-only Access', 'You do not have permission to edit projects.')
       return
     }
-    setLoading(true)
+    setSelectedProjectId(projectId)
+    setEditModalOpen(true)
+    setEditLoading(true)
     const result = await getProject(projectId)
-    setLoading(false)
+    setEditLoading(false)
     if (result.data) {
       setSelectedProject(result.data)
-      setSelectedProjectId(projectId)
-      setEditModalOpen(true)
     } else {
       showError('Error', result.error || 'Failed to load project for editing')
+      setEditModalOpen(false)
+      setSelectedProjectId(null)
     }
   }
 
@@ -206,6 +209,7 @@ export function ProjectsClient({
     setEditModalOpen(false)
     setSelectedProjectId(null)
     setSelectedProject(null)
+    setEditLoading(false)
   }
 
   const handleDelete = (projectId: string, projectName: string) => {
@@ -442,6 +446,7 @@ export function ProjectsClient({
         onClose={handleCloseEdit}
         mode="edit"
         initialData={getInitialEditData()}
+        isLoading={editLoading}
         onSubmit={handleUpdate}
         clients={clients}
         clientsError={clientsError}

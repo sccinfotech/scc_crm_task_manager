@@ -13,8 +13,48 @@ Skeletons (loading placeholders with `animate-pulse`) are used in **Next.js rout
 | `app/dashboard/clients/loading.tsx` | Clients list page |
 | `app/dashboard/clients/[client_id]/loading.tsx` | Client detail page (left/right columns) |
 | `app/dashboard/users/loading.tsx` | Users list page |
+| `app/dashboard/logs/loading.tsx` | Activity Logs page (table + filters) |
+| `app/dashboard/settings/loading.tsx` | Technology & Tools page (grid) |
+| `app/dashboard/loading.tsx` | Dashboard home (minimal placeholder) |
 
 **Skeleton behavior:** They use Tailwind’s `animate-pulse` and gray blocks (`bg-gray-200`, `bg-gray-100`). **No fixed “loading time” or delay** is set; visibility lasts only as long as the server/data load for that route.
+
+---
+
+## Skeleton Format Guidelines (for new modules)
+
+When adding a new dashboard module, **always create a `loading.tsx`** file in the route folder so users see a skeleton instead of a blank screen during navigation.
+
+### Standard structure
+
+1. **List/table pages** (e.g. Projects, Leads, Clients, Users, Logs):
+   - Outer: `flex h-full flex-col p-2 sm:p-3 lg:p-4`
+   - Header row: title placeholder (`h-8 w-24 animate-pulse rounded bg-gray-200`) + action button placeholder
+   - Card: `flex-1 overflow-hidden rounded-lg bg-white shadow-sm flex flex-col`
+   - Filters row: `border-b border-gray-200 bg-white px-4 py-4` with filter placeholders (`h-10 animate-pulse rounded-lg bg-gray-200`)
+   - Table: real `<thead>` with column labels + `<tbody>` with ~10 skeleton rows using `animate-pulse` and `bg-gray-200` blocks (keep lightweight for instant paint)
+
+2. **Detail pages** (e.g. Client, Lead, Project detail):
+   - Use a simple static `<header>` placeholder with breadcrumb (Link to parent + skeleton for current item name). Do **not** import the `Header` client component—it loads NotificationsBell and delays the skeleton.
+   - Two-column layout: `flex flex-col lg:flex-row gap-4` with `w-full lg:w-1/2`
+   - Left: profile card skeleton (avatar, name, pills) + content blocks
+   - Right: list/panel skeleton with placeholder rows
+
+3. **Grid pages** (e.g. Technology & Tools):
+   - Header: title + action buttons as placeholders
+   - Grid: `grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5` with card placeholders
+
+### Styling rules
+
+- Use `animate-pulse` on skeleton elements
+- Use `bg-gray-200` for primary blocks, `bg-gray-100` for secondary
+- Match the layout of the actual page (e.g. same responsive breakpoints, table columns)
+
+### Performance (skeleton must show instantly)
+
+- **Keep skeletons lightweight** – fewer DOM nodes = faster paint. Use ~10 table rows (not 20), ~8 grid cards (not 12).
+- **No client components in loading.tsx** – avoid importing `Header`, `NotificationsBell`, or other client components. Use a simple static `<header>` placeholder instead. This prevents loading/hydrating client JS before the skeleton appears.
+- **No artificial delays** – never add `setTimeout`, `delay`, or similar. Next.js shows the skeleton immediately upon navigation.
 
 ---
 
@@ -69,7 +109,7 @@ Used so search doesn’t fire on every keystroke:
 
 ## Summary
 
-- **Skeletons:** Only in the 7 `loading.tsx` files above; they are shown for as long as the route is loading, with **no extra delay**.
+- **Skeletons:** In all 10 `loading.tsx` files above; they are shown for as long as the route is loading, with **no extra delay**. Skeletons are kept lightweight for instant paint.
 - **Loading time/delay:** No global “loading delay” is set. The only explicit delays are:
   - **300–500 ms** for search debounce in filters
   - **5 s** default toast duration (and 300 ms exit)

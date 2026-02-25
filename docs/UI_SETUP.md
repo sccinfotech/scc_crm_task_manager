@@ -35,7 +35,17 @@ This applies to every modal in the app so that users do not lose work by acciden
 
 ---
 
+## Skeleton loading (all modules)
+
+Every dashboard module **must** have a route-level `loading.tsx` file that shows a skeleton during page load. This ensures consistent UX—users see a structured placeholder instead of a blank screen when navigating.
+
+- **Required:** Create `loading.tsx` in each new module's route folder
+- **Format:** Follow the guidelines in [LOADING_AND_SKELETONS.md](./LOADING_AND_SKELETONS.md#skeleton-format-guidelines-for-new-modules)
+- **Reference:** See existing modules (Projects, Leads, Clients, Users, Logs, Settings) for examples
+
+---
+
 ## Related docs
 
-- [LOADING_AND_SKELETONS.md](./LOADING_AND_SKELETONS.md) – Skeletons, spinners, and delays
+- [LOADING_AND_SKELETONS.md](./LOADING_AND_SKELETONS.md) – Skeletons, spinners, delays, and format guidelines
 - [SETUP.md](../SETUP.md) – Authentication and environment setup

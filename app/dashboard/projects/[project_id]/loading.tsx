@@ -1,17 +1,17 @@
 import Link from 'next/link'
 
 /** Lightweight skeleton—no client components (Header/NotificationsBell) for instant paint. */
-export default function ClientDetailLoading() {
+export default function ProjectDetailLoading() {
   return (
     <div className="flex flex-col h-full">
       <header className="sticky top-0 z-30 h-16 bg-white border-b border-gray-100 shadow-sm">
         <div className="flex h-full items-center px-4 lg:px-6">
           <div className="flex items-center gap-2 text-sm">
             <Link
-              href="/dashboard/clients"
+              href="/dashboard/projects"
               className="font-medium text-[#06B6D4] hover:text-[#0891b2] hover:underline transition-colors"
             >
-              Clients
+              Projects
             </Link>
             <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

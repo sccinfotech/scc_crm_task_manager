@@ -214,7 +214,7 @@ export const UsersTable = memo(function UsersTable({ users, canWrite, onRowClick
                   <StatusPill status={user.is_active} />
                 </td>
                 <td className="px-4 sm:px-4 py-3 text-right text-sm" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center justify-end gap-2">
+                  <div className="flex items-center justify-end gap-1">
                     {canWrite && (
                       <>
                         <Tooltip content="Edit user details" position="left">
