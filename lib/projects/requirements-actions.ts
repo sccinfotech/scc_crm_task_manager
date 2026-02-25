@@ -303,7 +303,7 @@ export async function getProjectRequirements(projectId: string): Promise<Project
 
   const { data: requirements, error } = await supabase
     .from('project_requirements')
-    .select('*')
+    .select('id, project_id, requirement_type, pricing_type, description, attachment_url, estimated_hours, hourly_rate, amount, created_by, created_at, updated_at, is_deleted')
     .eq('project_id', projectId)
     .eq('is_deleted', false)
     .order('created_at', { ascending: true })
@@ -337,7 +337,7 @@ export async function getProjectRequirements(projectId: string): Promise<Project
   const requirementIds = requirementRows.map((row) => row.id)
   const { data: milestoneRows } = await supabase
     .from('project_requirement_milestones')
-    .select('*')
+    .select('id, requirement_id, project_id, title, description, due_date, amount, created_by, created_at, updated_at')
     .in('requirement_id', requirementIds)
     .order('created_at', { ascending: true })
 
@@ -533,7 +533,7 @@ export async function updateProjectRequirement(
   const supabase = await createClient()
   const { data: existing, error: fetchError } = await supabase
     .from('project_requirements')
-    .select('*')
+    .select('id, project_id, requirement_type, pricing_type, description, attachment_url, estimated_hours, hourly_rate, amount, created_by, created_at, updated_at, is_deleted')
     .eq('id', requirementId)
     .single()
 

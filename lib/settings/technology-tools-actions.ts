@@ -37,7 +37,7 @@ export async function getTechnologyTools(options?: {
   const supabase = await createClient()
   let query = supabase
     .from('technology_tools')
-    .select('*')
+    .select('id, name, is_active, created_by, created_at, updated_at')
     .order('name', { ascending: true })
 
   if (!includeInactive) {

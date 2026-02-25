@@ -1,5 +1,6 @@
+import Image from 'next/image'
 import Link from 'next/link'
-import { useState, type ReactNode } from 'react'
+import { memo, useState, type ReactNode } from 'react'
 import { EmptyState } from '@/app/components/empty-state'
 import { Tooltip } from '@/app/components/ui/tooltip'
 import { useToast } from '@/app/components/ui/toast-context'
@@ -53,7 +54,7 @@ interface ProjectsTableProps {
   isFiltered?: boolean
 }
 
-function StatusPill({ status }: { status: ProjectStatus }) {
+const StatusPill = memo(function StatusPill({ status }: { status: ProjectStatus }) {
   const styles = {
     pending: { bg: 'bg-slate-100', text: 'text-slate-700', dot: 'bg-slate-500', ring: 'ring-slate-500/20' },
     in_progress: { bg: 'bg-cyan-50', text: 'text-cyan-700', dot: 'bg-cyan-600', ring: 'ring-cyan-600/20' },
@@ -78,7 +79,7 @@ function StatusPill({ status }: { status: ProjectStatus }) {
       {labels[status]}
     </span>
   )
-}
+})
 
 function formatDate(dateString: string) {
   const date = new Date(dateString)
@@ -226,7 +227,7 @@ function WorkActionButton({
   )
 }
 
-export function ProjectsTable({
+export const ProjectsTable = memo(function ProjectsTable({
   projects,
   canWrite,
   showClientColumn = true,
@@ -390,9 +391,11 @@ export function ProjectsTable({
                     className="flex items-center gap-2 sm:gap-3 no-underline text-inherit"
                   >
                     {project.logo_url ? (
-                      <img
+                      <Image
                         src={project.logo_url}
                         alt={project.name}
+                        width={36}
+                        height={36}
                         className="h-8 w-8 sm:h-9 sm:w-9 rounded-full object-cover shadow-sm ring-2 ring-white"
                       />
                     ) : (
@@ -576,4 +579,4 @@ export function ProjectsTable({
       />
     </div>
   )
-}
+})

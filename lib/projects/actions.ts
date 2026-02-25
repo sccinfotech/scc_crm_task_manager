@@ -1,5 +1,6 @@
 'use server'
 
+import { cache } from 'react'
 import crypto from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { encryptAmount, decryptAmount } from '@/lib/amount-encryption'
@@ -450,7 +451,8 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
   }
 }
 
-export async function getProject(projectId: string): Promise<{ data: Project | null; error: string | null }> {
+/** Request-scoped cache: deduplicates getProject calls for the same projectId within a request */
+export const getProject = cache(async (projectId: string): Promise<{ data: Project | null; error: string | null }> => {
   const currentUser = await getCurrentUser()
   if (!currentUser) {
     return { data: null, error: 'You must be logged in to view a project' }
@@ -586,7 +588,7 @@ export async function getProject(projectId: string): Promise<{ data: Project | n
   }
 
   return { data: project, error: null }
-}
+})
 
 export async function createProject(formData: ProjectFormData): Promise<ProjectActionResult> {
   const currentUser = await getCurrentUser()
@@ -1139,7 +1141,7 @@ export async function getProjectFollowUps(projectId: string): Promise<ProjectFol
   }
   const { data: followUps, error } = await supabase
     .from('project_followups')
-    .select('*')
+    .select('id, project_id, follow_up_date, next_follow_up_date, note, created_by, created_at, updated_at')
     .eq('project_id', projectId)
     .order('created_at', { ascending: true })
 

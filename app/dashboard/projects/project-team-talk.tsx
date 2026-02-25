@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, type ReactElement } from 'react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Tooltip } from '@/app/components/ui/tooltip'
 import { useToast } from '@/app/components/ui/toast-context'
@@ -938,12 +939,14 @@ export function ProjectTeamTalk({
                               href={attachment.cloudinary_url}
                               target="_blank"
                               rel="noreferrer"
-                              className="block overflow-hidden rounded-lg border border-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1"
+                              className="block overflow-hidden rounded-lg border border-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 relative h-24"
                             >
-                              <img
+                              <Image
                                 src={attachment.cloudinary_url}
                                 alt={attachment.file_name}
-                                className="h-24 w-full object-cover"
+                                fill
+                                sizes="(max-width: 640px) 50vw, 200px"
+                                className="object-cover"
                               />
                             </a>
                             {canManageMessage && (

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, type ReactElement } from 'react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Tooltip } from '@/app/components/ui/tooltip'
 import { useToast } from '@/app/components/ui/toast-context'
@@ -862,12 +863,14 @@ export function ProjectMyNotes({
                                   rel="noreferrer"
                                   className="flex items-center gap-2 flex-1 min-w-0"
                                 >
-                                  <div className="flex h-8 w-8 items-center justify-center rounded bg-white text-slate-400 flex-shrink-0">
+                                  <div className="relative flex h-8 w-8 items-center justify-center rounded bg-white text-slate-400 flex-shrink-0 overflow-hidden">
                                     {isImage ? (
-                                      <img
+                                      <Image
                                         src={attachment.cloudinary_url}
                                         alt={attachment.file_name}
-                                        className="h-8 w-8 rounded object-cover"
+                                        width={32}
+                                        height={32}
+                                        className="rounded object-cover"
                                       />
                                     ) : (
                                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -336,7 +336,7 @@ export async function getLead(leadId: string): Promise<{ data: Lead | null; erro
 
   const { data, error } = await supabase
     .from('leads')
-    .select('*')
+    .select('id, name, company_name, phone, source, status, follow_up_date, notes, created_by, created_at, updated_at')
     .eq('id', leadId)
     .single()
 
@@ -445,7 +445,7 @@ export async function getLeadFollowUps(leadId: string): Promise<LeadFollowUpsRes
   // RLS will automatically filter based on user permissions
   const { data: followUps, error } = await supabase
     .from('lead_client_followups')
-    .select('*')
+    .select('id, entity_type, lead_id, client_id, note, follow_up_date, created_by, created_at, updated_at')
     .eq('lead_id', leadId)
     .eq('entity_type', 'lead')
     .order('created_at', { ascending: true })

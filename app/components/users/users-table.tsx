@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import { UserData } from '@/lib/users/actions'
 import { EmptyState } from '@/app/components/empty-state'
 import { Tooltip } from '@/app/components/ui/tooltip'
@@ -12,7 +13,7 @@ interface UsersTableProps {
   onManagePermissions: (user: UserData) => void
 }
 
-function StatusPill({ status }: { status: boolean }) {
+const StatusPill = memo(function StatusPill({ status }: { status: boolean }) {
   const style = status
     ? { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-600', ring: 'ring-emerald-600/20' }
     : { bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-600', ring: 'ring-red-600/20' }
@@ -25,7 +26,7 @@ function StatusPill({ status }: { status: boolean }) {
       {status ? 'Active' : 'Inactive'}
     </span>
   )
-}
+})
 
 function RolePill({ role }: { role: string }) {
   const styles = {
@@ -64,7 +65,7 @@ function UserAvatar({ user }: { user: UserData }) {
   )
 }
 
-export function UsersTable({ users, canWrite, onRowClick, onEdit, onManagePermissions }: UsersTableProps) {
+export const UsersTable = memo(function UsersTable({ users, canWrite, onRowClick, onEdit, onManagePermissions }: UsersTableProps) {
   if (users.length === 0) {
     return (
       <div className="flex h-full w-full min-h-[500px] items-center justify-center bg-white">
@@ -250,4 +251,4 @@ export function UsersTable({ users, canWrite, onRowClick, onEdit, onManagePermis
       </div>
     </div>
   )
-}
+})

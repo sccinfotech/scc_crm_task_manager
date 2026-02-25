@@ -1,5 +1,6 @@
 'use server'
 
+import { after } from 'next/server'
 import crypto from 'crypto'
 import { revalidatePath } from 'next/cache'
 import { createClient as createSupabaseClient } from '@/lib/supabase/server'
@@ -154,7 +155,7 @@ export async function getClientInternalNotes(
 
   const { data: notes, error } = await supabase
     .from('client_internal_notes')
-    .select('*')
+    .select('id, client_id, note_text, created_by, created_at, updated_at')
     .eq('client_id', clientId)
     .order('created_at', { ascending: true })
 
@@ -174,7 +175,7 @@ export async function getClientInternalNotes(
 
   const { data: attachments } = await supabase
     .from('client_note_attachments')
-    .select('*')
+    .select('id, note_id, client_id, file_name, mime_type, size_bytes, cloudinary_url, cloudinary_public_id, resource_type, created_by, created_at')
     .in('note_id', noteIds)
     .order('created_at', { ascending: true })
 
@@ -419,7 +420,7 @@ export async function updateClientInternalNote(
 
   const { data: attachments } = await supabase
     .from('client_note_attachments')
-    .select('*')
+    .select('id, note_id, client_id, file_name, mime_type, size_bytes, cloudinary_url, cloudinary_public_id, resource_type, created_by, created_at')
     .eq('note_id', noteId)
     .order('created_at', { ascending: true })
 
@@ -497,11 +498,13 @@ export async function deleteClientInternalNote(
 
   const attachmentsList = attachments as Array<{ cloudinary_public_id: string; resource_type: string }> | null
   if (attachmentsList && attachmentsList.length > 0) {
-    await deleteCloudinaryAssets(
-      attachmentsList.map((attachment) => ({
-        publicId: attachment.cloudinary_public_id,
-        resourceType: attachment.resource_type,
-      }))
+    after(() =>
+      deleteCloudinaryAssets(
+        attachmentsList.map((attachment) => ({
+          publicId: attachment.cloudinary_public_id,
+          resourceType: attachment.resource_type,
+        }))
+      )
     )
   }
 
@@ -545,12 +548,14 @@ export async function deleteClientNoteAttachment(
     return { error: deleteError.message || 'Failed to delete attachment' }
   }
 
-  await deleteCloudinaryAssets([
-    {
-      publicId: att.cloudinary_public_id,
-      resourceType: att.resource_type,
-    },
-  ])
+  after(() =>
+    deleteCloudinaryAssets([
+      {
+        publicId: att.cloudinary_public_id,
+        resourceType: att.resource_type,
+      },
+    ])
+  )
 
   revalidatePath('/dashboard/clients')
   revalidatePath(`/dashboard/clients/${att.client_id}`)

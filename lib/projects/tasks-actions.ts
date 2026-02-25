@@ -1,5 +1,7 @@
 'use server'
 
+import { after } from 'next/server'
+import { cache } from 'react'
 import crypto from 'crypto'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
@@ -10,6 +12,9 @@ import {
   TASK_ALLOWED_MIME_TYPES,
   TASK_CLOUDINARY_FOLDER,
   TASK_MAX_ATTACHMENT_SIZE_BYTES,
+  TASK_DETAIL_COMMENTS_LIMIT,
+  TASK_DETAIL_ACTIVITY_LIMIT,
+  TASK_DETAIL_ATTACHMENTS_LIMIT,
   type TaskStatus,
   type TaskPriority,
   type TaskType,
@@ -108,6 +113,10 @@ export type ProjectTaskDetail = ProjectTaskListItem & {
   attachments: TaskAttachment[]
   comments: TaskComment[]
   activity_log: TaskActivityLogEntry[]
+  /** Total counts for pagination (load more) */
+  commentsTotalCount: number
+  activityTotalCount: number
+  attachmentsTotalCount: number
 }
 
 export type TaskFilters = {
@@ -471,7 +480,8 @@ export async function getProjectTasks(
   return { data: tasks, error: null }
 }
 
-export async function getProjectTaskDetail(taskId: string): Promise<ActionResult<ProjectTaskDetail>> {
+/** Request-scoped cache: deduplicates getProjectTaskDetail calls for the same taskId within a request */
+export const getProjectTaskDetail = cache(async (taskId: string): Promise<ActionResult<ProjectTaskDetail>> => {
   const currentUser = await getCurrentUser()
   if (!currentUser) {
     return { data: null, error: 'You must be logged in to view this task.' }
@@ -494,50 +504,53 @@ export async function getProjectTaskDetail(taskId: string): Promise<ActionResult
     completed_at: string | null
     actual_minutes: number | null
   }
-  const { data: taskData, error: taskError } = await (supabase as any)
-    .from('project_tasks')
-    .select('*')
-    .eq('id', taskId)
-    .single()
-  const task = taskData as TaskRow | null
+  // Batch 1: Run task, assignees, attachments, comments, activity in parallel
+  const [taskRes, assigneesRes, attachmentsRes, commentsRes, activityRes] = await Promise.all([
+    (supabase as any)
+      .from('project_tasks')
+      .select('id, project_id, title, description_html, task_type, priority, status, due_date, created_by, created_at, updated_at, in_progress_at, completed_at, actual_minutes')
+      .eq('id', taskId)
+      .single(),
+    (supabase as any)
+      .from('project_task_assignees')
+      .select('user_id, users!project_task_assignees_user_id_fkey(full_name, email, role)')
+      .eq('task_id', taskId),
+    (supabase as any)
+      .from('project_task_attachments')
+      .select('id, task_id, project_id, file_name, mime_type, size_bytes, cloudinary_url, cloudinary_public_id, resource_type, created_by, created_at', { count: 'exact' })
+      .eq('task_id', taskId)
+      .order('created_at', { ascending: false })
+      .range(0, TASK_DETAIL_ATTACHMENTS_LIMIT - 1),
+    (supabase as any)
+      .from('project_task_comments')
+      .select('id, task_id, comment_text, mentioned_user_ids, created_by, created_at, updated_at', { count: 'exact' })
+      .eq('task_id', taskId)
+      .order('created_at', { ascending: true })
+      .range(0, TASK_DETAIL_COMMENTS_LIMIT - 1),
+    (supabase as any)
+      .from('project_task_activity_log')
+      .select('id, task_id, project_id, event_type, event_meta, created_by, created_at', { count: 'exact' })
+      .eq('task_id', taskId)
+      .order('created_at', { ascending: false })
+      .range(0, TASK_DETAIL_ACTIVITY_LIMIT - 1),
+  ])
 
-  if (taskError || !task) {
-    console.error('Error fetching task detail:', taskError)
-    return { data: null, error: taskError?.message || 'Task not found.' }
+  const task = taskRes.data as TaskRow | null
+  if (taskRes.error || !task) {
+    console.error('Error fetching task detail:', taskRes.error)
+    return { data: null, error: taskRes.error?.message || 'Task not found.' }
   }
 
-  const { data: assigneeRows } = await (supabase as any)
-    .from('project_task_assignees')
-    .select('user_id, users!project_task_assignees_user_id_fkey(full_name, email, role)')
-    .eq('task_id', taskId)
+  const assigneeRows = assigneesRes.data
 
-  const { data: attachments } = await (supabase as any)
-    .from('project_task_attachments')
-    .select('*')
-    .eq('task_id', taskId)
-    .order('created_at', { ascending: false })
+  const attachments = (attachmentsRes.data || []) as TaskAttachment[]
+  const attachmentsTotalCount = attachmentsRes.count ?? attachments.length
+  const commentList = (commentsRes.data as any[]) || []
+  const commentsTotalCount = commentsRes.count ?? commentList.length
+  const activityList = (activityRes.data as any[]) || []
+  const activityTotalCount = activityRes.count ?? activityList.length
 
-  const { data: comments } = await (supabase as any)
-    .from('project_task_comments')
-    .select('*')
-    .eq('task_id', taskId)
-    .order('created_at', { ascending: true })
-
-  const { data: commentAttachments } = await (supabase as any)
-    .from('project_task_comment_attachments')
-    .select('*')
-    .eq('task_id', taskId)
-    .order('created_at', { ascending: true })
-
-  const { data: activity } = await (supabase as any)
-    .from('project_task_activity_log')
-    .select('*')
-    .eq('task_id', taskId)
-    .order('created_at', { ascending: false })
-
-  const commentList = (comments as any[]) || []
-  const activityList = (activity as any[]) || []
-
+  const commentIds = commentList.map((c: any) => c.id)
   const mentionIds = commentList.flatMap((comment) => comment.mentioned_user_ids || [])
   const userIds = uniqueIds([
     ...commentList.map((comment) => comment.created_by),
@@ -545,17 +558,29 @@ export async function getProjectTaskDetail(taskId: string): Promise<ActionResult
     ...mentionIds,
   ])
 
-  const { data: users } = await supabase
-    .from('users')
-    .select('id, full_name, email, role')
-    .in('id', userIds)
+  // Batch 2: commentAttachments and users in parallel
+  const [commentAttachmentsRes, usersRes] = await Promise.all([
+    commentIds.length > 0
+      ? (supabase as any)
+          .from('project_task_comment_attachments')
+          .select('id, comment_id, task_id, project_id, file_name, mime_type, size_bytes, cloudinary_url, cloudinary_public_id, resource_type, created_by, created_at')
+          .in('comment_id', commentIds)
+          .order('created_at', { ascending: true })
+      : Promise.resolve({ data: [] }),
+    userIds.length > 0
+      ? supabase.from('users').select('id, full_name, email, role').in('id', userIds)
+      : Promise.resolve({ data: [] }),
+  ])
+
+  const commentAttachmentsList = ((commentAttachmentsRes as any).data as TaskCommentAttachment[] | null) || []
+  const users = (usersRes as any).data
 
   const { userNameMap, userEmailMap, userRoleMap } = buildTaskUserMaps(
     (users as Array<{ id: string; full_name: string | null; email: string | null; role: string | null }> | null) || null
   )
 
   const attachmentsByComment = new Map<string, TaskCommentAttachment[]>()
-  ;((commentAttachments as TaskCommentAttachment[] | null) || []).forEach((attachment) => {
+  commentAttachmentsList.forEach((attachment) => {
     const existing = attachmentsByComment.get(attachment.comment_id) || []
     existing.push(attachment)
     attachmentsByComment.set(attachment.comment_id, existing)
@@ -592,12 +617,156 @@ export async function getProjectTaskDetail(taskId: string): Promise<ActionResult
     completed_at: task.completed_at,
     actual_minutes: task.actual_minutes,
     assignees: buildAssigneeList((assigneeRows as any[]) || []),
-    attachments: (attachments as TaskAttachment[]) || [],
+    attachments,
     comments: mappedComments,
     activity_log: mappedActivity,
+    commentsTotalCount,
+    activityTotalCount,
+    attachmentsTotalCount,
   }
 
   return { data: taskDetail, error: null }
+})
+
+const TASK_DETAIL_PAGE_SIZE = 20
+
+export async function getTaskCommentsPage(
+  taskId: string,
+  page: number
+): Promise<ActionResult<{ comments: TaskComment[]; hasMore: boolean }>> {
+  const currentUser = await getCurrentUser()
+  if (!currentUser) {
+    return { data: null, error: 'You must be logged in to view comments.' }
+  }
+
+  const supabase = await createClient()
+  const from = (page - 1) * TASK_DETAIL_PAGE_SIZE
+  const to = from + TASK_DETAIL_PAGE_SIZE - 1
+
+  const { data: comments, count } = await (supabase as any)
+    .from('project_task_comments')
+    .select('id, task_id, comment_text, mentioned_user_ids, created_by, created_at, updated_at', { count: 'exact' })
+    .eq('task_id', taskId)
+    .order('created_at', { ascending: true })
+    .range(from, to)
+
+  const commentList = (comments as any[]) || []
+  const commentIds = commentList.map((c: any) => c.id)
+
+  const { data: commentAttachments } =
+    commentIds.length > 0
+      ? await (supabase as any)
+          .from('project_task_comment_attachments')
+          .select('id, comment_id, task_id, project_id, file_name, mime_type, size_bytes, cloudinary_url, cloudinary_public_id, resource_type, created_by, created_at')
+          .in('comment_id', commentIds)
+          .order('created_at', { ascending: true })
+      : { data: [] }
+
+  const mentionIds = commentList.flatMap((c: any) => c.mentioned_user_ids || [])
+  const userIds = uniqueIds([...commentList.map((c: any) => c.created_by), ...mentionIds])
+  const { data: users } = await supabase
+    .from('users')
+    .select('id, full_name, email, role')
+    .in('id', userIds)
+
+  const { userNameMap, userEmailMap, userRoleMap } = buildTaskUserMaps(
+    (users as Array<{ id: string; full_name: string | null; email: string | null; role: string | null }> | null) || null
+  )
+  const attachmentsByComment = new Map<string, TaskCommentAttachment[]>()
+  ;((commentAttachments as TaskCommentAttachment[] | null) || []).forEach((att) => {
+    const existing = attachmentsByComment.get(att.comment_id) || []
+    existing.push(att)
+    attachmentsByComment.set(att.comment_id, existing)
+  })
+
+  const mappedComments = commentList.map((c: any) =>
+    mapTaskComment(c, { userNameMap, userEmailMap, userRoleMap }, attachmentsByComment)
+  )
+  const totalCount = count ?? 0
+  const hasMore = to + 1 < totalCount
+
+  return { data: { comments: mappedComments, hasMore }, error: null }
+}
+
+export async function getTaskActivityPage(
+  taskId: string,
+  page: number
+): Promise<ActionResult<{ activity: TaskActivityLogEntry[]; hasMore: boolean }>> {
+  const currentUser = await getCurrentUser()
+  if (!currentUser) {
+    return { data: null, error: 'You must be logged in to view activity.' }
+  }
+
+  const supabase = await createClient()
+  const from = (page - 1) * TASK_DETAIL_PAGE_SIZE
+  const to = from + TASK_DETAIL_PAGE_SIZE - 1
+
+  const { data: activity, count } = await (supabase as any)
+    .from('project_task_activity_log')
+    .select('id, task_id, project_id, event_type, event_meta, created_by, created_at', { count: 'exact' })
+    .eq('task_id', taskId)
+    .order('created_at', { ascending: false })
+    .range(from, to)
+
+  const activityList = (activity as any[]) || []
+  const userIds = uniqueIds(activityList.map((e: any) => e.created_by))
+  const { data: users } = await supabase
+    .from('users')
+    .select('id, full_name, email, role')
+    .in('id', userIds)
+
+  const userNameMap = new Map<string, string>()
+  ;((users as Array<{ id: string; full_name: string | null }> | null) || []).forEach((u) => {
+    userNameMap.set(u.id, u.full_name || 'Unknown User')
+  })
+
+  const mappedActivity: TaskActivityLogEntry[] = activityList.map((e: any) => ({
+    id: e.id,
+    task_id: e.task_id,
+    project_id: e.project_id,
+    event_type: e.event_type,
+    event_meta: e.event_meta ?? null,
+    created_by: e.created_by,
+    created_by_name: userNameMap.get(e.created_by) || 'Unknown User',
+    created_at: e.created_at,
+  }))
+
+  const totalCount = count ?? 0
+  const hasMore = to + 1 < totalCount
+
+  return { data: { activity: mappedActivity, hasMore }, error: null }
+}
+
+export async function getTaskAttachmentsPage(
+  taskId: string,
+  page: number
+): Promise<ActionResult<{ attachments: TaskAttachment[]; hasMore: boolean }>> {
+  const currentUser = await getCurrentUser()
+  if (!currentUser) {
+    return { data: null, error: 'You must be logged in to view attachments.' }
+  }
+
+  const supabase = await createClient()
+  const from = (page - 1) * TASK_DETAIL_PAGE_SIZE
+  const to = from + TASK_DETAIL_PAGE_SIZE - 1
+
+  const { data: attachments, count } = await (supabase as any)
+    .from('project_task_attachments')
+    .select('id, task_id, project_id, file_name, mime_type, size_bytes, cloudinary_url, cloudinary_public_id, resource_type, created_by, created_at', { count: 'exact' })
+    .eq('task_id', taskId)
+    .order('created_at', { ascending: false })
+    .range(from, to)
+
+  const totalCount = count ?? 0
+  const hasMore = to + 1 < totalCount
+
+  return {
+    data: {
+      attachments: (attachments as TaskAttachment[]) || [],
+      hasMore,
+    },
+    error: null,
+  }
 }
 
 export async function getTaskMentionableUsers(): Promise<ActionResult<TaskAssignee[]>> {
@@ -671,7 +840,7 @@ export async function createProjectTask(
       created_by: currentUser.id,
       updated_by: currentUser.id,
     })
-    .select('*')
+    .select('id, project_id, title, description_html, task_type, priority, status, due_date, created_by, created_at, updated_at, in_progress_at, completed_at, actual_minutes')
     .single()
 
   if (error || !task) {
@@ -778,7 +947,7 @@ export async function updateProjectTask(
   const supabase = await createClient()
   const { data: existing, error: existingError } = await (supabase as any)
     .from('project_tasks')
-    .select('*')
+    .select('id, project_id, title, description_html, task_type, priority, status, due_date, created_by, created_at, updated_at, in_progress_at, completed_at, actual_minutes')
     .eq('id', taskId)
     .single()
 
@@ -802,7 +971,7 @@ export async function updateProjectTask(
     .from('project_tasks')
     .update(updateData)
     .eq('id', taskId)
-    .select('*')
+    .select('id, project_id, title, description_html, task_type, priority, status, due_date, created_by, created_at, updated_at, in_progress_at, completed_at, actual_minutes')
     .single()
 
   if (error || !task) {
@@ -866,7 +1035,7 @@ export async function updateTaskAssignees(
   const supabase = await createClient()
   const { data: task } = await (supabase as any)
     .from('project_tasks')
-    .select('*')
+    .select('id, project_id, title, description_html, task_type, priority, status, due_date, created_by, created_at, updated_at, in_progress_at, completed_at, actual_minutes')
     .eq('id', taskId)
     .single()
 
@@ -970,7 +1139,7 @@ export async function updateTaskStatus(
   const supabase = await createClient()
   const { data: task, error } = await (supabase as any)
     .from('project_tasks')
-    .select('*')
+    .select('id, project_id, title, description_html, task_type, priority, status, due_date, created_by, created_at, updated_at, in_progress_at, completed_at, actual_minutes')
     .eq('id', taskId)
     .single()
 
@@ -1029,7 +1198,7 @@ export async function updateTaskStatus(
       updated_by: currentUser.id,
     })
     .eq('id', taskId)
-    .select('*')
+    .select('id, project_id, title, description_html, task_type, priority, status, due_date, created_by, created_at, updated_at, in_progress_at, completed_at, actual_minutes')
     .single()
 
   if (updateError || !updated) {
@@ -1185,7 +1354,7 @@ export async function createTaskComment(
       mentioned_user_ids: mentionList,
       created_by: currentUser.id,
     })
-    .select('*')
+    .select('id, task_id, comment_text, mentioned_user_ids, created_by, created_at, updated_at')
     .single()
 
   if (error || !comment) {
@@ -1211,7 +1380,7 @@ export async function createTaskComment(
           created_by: currentUser.id,
         }))
       )
-      .select('*')
+      .select('id, comment_id, task_id, project_id, file_name, mime_type, size_bytes, cloudinary_url, cloudinary_public_id, resource_type, created_by, created_at')
 
     if (attachmentError) {
       console.error('Error creating task comment attachments:', attachmentError)
@@ -1323,7 +1492,7 @@ export async function updateTaskComment(
     .from('project_task_comments')
     .update({ comment_text: trimmed || '', mentioned_user_ids: mentionList })
     .eq('id', commentId)
-    .select('*')
+    .select('id, task_id, comment_text, mentioned_user_ids, created_by, created_at, updated_at')
     .single()
 
   if (error || !comment) {
@@ -1338,7 +1507,7 @@ export async function updateTaskComment(
 
   const { data: attachments } = await (supabase as any)
     .from('project_task_comment_attachments')
-    .select('*')
+    .select('id, comment_id, task_id, project_id, file_name, mime_type, size_bytes, cloudinary_url, cloudinary_public_id, resource_type, created_by, created_at')
     .eq('comment_id', comment.id)
     .order('created_at', { ascending: true })
 
@@ -1455,12 +1624,14 @@ export async function deleteTaskCommentAttachment(
     return { data: null, error: deleteError.message || 'Failed to delete comment attachment.' }
   }
 
-  await deleteCloudinaryAssets([
-    {
-      publicId: attachmentRow.cloudinary_public_id,
-      resourceType: attachmentRow.resource_type,
-    },
-  ])
+  after(() =>
+    deleteCloudinaryAssets([
+      {
+        publicId: attachmentRow.cloudinary_public_id,
+        resourceType: attachmentRow.resource_type,
+      },
+    ])
+  )
 
   let deletedCommentId: string | null = null
   if (!(commentRow.comment_text || '').trim()) {
@@ -1624,7 +1795,7 @@ export async function createTaskAttachments(
         created_by: currentUser.id,
       }))
     )
-    .select('*')
+    .select('id, task_id, project_id, file_name, mime_type, size_bytes, cloudinary_url, cloudinary_public_id, resource_type, created_by, created_at')
 
   if (error) {
     console.error('Error saving attachments:', error)
@@ -1665,9 +1836,11 @@ export async function deleteTaskAttachment(attachmentId: string): Promise<Action
     return { data: null, error: error.message || 'Failed to delete attachment.' }
   }
 
-  await deleteCloudinaryAssets([
-    { publicId: attachment.cloudinary_public_id, resourceType: attachment.resource_type },
-  ])
+  after(() =>
+    deleteCloudinaryAssets([
+      { publicId: attachment.cloudinary_public_id, resourceType: attachment.resource_type },
+    ])
+  )
 
   await insertTaskActivity(supabase, {
     taskId: attachment.task_id,

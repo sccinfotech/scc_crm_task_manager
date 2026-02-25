@@ -113,3 +113,8 @@ export const TASK_EXTENSION_MIME_MAP: Record<string, string> = {
 }
 
 export const TASK_CLOUDINARY_FOLDER = 'project-tasks'
+
+/** Pagination limits for task detail initial load (comments, activity, attachments) */
+export const TASK_DETAIL_COMMENTS_LIMIT = 20
+export const TASK_DETAIL_ACTIVITY_LIMIT = 20
+export const TASK_DETAIL_ATTACHMENTS_LIMIT = 20

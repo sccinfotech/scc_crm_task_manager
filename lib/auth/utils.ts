@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { canReadModule, canWriteModule, type ModulePermissions } from '@/lib/permissions'
@@ -5,7 +6,7 @@ import type { Database } from '@/types/supabase'
 
 type UserRow = Database['public']['Tables']['users']['Row']
 
-export async function getCurrentUser() {
+async function getCurrentUserImpl() {
   const supabase = await createClient()
 
   const {
@@ -17,12 +18,10 @@ export async function getCurrentUser() {
     return null
   }
 
-  // Fetch user data from users table
+  // Fetch user data from users table (only columns needed for auth/session)
   const { data: userData, error: userError } = await supabase
     .from('users')
-    // Fetch all columns to be robust against schema changes (like missing module_permissions)
-    // and handle undefined properties gracefully in return object
-    .select('*')
+    .select('id, email, full_name, role, is_active, module_permissions, deleted_at')
     .eq('id', user.id)
     .single()
 
@@ -55,6 +54,9 @@ export async function getCurrentUser() {
     modulePermissions: (row.module_permissions as ModulePermissions | null) ?? {},
   }
 }
+
+/** Request-scoped cache: deduplicates getCurrentUser calls within a single request */
+export const getCurrentUser = cache(getCurrentUserImpl)
 
 export async function requireAuth() {
   const user = await getCurrentUser()

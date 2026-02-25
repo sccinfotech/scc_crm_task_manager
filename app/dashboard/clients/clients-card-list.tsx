@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useRef, useCallback } from 'react'
+import { memo, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { EmptyState } from '@/app/components/empty-state'
 import type { ClientListItem } from '@/lib/clients/actions'
 
-function StatusPill({ status }: { status: ClientListItem['status'] }) {
+const StatusPill = memo(function StatusPill({ status }: { status: ClientListItem['status'] }) {
   const styles = {
     active: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-600', ring: 'ring-emerald-600/20' },
     inactive: { bg: 'bg-gray-50', text: 'text-gray-700', dot: 'bg-gray-600', ring: 'ring-gray-600/20' },
@@ -20,7 +20,7 @@ function StatusPill({ status }: { status: ClientListItem['status'] }) {
       {labels[status]}
     </span>
   )
-}
+})
 
 function formatDate(dateString: string) {
   return new Date(dateString).toLocaleDateString('en-US', {
@@ -51,7 +51,7 @@ export interface ClientsCardListProps {
   onLoadMore: () => void
 }
 
-export function ClientsCardList({
+export const ClientsCardList = memo(function ClientsCardList({
   clients,
   canWrite,
   canManageInternalNotes = false,
@@ -218,4 +218,4 @@ export function ClientsCardList({
       )}
     </div>
   )
-}
+})

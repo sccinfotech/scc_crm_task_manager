@@ -197,10 +197,12 @@ export function ProjectWorkHistory({
   const singleDays = historyData?.mode === 'single' ? historyData.days : []
   const teamDays = historyData?.mode === 'team' ? historyData.days : []
 
-  // Staff only: tick every second so the timer updates live when work is in progress
+  // Staff only: tick every 2 seconds so the timer updates live when work is in progress
+  // (Reduced from 1s to lower CPU/battery usage while keeping timer reasonably responsive)
+  const WORK_TIMER_TICK_MS = 2000
   useEffect(() => {
     if (!showStaffActions || !staffWorkState || staffWorkState.status !== 'start') return
-    const id = setInterval(() => setLiveTick(Date.now()), 1000)
+    const id = setInterval(() => setLiveTick(Date.now()), WORK_TIMER_TICK_MS)
     return () => clearInterval(id)
   }, [showStaffActions, staffWorkState?.status])
 

@@ -352,7 +352,7 @@ export async function getClient(clientId: string): Promise<{ data: Client | null
 
   const { data, error } = await supabase
     .from('clients')
-    .select('*')
+    .select('id, name, company_name, phone, email, status, remark, lead_id, created_by, created_at, updated_at')
     .eq('id', clientId)
     .single()
 
@@ -450,7 +450,7 @@ export async function getClientFollowUps(clientId: string) {
   // Fetch follow-ups for the client, ordered by created_at ASC (oldest first, newest last)
   const { data: followUps, error } = await supabase
     .from('lead_client_followups')
-    .select('*')
+    .select('id, entity_type, lead_id, client_id, note, follow_up_date, created_by, created_at, updated_at')
     .eq('client_id', clientId)
     .eq('entity_type', 'client')
     .order('created_at', { ascending: true })
@@ -693,7 +693,7 @@ export async function getLeadFollowUpsForClient(clientId: string) {
   // Fetch follow-ups for the lead, ordered by created_at ASC (oldest first, newest last)
   const { data: followUps, error } = await supabase
     .from('lead_client_followups')
-    .select('*')
+    .select('id, entity_type, lead_id, client_id, note, follow_up_date, created_by, created_at, updated_at')
     .eq('client_id', clientId)
     .eq('entity_type', 'lead')
     .order('created_at', { ascending: true })

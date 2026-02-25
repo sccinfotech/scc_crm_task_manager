@@ -1,5 +1,6 @@
 'use server'
 
+import { after } from 'next/server'
 import crypto from 'crypto'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
@@ -195,7 +196,7 @@ export async function getProjectMyNotes(projectId: string): Promise<ProjectMyNot
 
   const { data, error } = await supabase
     .from('project_user_notes')
-    .select('*')
+    .select('id, project_id, user_id, note_text, created_at, updated_at')
     .eq('project_id', projectId)
     .eq('user_id', currentUser.id)
     .order('created_at', { ascending: true })
@@ -221,7 +222,7 @@ export async function getProjectMyNotes(projectId: string): Promise<ProjectMyNot
   const noteIds = notesList.map((note) => note.id)
   const { data: attachments } = await supabase
     .from('project_note_attachments')
-    .select('*')
+    .select('id, note_id, project_id, file_name, mime_type, size_bytes, cloudinary_url, cloudinary_public_id, resource_type, created_by, created_at')
     .in('note_id', noteIds)
     .order('created_at', { ascending: true })
 
@@ -479,7 +480,7 @@ export async function updateProjectMyNote(
 
   const { data: attachments } = await supabase
     .from('project_note_attachments')
-    .select('*')
+    .select('id, note_id, project_id, file_name, mime_type, size_bytes, cloudinary_url, cloudinary_public_id, resource_type, created_by, created_at')
     .eq('note_id', noteId)
     .order('created_at', { ascending: true })
 
@@ -563,11 +564,13 @@ export async function deleteProjectMyNote(noteId: string): Promise<ProjectMyNote
 
   const attachmentsList = attachments as Array<{ cloudinary_public_id: string; resource_type: string }> | null
   if (attachmentsList && attachmentsList.length > 0) {
-    await deleteCloudinaryAssets(
-      attachmentsList.map((attachment) => ({
-        publicId: attachment.cloudinary_public_id,
-        resourceType: attachment.resource_type,
-      }))
+    after(() =>
+      deleteCloudinaryAssets(
+        attachmentsList.map((attachment) => ({
+          publicId: attachment.cloudinary_public_id,
+          resourceType: attachment.resource_type,
+        }))
+      )
     )
   }
 
@@ -614,12 +617,14 @@ export async function deleteProjectNoteAttachment(
     return { error: deleteError.message || 'Failed to delete attachment' }
   }
 
-  await deleteCloudinaryAssets([
-    {
-      publicId: (attachment as { cloudinary_public_id: string }).cloudinary_public_id,
-      resourceType: (attachment as { resource_type: string }).resource_type,
-    },
-  ])
+  after(() =>
+    deleteCloudinaryAssets([
+      {
+        publicId: (attachment as { cloudinary_public_id: string }).cloudinary_public_id,
+        resourceType: (attachment as { resource_type: string }).resource_type,
+      },
+    ])
+  )
 
   const projectId = (attachment as { project_id: string }).project_id
   revalidatePath(`/dashboard/projects/${projectId}`)

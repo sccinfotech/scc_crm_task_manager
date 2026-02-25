@@ -356,7 +356,7 @@ export async function getUser(id: string) {
 
   const { data: user, error } = await supabase
     .from('users')
-    .select('*')
+    .select('id, email, full_name, designation, joining_date, personal_email, personal_mobile_no, home_mobile_no, address, date_of_birth, photo_url, role, module_permissions, is_active, created_at, updated_at')
     .eq('id', id)
     .is('deleted_at', null)
     .single()

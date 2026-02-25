@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useCallback, useState, type ReactNode } from 'react'
+import { memo, useEffect, useRef, useCallback, useState, type ReactNode } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { EmptyState } from '@/app/components/empty-state'
 import { Tooltip } from '@/app/components/ui/tooltip'
@@ -10,7 +11,7 @@ import type { ProjectStatus, ProjectTeamMemberWorkStatus } from '@/lib/projects/
 import type { ProjectListItem } from '@/lib/projects/actions'
 import { EndWorkModal } from './end-work-modal'
 
-function StatusPill({ status }: { status: ProjectStatus }) {
+const StatusPill = memo(function StatusPill({ status }: { status: ProjectStatus }) {
   const styles = {
     pending: { bg: 'bg-slate-100', text: 'text-slate-700', dot: 'bg-slate-500', ring: 'ring-slate-500/20' },
     in_progress: { bg: 'bg-cyan-50', text: 'text-cyan-700', dot: 'bg-cyan-600', ring: 'ring-cyan-600/20' },
@@ -27,7 +28,7 @@ function StatusPill({ status }: { status: ProjectStatus }) {
       {labels[status]}
     </span>
   )
-}
+})
 
 function formatDate(dateString: string) {
   return new Date(dateString).toLocaleDateString('en-US', {
@@ -181,7 +182,7 @@ export interface ProjectsCardListProps {
   onLoadMore: () => void
 }
 
-export function ProjectsCardList({
+export const ProjectsCardList = memo(function ProjectsCardList({
   projects,
   canWrite,
   showClientColumn = true,
@@ -289,9 +290,11 @@ export function ProjectsCardList({
             >
               <div className="flex items-start gap-3 p-3.5 sm:p-4">
                 {project.logo_url ? (
-                  <img
+                  <Image
                     src={project.logo_url}
                     alt={project.name}
+                    width={40}
+                    height={40}
                     className="h-10 w-10 flex-shrink-0 rounded-full object-cover shadow-sm ring-2 ring-white"
                   />
                 ) : (
@@ -464,4 +467,4 @@ export function ProjectsCardList({
       />
     </div>
   )
-}
+})

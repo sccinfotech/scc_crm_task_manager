@@ -29,7 +29,7 @@ export async function getNotifications(limit = 30): Promise<ActionResult<Notific
   const supabase = await createClient()
   const { data, error } = await (supabase as any)
     .from('notifications')
-    .select('*')
+    .select('id, user_id, project_id, task_id, type, title, body, meta, is_read, read_at, created_by, created_at')
     .eq('user_id', currentUser.id)
     .order('created_at', { ascending: false })
     .limit(limit)

@@ -1,5 +1,6 @@
 'use server'
 
+import { after } from 'next/server'
 import crypto from 'crypto'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
@@ -196,7 +197,7 @@ export async function getProjectTeamTalkMessages(projectId: string): Promise<Pro
 
   const { data: messages, error } = await supabase
     .from('project_team_talk_messages')
-    .select('*')
+    .select('id, project_id, message_text, created_by, created_at, updated_at')
     .eq('project_id', projectId)
     .order('created_at', { ascending: true })
 
@@ -222,7 +223,7 @@ export async function getProjectTeamTalkMessages(projectId: string): Promise<Pro
   const messageIds = messageList.map((message) => message.id)
   const { data: attachments } = await supabase
     .from('project_team_talk_attachments')
-    .select('*')
+    .select('id, message_id, project_id, file_name, mime_type, size_bytes, cloudinary_url, cloudinary_public_id, resource_type, created_by, created_at')
     .in('message_id', messageIds)
     .order('created_at', { ascending: true })
 
@@ -564,11 +565,13 @@ export async function deleteProjectTeamTalkMessage(
 
   const attachmentsList = attachments as Array<{ cloudinary_public_id: string; resource_type: string }> | null
   if (attachmentsList && attachmentsList.length > 0) {
-    await deleteCloudinaryAssets(
-      attachmentsList.map((attachment) => ({
-        publicId: attachment.cloudinary_public_id,
-        resourceType: attachment.resource_type,
-      }))
+    after(() =>
+      deleteCloudinaryAssets(
+        attachmentsList.map((attachment) => ({
+          publicId: attachment.cloudinary_public_id,
+          resourceType: attachment.resource_type,
+        }))
+      )
     )
   }
 
@@ -646,12 +649,14 @@ export async function deleteProjectTeamTalkAttachment(
     return { error: deleteError.message || 'Failed to delete attachment.' }
   }
 
-  await deleteCloudinaryAssets([
-    {
-      publicId: attachmentRow.cloudinary_public_id,
-      resourceType: attachmentRow.resource_type,
-    },
-  ])
+  after(() =>
+    deleteCloudinaryAssets([
+      {
+        publicId: attachmentRow.cloudinary_public_id,
+        resourceType: attachmentRow.resource_type,
+      },
+    ])
+  )
 
   let deletedMessageId: string | null = null
   const messageText = messageRow.message_text?.trim() || ''

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import Image from 'next/image'
 import { Tooltip } from '@/app/components/ui/tooltip'
 import { useToast } from '@/app/components/ui/toast-context'
 import {
@@ -579,12 +580,14 @@ export function InternalNotesPanel({
                               rel="noreferrer"
                               className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
                             >
-                              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-slate-400 flex-shrink-0">
+                              <div className="relative flex h-10 w-10 items-center justify-center rounded-lg bg-white text-slate-400 flex-shrink-0 overflow-hidden">
                                 {isImage ? (
-                                  <img
+                                  <Image
                                     src={attachment.cloudinary_url}
                                     alt={attachment.file_name}
-                                    className="h-10 w-10 rounded-lg object-cover"
+                                    width={40}
+                                    height={40}
+                                    className="rounded-lg object-cover"
                                   />
                                 ) : (
                                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

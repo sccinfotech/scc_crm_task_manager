@@ -1,7 +1,9 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { Tooltip } from '@/app/components/ui/tooltip'
 import { useToast } from '@/app/components/ui/toast-context'
@@ -27,8 +29,17 @@ import { getStaffForSelect, type StaffSelectOption } from '@/lib/users/actions'
 import { ProjectDetailRightPanel, type RightPanelTab } from '../project-detail-right-panel'
 import { ProjectModal } from '../project-modal'
 import { DeleteConfirmModal } from '../delete-confirm-modal'
-import { ProjectRequirements } from '../project-requirements'
-import { ProjectTasks } from '../project-tasks'
+
+/** Lazy load heavy tab components for faster initial page load */
+const ProjectRequirements = dynamic(() => import('../project-requirements').then((m) => m.ProjectRequirements), {
+  loading: () => <div className="flex h-64 items-center justify-center text-slate-500">Loading requirements…</div>,
+  ssr: false,
+})
+
+const ProjectTasks = dynamic(() => import('../project-tasks').then((m) => m.ProjectTasks), {
+  loading: () => <div className="flex h-64 items-center justify-center text-slate-500">Loading tasks…</div>,
+  ssr: false,
+})
 
 interface ProjectDetailViewProps {
   project: Project
@@ -810,9 +821,11 @@ export function ProjectDetailView({
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="flex min-w-0 items-start gap-3 sm:gap-5">
                         {project.logo_url ? (
-                          <img
+                          <Image
                             src={project.logo_url}
                             alt={project.name}
+                            width={80}
+                            height={80}
                             className="h-20 w-20 rounded-2xl object-cover shadow-xl ring-2 ring-white"
                           />
                         ) : (

@@ -1,11 +1,20 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import { useState, useRef, useEffect } from 'react'
 import { ProjectFollowUps } from './project-followups'
 import { ProjectWorkHistory } from './project-work-history'
 import { ProjectAnalytics } from './project-analytics'
-import { ProjectMyNotes } from './project-my-notes'
-import { ProjectTeamTalk } from './project-team-talk'
+
+/** Lazy load TipTap-heavy components (My Notes, Team Talk) for faster initial load */
+const ProjectMyNotes = dynamic(() => import('./project-my-notes').then((m) => m.ProjectMyNotes), {
+  loading: () => <div className="flex h-48 items-center justify-center text-slate-500">Loading…</div>,
+  ssr: false,
+})
+const ProjectTeamTalk = dynamic(() => import('./project-team-talk').then((m) => m.ProjectTeamTalk), {
+  loading: () => <div className="flex h-48 items-center justify-center text-slate-500">Loading…</div>,
+  ssr: false,
+})
 import type { ProjectFollowUp } from '@/lib/projects/actions'
 import type { ProjectTeamMember } from '@/lib/projects/actions'
 

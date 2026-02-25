@@ -2,11 +2,18 @@
 
 import { useState, useEffect, useCallback, useRef, useId, type ReactElement } from 'react'
 import { createPortal } from 'react-dom'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/app/components/ui/toast-context'
 import { Tooltip } from '@/app/components/ui/tooltip'
 import { EmptyState } from '@/app/components/empty-state'
-import { ProjectTasksRichEditor } from './project-tasks-rich-editor'
+import dynamic from 'next/dynamic'
+
+/** Lazy load TipTap rich editor - only loads when task detail/comment editor is shown */
+const ProjectTasksRichEditor = dynamic(
+  () => import('./project-tasks-rich-editor').then((m) => m.ProjectTasksRichEditor),
+  { ssr: false, loading: () => <div className="min-h-[100px] animate-pulse rounded-lg bg-slate-100" /> }
+)
 import {
   TASK_STATUSES,
   TASK_STATUS_LABELS,
@@ -30,6 +37,9 @@ import {
 import {
   getProjectTasks,
   getProjectTaskDetail,
+  getTaskCommentsPage,
+  getTaskActivityPage,
+  getTaskAttachmentsPage,
   createProjectTask,
   updateProjectTask,
   updateTaskStatus,
@@ -404,6 +414,12 @@ export function ProjectTasks({
   )
   const [deleteConfirmTaskId, setDeleteConfirmTaskId] = useState<string | null>(null)
   const [mentionableUsers, setMentionableUsers] = useState<TaskAssignee[]>([])
+  const [commentsPage, setCommentsPage] = useState(1)
+  const [activityPage, setActivityPage] = useState(1)
+  const [attachmentsPage, setAttachmentsPage] = useState(1)
+  const [loadMoreCommentsLoading, setLoadMoreCommentsLoading] = useState(false)
+  const [loadMoreActivityLoading, setLoadMoreActivityLoading] = useState(false)
+  const [loadMoreAttachmentsLoading, setLoadMoreAttachmentsLoading] = useState(false)
   const [boardDragState, setBoardDragState] = useState<{ taskId: string; fromStatus: TaskStatus } | null>(null)
   const [boardDragOverStatus, setBoardDragOverStatus] = useState<TaskStatus | null>(null)
   /** All active users (any role) for assignee dropdowns; same shape as StaffSelectOption */
@@ -452,6 +468,9 @@ export function ProjectTasks({
     async (taskId: string) => {
       setDetailLoading(true)
       setTaskDetail(null)
+      setCommentsPage(1)
+      setActivityPage(1)
+      setAttachmentsPage(1)
       const result = await getProjectTaskDetail(taskId)
       setDetailLoading(false)
       if (result.error) {
@@ -463,6 +482,60 @@ export function ProjectTasks({
     },
     [showError]
   )
+
+  const handleLoadMoreComments = useCallback(async () => {
+    if (!selectedTaskId || !taskDetail || loadMoreCommentsLoading) return
+    const nextPage = commentsPage + 1
+    setLoadMoreCommentsLoading(true)
+    const result = await getTaskCommentsPage(selectedTaskId, nextPage)
+    setLoadMoreCommentsLoading(false)
+    if (result.error) {
+      showError('Load failed', result.error)
+      return
+    }
+    if (result.data) {
+      setTaskDetail((prev) =>
+        prev ? { ...prev, comments: [...prev.comments, ...result.data!.comments] } : null
+      )
+      setCommentsPage(nextPage)
+    }
+  }, [selectedTaskId, taskDetail, commentsPage, loadMoreCommentsLoading, showError])
+
+  const handleLoadMoreActivity = useCallback(async () => {
+    if (!selectedTaskId || !taskDetail || loadMoreActivityLoading) return
+    const nextPage = activityPage + 1
+    setLoadMoreActivityLoading(true)
+    const result = await getTaskActivityPage(selectedTaskId, nextPage)
+    setLoadMoreActivityLoading(false)
+    if (result.error) {
+      showError('Load failed', result.error)
+      return
+    }
+    if (result.data) {
+      setTaskDetail((prev) =>
+        prev ? { ...prev, activity_log: [...prev.activity_log, ...result.data!.activity] } : null
+      )
+      setActivityPage(nextPage)
+    }
+  }, [selectedTaskId, taskDetail, activityPage, loadMoreActivityLoading, showError])
+
+  const handleLoadMoreAttachments = useCallback(async () => {
+    if (!selectedTaskId || !taskDetail || loadMoreAttachmentsLoading) return
+    const nextPage = attachmentsPage + 1
+    setLoadMoreAttachmentsLoading(true)
+    const result = await getTaskAttachmentsPage(selectedTaskId, nextPage)
+    setLoadMoreAttachmentsLoading(false)
+    if (result.error) {
+      showError('Load failed', result.error)
+      return
+    }
+    if (result.data) {
+      setTaskDetail((prev) =>
+        prev ? { ...prev, attachments: [...prev.attachments, ...result.data!.attachments] } : null
+      )
+      setAttachmentsPage(nextPage)
+    }
+  }, [selectedTaskId, taskDetail, attachmentsPage, loadMoreAttachmentsLoading, showError])
 
   useEffect(() => {
     if (selectedTaskId && selectedTaskId !== CREATE_TASK_SENTINEL) loadTaskDetail(selectedTaskId)
@@ -776,7 +849,13 @@ export function ProjectTasks({
     showSuccess('Comment added', '')
     if (result.data && taskDetail?.id === taskId) {
       setTaskDetail((prev) =>
-        prev ? { ...prev, comments: [...prev.comments, result.data!] } : null
+        prev
+          ? {
+              ...prev,
+              comments: [...prev.comments, result.data!],
+              commentsTotalCount: (prev.commentsTotalCount ?? prev.comments.length) + 1,
+            }
+          : null
       )
     }
     router.refresh()
@@ -814,7 +893,13 @@ export function ProjectTasks({
     showSuccess('Comment removed', '')
     if (taskDetail?.id === taskId) {
       setTaskDetail((prev) =>
-        prev ? { ...prev, comments: prev.comments.filter((c) => c.id !== commentId) } : null
+        prev
+          ? {
+              ...prev,
+              comments: prev.comments.filter((c) => c.id !== commentId),
+              commentsTotalCount: Math.max(0, (prev.commentsTotalCount ?? prev.comments.length) - 1),
+            }
+          : null
       )
     }
     router.refresh()
@@ -881,9 +966,14 @@ export function ProjectTasks({
       return false
     }
     if (createResult.data && taskDetail?.id === taskId) {
+      const addedCount = createResult.data?.length ?? 0
       setTaskDetail((prev) =>
         prev
-          ? { ...prev, attachments: [...prev.attachments, ...createResult.data!] }
+          ? {
+              ...prev,
+              attachments: [...prev.attachments, ...createResult.data!],
+              attachmentsTotalCount: (prev.attachmentsTotalCount ?? prev.attachments.length) + addedCount,
+            }
           : null
       )
     }
@@ -901,7 +991,11 @@ export function ProjectTasks({
     if (taskDetail) {
       setTaskDetail((prev) =>
         prev
-          ? { ...prev, attachments: prev.attachments.filter((a) => a.id !== attachmentId) }
+          ? {
+              ...prev,
+              attachments: prev.attachments.filter((a) => a.id !== attachmentId),
+              attachmentsTotalCount: Math.max(0, (prev.attachmentsTotalCount ?? prev.attachments.length) - 1),
+            }
           : null
       )
     }
@@ -1392,6 +1486,12 @@ export function ProjectTasks({
             onDeleteCommentAttachment={handleDeleteCommentAttachment}
             onUploadAttachments={handleUploadAttachments}
             onRemoveAttachment={handleRemoveAttachment}
+            onLoadMoreComments={handleLoadMoreComments}
+            onLoadMoreActivity={handleLoadMoreActivity}
+            onLoadMoreAttachments={handleLoadMoreAttachments}
+            loadMoreCommentsLoading={loadMoreCommentsLoading}
+            loadMoreActivityLoading={loadMoreActivityLoading}
+            loadMoreAttachmentsLoading={loadMoreAttachmentsLoading}
             onTaskDeleted={() => setSelectedTaskId(null)}
             showError={showError}
             showSuccess={showSuccess}
@@ -2473,6 +2573,12 @@ function TaskDetailPanel({
   onDeleteCommentAttachment,
   onUploadAttachments,
   onRemoveAttachment,
+  onLoadMoreComments,
+  onLoadMoreActivity,
+  onLoadMoreAttachments,
+  loadMoreCommentsLoading,
+  loadMoreActivityLoading,
+  loadMoreAttachmentsLoading,
   onTaskDeleted,
   showError,
   showSuccess,
@@ -2524,6 +2630,12 @@ function TaskDetailPanel({
   onDeleteCommentAttachment: (taskId: string, commentId: string, attachmentId: string) => Promise<void>
   onUploadAttachments: (taskId: string, files: File[]) => Promise<boolean>
   onRemoveAttachment: (attachmentId: string) => void
+  onLoadMoreComments: () => void
+  onLoadMoreActivity: () => void
+  onLoadMoreAttachments: () => void
+  loadMoreCommentsLoading: boolean
+  loadMoreActivityLoading: boolean
+  loadMoreAttachmentsLoading: boolean
   onTaskDeleted: () => void
   showError: (title: string, msg: string) => void
   showSuccess: (title: string, msg: string) => void
@@ -3058,6 +3170,7 @@ function TaskDetailPanel({
           )}
 
           {!isCreateFlow && taskDetail!.attachments.length > 0 && (
+            <>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {taskDetail!.attachments.map((a) => (
                 <div
@@ -3067,10 +3180,12 @@ function TaskDetailPanel({
                 >
                   <div className="aspect-[4/3] bg-slate-100 relative">
                     {isImageAttachment(a) ? (
-                      <img
+                      <Image
                         src={a.cloudinary_url}
                         alt={a.file_name}
-                        className="w-full h-full object-cover"
+                        fill
+                        sizes="(max-width: 640px) 100vw, 320px"
+                        className="object-cover"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
@@ -3151,6 +3266,19 @@ function TaskDetailPanel({
                 </div>
               ))}
             </div>
+            {taskDetail!.attachments.length < (taskDetail!.attachmentsTotalCount ?? taskDetail!.attachments.length) && (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={onLoadMoreAttachments}
+                  disabled={loadMoreAttachmentsLoading}
+                  className="text-sm font-medium text-cyan-600 hover:text-cyan-700 disabled:opacity-50"
+                >
+                  {loadMoreAttachmentsLoading ? 'Loading…' : `Load more (${taskDetail!.attachments.length} of ${taskDetail!.attachmentsTotalCount})`}
+                </button>
+              </div>
+            )}
+            </>
           )}
         </div>
       </div>
@@ -3187,6 +3315,18 @@ function TaskDetailPanel({
               getInitials={getInitials}
             />
           ))}
+          {!isCreateFlow && taskDetail!.comments.length < (taskDetail!.commentsTotalCount ?? taskDetail!.comments.length) && (
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={onLoadMoreComments}
+                disabled={loadMoreCommentsLoading}
+                className="text-sm font-medium text-cyan-600 hover:text-cyan-700 disabled:opacity-50"
+              >
+                {loadMoreCommentsLoading ? 'Loading…' : `Load more (${taskDetail!.comments.length} of ${taskDetail!.commentsTotalCount})`}
+              </button>
+            </div>
+          )}
         </div>
       )}
       {userRole !== 'client' && (
@@ -3829,10 +3969,22 @@ function TaskDetailPanel({
                 </button>
               </div>
               <ul className="flex-1 overflow-y-auto p-4 space-y-2">
-                {(taskDetail?.activity_log ?? []).slice(0, 50).map((entry) => (
+                {(taskDetail?.activity_log ?? []).map((entry) => (
                   <ActivityEntry key={entry.id} entry={entry} />
                 ))}
               </ul>
+              {taskDetail && taskDetail.activity_log.length < (taskDetail.activityTotalCount ?? taskDetail.activity_log.length) && (
+                <div className="p-4 border-t border-slate-200">
+                  <button
+                    type="button"
+                    onClick={onLoadMoreActivity}
+                    disabled={loadMoreActivityLoading}
+                    className="text-sm font-medium text-cyan-600 hover:text-cyan-700 disabled:opacity-50"
+                  >
+                    {loadMoreActivityLoading ? 'Loading…' : `Load more (${taskDetail.activity_log.length} of ${taskDetail.activityTotalCount})`}
+                  </button>
+                </div>
+              )}
             </div>
           </>
         )}
@@ -4079,12 +4231,14 @@ function CommentRow({
                           aria-label={attachment.file_name}
                           title={attachment.file_name}
                         >
-                          <div className="h-24 bg-slate-100">
+                          <div className="h-24 bg-slate-100 relative">
                             {isImage ? (
-                              <img
+                              <Image
                                 src={attachment.cloudinary_url}
                                 alt={attachment.file_name}
-                                className="h-full w-full object-cover"
+                                fill
+                                sizes="96px"
+                                className="object-cover"
                               />
                             ) : (
                               <div className="flex h-full w-full flex-col items-center justify-center gap-1 p-2">
