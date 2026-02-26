@@ -451,6 +451,158 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
   }
 }
 
+/** One team member row for dashboard "working projects" list (only members in start/hold). */
+export type DashboardWorkingProjectMember = {
+  user_id: string
+  full_name: string | null
+  work_status: ProjectTeamMemberWorkStatus
+  total_work_seconds: number
+  work_running_since: string | null
+}
+
+/** One working project for dashboard: has at least one member in start or hold. */
+export type DashboardWorkingProject = {
+  id: string
+  name: string
+  status: ProjectStatus
+  client_name: string | null
+  team_members: DashboardWorkingProjectMember[]
+}
+
+export type GetWorkingProjectsForDashboardResult =
+  | { data: DashboardWorkingProject[]; error: null }
+  | { data: null; error: string }
+
+/**
+ * Returns working projects for the dashboard:
+ * - Admin/Manager: all projects that have at least one team member with work_status in ('start', 'hold'), with each such member's name and total timer.
+ * - Staff: only projects where the current user has started work (work_status in 'start' or 'hold'), with their own timer.
+ */
+export async function getWorkingProjectsForDashboard(): Promise<GetWorkingProjectsForDashboardResult> {
+  const currentUser = await getCurrentUser()
+  if (!currentUser) {
+    return { data: null, error: 'You must be logged in' }
+  }
+  const isAdmin = isAdminManager(currentUser.role)
+  const isStaff = currentUser.role === 'staff'
+  const canReadModule = await hasPermission(currentUser, MODULE_PERMISSION_IDS.projects, 'read')
+  if (!isAdmin && !isStaff && !canReadModule) {
+    return { data: null, error: 'You do not have permission to view working projects' }
+  }
+
+  const supabase = await createClient()
+
+  // Fetch members in 'start' or 'hold' (working). Staff: only current user.
+  let membersQuery = supabase
+    .from('project_team_members')
+    .select('project_id, user_id, work_status, users!user_id(id, full_name)')
+    .in('work_status', ['start', 'hold'])
+
+  if (isStaff && !isAdmin) {
+    membersQuery = membersQuery.eq('user_id', currentUser.id)
+  }
+
+  const { data: memberRows, error: membersError } = await membersQuery
+
+  if (membersError) {
+    console.error('Error fetching working project members:', membersError)
+    return { data: null, error: membersError.message ?? 'Failed to fetch working projects' }
+  }
+
+  const rows = (memberRows ?? []) as Array<{
+    project_id: string
+    user_id: string
+    work_status: string
+    users: { id: string; full_name: string | null } | null
+  }>
+  if (rows.length === 0) {
+    return { data: [], error: null }
+  }
+
+  const projectIds = [...new Set(rows.map((r) => r.project_id))]
+
+  // Load projects with client names
+  const { data: projectRows, error: projectsError } = await supabase
+    .from('projects')
+    .select('id, name, status, clients(name)')
+    .in('id', projectIds)
+
+  if (projectsError || !projectRows?.length) {
+    return { data: [], error: null }
+  }
+
+  // Load time events for all working projects (include project_id to group client-side)
+  const { data: timeEventRows, error: eventsError } = await supabase
+    .from('project_team_member_time_events')
+    .select('project_id, user_id, event_type, occurred_at, note')
+    .in('project_id', projectIds)
+    .order('occurred_at', { ascending: true })
+
+  const timeEventsByProject = new Map<string, ProjectTeamMemberTimeEvent[]>()
+  if (!eventsError && timeEventRows) {
+    for (const e of timeEventRows as Array<{ project_id: string; user_id: string; event_type: string; occurred_at: string; note?: string | null }>) {
+      const list = timeEventsByProject.get(e.project_id) ?? []
+      list.push({
+        user_id: e.user_id,
+        event_type: e.event_type,
+        occurred_at: e.occurred_at,
+        note: e.note ?? null,
+      })
+      timeEventsByProject.set(e.project_id, list)
+    }
+  }
+
+  const projectMap = new Map<string, { name: string; status: ProjectStatus; client_name: string | null }>()
+  for (const p of projectRows as Array<{ id: string; name: string; status: string; clients: { name: string } | null }>) {
+    const client = p.clients
+    const clientName = client && !Array.isArray(client) ? client.name : (Array.isArray(client) ? client[0]?.name : null) ?? null
+    projectMap.set(p.id, {
+      name: p.name,
+      status: p.status as ProjectStatus,
+      client_name: clientName,
+    })
+  }
+
+  // Group members by project_id and compute total_work_seconds + work_running_since per member
+  const membersByProject = new Map<string, DashboardWorkingProjectMember[]>()
+  for (const row of rows) {
+    const rawUser = row.users
+    const user = Array.isArray(rawUser) ? rawUser[0] : rawUser
+    const userId = row.user_id
+    const fullName = user?.full_name ?? null
+    const workStatus = (row.work_status === 'start' || row.work_status === 'hold' ? row.work_status : 'hold') as ProjectTeamMemberWorkStatus
+    const events = timeEventsByProject.get(row.project_id) ?? []
+    const computed = computeMemberWorkSeconds(userId, events)
+
+    const member: DashboardWorkingProjectMember = {
+      user_id: userId,
+      full_name: fullName,
+      work_status: workStatus,
+      total_work_seconds: computed.totalSeconds,
+      work_running_since: computed.runningSince ?? null,
+    }
+    if (!membersByProject.has(row.project_id)) {
+      membersByProject.set(row.project_id, [])
+    }
+    membersByProject.get(row.project_id)!.push(member)
+  }
+
+  const projects: DashboardWorkingProject[] = []
+  for (const [projectId, members] of membersByProject) {
+    const info = projectMap.get(projectId)
+    if (!info) continue
+    projects.push({
+      id: projectId,
+      name: info.name,
+      status: info.status,
+      client_name: info.client_name,
+      team_members: members,
+    })
+  }
+
+  return { data: projects, error: null }
+}
+
 /** Options for getProject to control data fetch for performance (e.g. defer heavy data when not needed). */
 export type GetProjectOptions = {
   /** When false, skips team_member_time_events and work_day_breakdown (for Tasks tab). Default true. */
