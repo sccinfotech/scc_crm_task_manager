@@ -544,7 +544,7 @@ export async function getWorkingProjectsForDashboard(): Promise<GetWorkingProjec
       const list = timeEventsByProject.get(e.project_id) ?? []
       list.push({
         user_id: e.user_id,
-        event_type: e.event_type,
+        event_type: e.event_type as ProjectTeamMemberTimeEvent['event_type'],
         occurred_at: e.occurred_at,
         note: e.note ?? null,
       })
