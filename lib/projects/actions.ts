@@ -9,8 +9,10 @@ import { getCurrentUser, hasPermission } from '@/lib/auth/utils'
 import { MODULE_PERMISSION_IDS } from '@/lib/permissions'
 import { createActivityLogEntry } from '@/lib/activity-log/logger'
 import { computeMemberWorkSeconds, computeWorkHistorySessionsByDay } from '@/lib/projects/work-utils'
+import { autoEndWorkSessionsAtCutoff, getWorkSessionCutoffDisplay } from '@/lib/projects/work-cutoff'
 import { prepareSearchTerm } from '@/lib/supabase/utils'
 import type { WorkHistoryDay, WorkHistorySegment } from '@/lib/projects/work-utils'
+import type { AutoEndedWorkSession } from '@/lib/projects/work-cutoff'
 
 export type ProjectStatus = 'pending' | 'in_progress' | 'hold' | 'completed'
 export type ProjectStaffStatus = 'start' | 'hold' | 'end'
@@ -344,6 +346,7 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
   const page = Math.max(1, options.page ?? 1)
   const pageSize = Math.min(100, Math.max(1, options.pageSize ?? 20))
   const supabase = await createClient()
+  await autoEndWorkSessionsAtCutoff(supabase, { userId: currentUser.id })
   const staffUserId = options.staffUserId?.trim() || null
 
   let query = supabase
@@ -491,6 +494,7 @@ export async function getWorkingProjectsForDashboard(): Promise<GetWorkingProjec
   }
 
   const supabase = await createClient()
+  await autoEndWorkSessionsAtCutoff(supabase, { userId: currentUser.id })
 
   // Fetch members in 'start' or 'hold' (working). Staff: only current user.
   let membersQuery = supabase
@@ -626,6 +630,7 @@ export const getProject = cache(async (
   }
 
   const supabase = await createClient()
+  await autoEndWorkSessionsAtCutoff(supabase, { userId: currentUser.id })
   if (isStaff && !isAdmin) {
     const isAssigned = await isUserAssignedToProject(supabase, projectId, currentUser.id)
     if (!isAssigned) {
@@ -777,6 +782,7 @@ export async function getProjectDetailsSupplement(
   }
 
   const supabase = await createClient()
+  await autoEndWorkSessionsAtCutoff(supabase, { userId: currentUser.id })
   if (isStaff && !isAdmin) {
     const isAssigned = await isUserAssignedToProject(supabase, projectId, currentUser.id)
     if (!isAssigned) return { data: null, error: 'Project not found' }
@@ -1238,20 +1244,43 @@ export type UpdateMyWorkStatusSupplement = {
 }
 
 export type UpdateMyWorkStatusResult =
-  | { data: UpdateMyWorkStatusSupplement; error: null }
-  | { data: null; error: string }
+  | {
+    data: UpdateMyWorkStatusSupplement
+    error: null
+    autoEndedSessions: AutoEndedWorkSession[]
+    cutoffLabel: string
+    cutoffTimezone: string
+  }
+  | {
+    data: null
+    error: string
+    autoEndedSessions: AutoEndedWorkSession[]
+    cutoffLabel: string
+    cutoffTimezone: string
+  }
 
 export async function updateMyProjectWorkStatus(
   projectId: string,
   eventType: 'start' | 'hold' | 'resume' | 'end',
   note?: string | null
 ): Promise<UpdateMyWorkStatusResult> {
+  const cutoffDisplay = getWorkSessionCutoffDisplay()
   const currentUser = await getCurrentUser()
   if (!currentUser) {
-    return { data: null, error: 'You must be logged in to update work status' }
+    return {
+      data: null,
+      error: 'You must be logged in to update work status',
+      autoEndedSessions: [],
+      cutoffLabel: cutoffDisplay.cutoffLabel,
+      cutoffTimezone: cutoffDisplay.timezone,
+    }
   }
 
   const supabase = await createClient()
+  const cutoffResult = await autoEndWorkSessionsAtCutoff(supabase, { userId: currentUser.id })
+  const autoEndedSessions = cutoffResult.endedSessions
+  const cutoffLabel = cutoffResult.cutoffLabel
+  const cutoffTimezone = cutoffResult.timezone
   const [isAssigned, memberRes] = await Promise.all([
     isUserAssignedToProject(supabase, projectId, currentUser.id),
     supabase
@@ -1263,7 +1292,7 @@ export async function updateMyProjectWorkStatus(
   ])
 
   if (!isAssigned) {
-    return { data: null, error: 'You are not assigned to this project' }
+    return { data: null, error: 'You are not assigned to this project', autoEndedSessions, cutoffLabel, cutoffTimezone }
   }
 
   const currentStatus = (memberRes.data as any)?.work_status ?? 'not_started'
@@ -1275,11 +1304,23 @@ export async function updateMyProjectWorkStatus(
   }
   const allowed = validTransitions[currentStatus] || []
   if (!allowed.includes(eventType)) {
-    return { data: null, error: `Cannot ${eventType} from current status (${currentStatus})` }
+    return {
+      data: null,
+      error: `Cannot ${eventType} from current status (${currentStatus})`,
+      autoEndedSessions,
+      cutoffLabel,
+      cutoffTimezone,
+    }
   }
 
   if (eventType === 'end' && (!note || !note.trim())) {
-    return { data: null, error: 'Done points are required. Please describe what you completed before ending work.' }
+    return {
+      data: null,
+      error: 'Done points are required. Please describe what you completed before ending work.',
+      autoEndedSessions,
+      cutoffLabel,
+      cutoffTimezone,
+    }
   }
 
   const now = new Date().toISOString()
@@ -1295,7 +1336,13 @@ export async function updateMyProjectWorkStatus(
 
   if (eventError) {
     console.error('Error inserting time event:', eventError)
-    return { data: null, error: eventError.message || 'Failed to record work event' }
+    return {
+      data: null,
+      error: eventError.message || 'Failed to record work event',
+      autoEndedSessions,
+      cutoffLabel,
+      cutoffTimezone,
+    }
   }
 
   const updates: Record<string, unknown> = { work_status: eventType === 'resume' ? 'start' : eventType }
@@ -1318,13 +1365,21 @@ export async function updateMyProjectWorkStatus(
 
   if (updateError) {
     console.error('Error updating team member work status:', updateError)
-    return { data: null, error: updateError.message || 'Failed to update work status' }
+    return {
+      data: null,
+      error: updateError.message || 'Failed to update work status',
+      autoEndedSessions,
+      cutoffLabel,
+      cutoffTimezone,
+    }
   }
 
   revalidatePath(`/dashboard/projects/${projectId}`)
   revalidatePath('/dashboard/projects')
   const result = await getProjectDetailsSupplement(projectId)
-  return result.error ? { data: null, error: result.error } : { data: result.data!, error: null }
+  return result.error
+    ? { data: null, error: result.error, autoEndedSessions, cutoffLabel, cutoffTimezone }
+    : { data: result.data!, error: null, autoEndedSessions, cutoffLabel, cutoffTimezone }
 }
 
 export async function deleteProject(projectId: string) {

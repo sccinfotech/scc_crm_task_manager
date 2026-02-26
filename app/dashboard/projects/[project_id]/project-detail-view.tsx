@@ -391,7 +391,7 @@ export function ProjectDetailView({
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const { success: showSuccess, error: showError } = useToast()
+  const { success: showSuccess, error: showError, info: showInfo } = useToast()
   /** Requirements and Payments tabs are hidden from Staff and Clients */
   const showRequirementsAndPayments = userRole !== 'staff' && userRole !== 'client'
   const initialResolvedTab = resolveProjectDetailTab(parseProjectDetailTab(initialTab), showRequirementsAndPayments)
@@ -665,6 +665,12 @@ export function ProjectDetailView({
     setOptimisticWork(null)
     setEndWorkModalOpen(false)
     setEndWorkNotes('')
+    if (result.autoEndedSessions.length > 0) {
+      showInfo(
+        'Session auto-ended',
+        `Your running Work session was automatically ended at ${result.cutoffLabel} (${result.cutoffTimezone}).`
+      )
+    }
     if (!result.error && result.data) {
       setProject((prev) => ({
         ...prev,

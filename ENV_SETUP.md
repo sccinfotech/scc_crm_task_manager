@@ -41,6 +41,18 @@ GOOGLE_AUTO_CREATE_ROLE=admin
 - When disabled (`false`), the system stays strict: only pre-added emails can log in.
 - After bootstrap is done, set `ALLOW_GOOGLE_AUTO_CREATE=false` again.
 
+## Optional: Work Session Auto-End Cutoff
+
+Use this to auto-end running Work sessions at a fixed company cutoff time.
+
+```env
+WORK_SESSION_AUTO_END_TIME=19:30
+COMPANY_TIMEZONE=Asia/Kolkata
+```
+
+- `WORK_SESSION_AUTO_END_TIME`: 24-hour `HH:MM` format.
+- `COMPANY_TIMEZONE`: IANA timezone (for example `Asia/Kolkata`, `America/New_York`).
+
 ## Where to Find Values
 
 1. Go to https://supabase.com/dashboard

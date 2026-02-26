@@ -201,7 +201,7 @@ export const ProjectsCardList = memo(function ProjectsCardList({
   const sentinelRef = useRef<HTMLDivElement>(null)
   const [endWorkProject, setEndWorkProject] = useState<{ id: string; name: string } | null>(null)
   const [workActionProjectId, setWorkActionProjectId] = useState<string | null>(null)
-  const { success: showToastSuccess, error: showToastError } = useToast()
+  const { success: showToastSuccess, error: showToastError, info: showToastInfo } = useToast()
 
   const handleIntersect = useCallback(
     (entries: IntersectionObserverEntry[]) => {
@@ -234,6 +234,12 @@ export const ProjectsCardList = memo(function ProjectsCardList({
     const result = await updateMyProjectWorkStatus(projectId, eventType, note ?? undefined)
     setWorkActionProjectId(null)
     setEndWorkProject(null)
+    if (result.autoEndedSessions.length > 0) {
+      showToastInfo(
+        'Session auto-ended',
+        `Your running Work session was automatically ended at ${result.cutoffLabel} (${result.cutoffTimezone}).`
+      )
+    }
     if (!result.error) {
       const messages: Record<string, string> = {
         start: 'Work started.',

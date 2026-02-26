@@ -158,7 +158,7 @@ export function WorkingProjectsSection({
   currentUserId,
 }: WorkingProjectsSectionProps) {
   const router = useRouter()
-  const { success: showToastSuccess, error: showToastError } = useToast()
+  const { success: showToastSuccess, error: showToastError, info: showToastInfo } = useToast()
   const [workActionProjectId, setWorkActionProjectId] = useState<string | null>(null)
   const [endWorkProject, setEndWorkProject] = useState<{ id: string; name: string } | null>(null)
 
@@ -172,6 +172,12 @@ export function WorkingProjectsSection({
     const result = await updateMyProjectWorkStatus(projectId, eventType, note ?? undefined)
     setWorkActionProjectId(null)
     setEndWorkProject(null)
+    if (result.autoEndedSessions.length > 0) {
+      showToastInfo(
+        'Session auto-ended',
+        `Your running Work session was automatically ended at ${result.cutoffLabel} (${result.cutoffTimezone}).`
+      )
+    }
     if (!result.error) {
       const messages: Record<string, string> = {
         start: 'Work started.',

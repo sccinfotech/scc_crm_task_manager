@@ -7,6 +7,10 @@
     {
       "path": "/api/notifications/due-date",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/projects/work-session-cutoff",
+      "schedule": "*/15 * * * *"
     }
   ]
 }
