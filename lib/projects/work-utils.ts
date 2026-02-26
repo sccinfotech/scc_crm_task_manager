@@ -24,8 +24,66 @@ export type WorkHistoryDay = {
 }
 
 /**
- * Builds day-wise work history for a user from time events.
- * Each day has segments (start–end clipped to that day) and the note from the 'end' event (on the day the segment ends).
+ * Builds day-wise work history for a user from time events, with one entry per
+ * complete session (Start → … → End). Hold/Resume boundaries are not shown as
+ * separate entries; only full sessions from first start/resume to end appear.
+ * Sessions are grouped by the date the session ended.
+ * Use this for the Work history tab display.
+ */
+export function computeWorkHistorySessionsByDay(
+  userId: string,
+  events: WorkTimeEvent[],
+  _asOf?: string
+): WorkHistoryDay[] {
+  const userEvents = events
+    .filter((e) => e.user_id === userId)
+    .sort((a, b) => new Date(a.occurred_at).getTime() - new Date(b.occurred_at).getTime())
+
+  const sessions: WorkHistorySegment[] = []
+  let sessionStartIso: string | null = null
+
+  for (const ev of userEvents) {
+    if (ev.event_type === 'start' || ev.event_type === 'resume') {
+      if (sessionStartIso === null) {
+        sessionStartIso = ev.occurred_at
+      }
+    } else if (ev.event_type === 'hold') {
+      // session continues; no new segment
+    } else if (ev.event_type === 'end') {
+      if (sessionStartIso !== null) {
+        sessions.push({
+          startAt: sessionStartIso,
+          endAt: ev.occurred_at,
+          note: ev.note ?? null,
+        })
+        sessionStartIso = null
+      }
+    }
+  }
+
+  const daySegments: Record<string, WorkHistorySegment[]> = {}
+  const daySeconds: Record<string, number> = {}
+  for (const seg of sessions) {
+    const endDateKey = seg.endAt.slice(0, 10)
+    if (!daySegments[endDateKey]) daySegments[endDateKey] = []
+    daySegments[endDateKey].push(seg)
+    const sec = (new Date(seg.endAt).getTime() - new Date(seg.startAt).getTime()) / 1000
+    daySeconds[endDateKey] = (daySeconds[endDateKey] || 0) + sec
+  }
+
+  return Object.entries(daySeconds)
+    .sort(([a], [b]) => b.localeCompare(a))
+    .map(([date, totalSeconds]) => ({
+      date,
+      totalSeconds,
+      segments: daySegments[date] || [],
+    }))
+}
+
+/**
+ * Builds day-wise work history for a user from time events (segment-based).
+ * Each day has segments (start–hold, resume–hold, resume–end clipped to that day).
+ * Use computeWorkHistorySessionsByDay for UI display (one entry per Start→End session).
  */
 export function computeWorkHistoryByDay(
   userId: string,

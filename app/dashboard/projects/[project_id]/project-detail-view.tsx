@@ -460,6 +460,21 @@ export function ProjectDetailView({
     router.replace(nextUrl, { scroll: false })
   }, [pathname, router, searchParams])
 
+  /** Refresh server data while keeping current main tab and (if on Details) details panel tab in the URL so they are preserved. */
+  const refreshPreservingTab = useCallback(() => {
+    const params = new URLSearchParams(
+      typeof window !== 'undefined' ? window.location.search : searchParams.toString()
+    )
+    params.set('tab', activeTab)
+    if (activeTab === 'details') {
+      params.set(DETAILS_PANEL_QUERY_PARAM, activeDetailsPanelTab)
+    }
+    const query = params.toString()
+    const nextUrl = query ? `${pathname}?${query}` : pathname
+    router.replace(nextUrl, { scroll: false })
+    router.refresh()
+  }, [pathname, router, searchParams, activeTab, activeDetailsPanelTab])
+
   useEffect(() => {
     setProject(initialProject)
     detailsSupplementLoadedRef.current = false
@@ -696,7 +711,7 @@ export function ProjectDetailView({
       }))
       setLinksModalOpen(false)
       showSuccess('Links updated', 'Website and reference links have been saved.')
-      router.refresh()
+      refreshPreservingTab()
     } else {
       showError('Update failed', result.error)
     }
@@ -737,7 +752,7 @@ export function ProjectDetailView({
     if (!result.error && result.data) {
       setProject(result.data)
       showSuccess('Status Updated', 'Client status has been updated.')
-      router.refresh()
+      refreshPreservingTab()
     } else {
       showError('Update Failed', result.error || 'Failed to update client status')
     }

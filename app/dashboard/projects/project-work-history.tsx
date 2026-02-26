@@ -377,7 +377,7 @@ export function ProjectWorkHistory({
                               })}
                             </ul>
                           ) : (
-                            <p className="px-3 py-3 text-sm text-slate-500 italic">No segments recorded for this staff on this day.</p>
+                            <p className="px-3 py-3 text-sm text-slate-500 italic">No sessions recorded for this staff on this day.</p>
                           )}
                         </section>
                       ))}
@@ -442,7 +442,7 @@ export function ProjectWorkHistory({
                     </ul>
                   )}
                   {day.segments.length === 0 && (
-                    <p className="text-sm text-slate-500 italic">No segments recorded for this day.</p>
+                    <p className="text-sm text-slate-500 italic">No sessions recorded for this day.</p>
                   )}
                 </div>
               ))}

@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser, hasPermission } from '@/lib/auth/utils'
 import { MODULE_PERMISSION_IDS } from '@/lib/permissions'
 import { createActivityLogEntry } from '@/lib/activity-log/logger'
-import { computeMemberWorkSeconds, computeWorkHistoryByDay } from '@/lib/projects/work-utils'
+import { computeMemberWorkSeconds, computeWorkHistorySessionsByDay } from '@/lib/projects/work-utils'
 import { prepareSearchTerm } from '@/lib/supabase/utils'
 import type { WorkHistoryDay, WorkHistorySegment } from '@/lib/projects/work-utils'
 
@@ -1395,7 +1395,7 @@ export async function getProjectWorkHistory(
 
     const dayMap = new Map<string, ProjectWorkHistoryTeamDay>()
     for (const userId of userIds) {
-      const userDays = computeWorkHistoryByDay(userId, events)
+      const userDays = computeWorkHistorySessionsByDay(userId, events)
       if (userDays.length === 0) continue
 
       const userInfo = userMap.get(userId)
@@ -1444,7 +1444,7 @@ export async function getProjectWorkHistory(
     }
   }
 
-  const days = computeWorkHistoryByDay(userId, events)
+  const days = computeWorkHistorySessionsByDay(userId, events)
   return { data: { mode: 'single', days }, error: null }
 }
 
@@ -1575,7 +1575,7 @@ export async function getProjectAnalytics(
 
   const staffTotals: ProjectAnalyticsStaffTime[] = []
   for (const [userId, meta] of userMetaById.entries()) {
-    const dayHistory = computeWorkHistoryByDay(userId, events)
+    const dayHistory = computeWorkHistorySessionsByDay(userId, events)
     const totalSeconds = dayHistory.reduce((sum, day) => (
       shouldIncludeDay(day.date) ? sum + day.totalSeconds : sum
     ), 0)
