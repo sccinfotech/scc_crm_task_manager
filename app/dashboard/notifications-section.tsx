@@ -70,7 +70,7 @@ export function NotificationsSection({ notifications: initialNotifications }: No
               <th className="text-left py-3 px-3 font-medium text-slate-700 min-w-[140px]">Title</th>
               <th className="text-left py-3 px-3 font-medium text-slate-700">Content</th>
               <th className="text-left py-3 px-3 font-medium text-slate-700 w-[100px] whitespace-nowrap">Time</th>
-              <th className="text-right py-3 pl-3 pr-4 font-medium text-slate-700 w-[100px]">Action</th>
+              <th className="text-right py-3 pl-3 pr-4 font-medium text-slate-700 min-w-[110px] whitespace-nowrap">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -98,12 +98,12 @@ export function NotificationsSection({ notifications: initialNotifications }: No
                 <td className="py-3 px-3 align-top whitespace-nowrap text-slate-500">
                   {formatRelativeTime(notification.created_at)}
                 </td>
-                <td className="py-3 pl-3 pr-4 align-top text-right">
+                <td className="py-3 pl-3 pr-4 align-top text-right whitespace-nowrap">
                   {notification.project_id ? (
                     <Link
                       href={`/dashboard/projects/${notification.project_id}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="inline-flex items-center text-xs font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
+                      className="inline-flex items-center text-xs font-medium text-cyan-600 hover:text-cyan-700 hover:underline whitespace-nowrap"
                     >
                       View project →
                     </Link>
