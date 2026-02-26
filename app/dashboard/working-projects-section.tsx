@@ -7,7 +7,6 @@ import { updateMyProjectWorkStatus } from '@/lib/projects/actions'
 import type {
   DashboardWorkingProject,
   DashboardWorkingProjectMember,
-  ProjectStatus,
   ProjectTeamMemberWorkStatus,
 } from '@/lib/projects/actions'
 import { useToast } from '@/app/components/ui/toast-context'
@@ -23,20 +22,20 @@ function formatWorkSecondsHhMmSs(seconds: number): string {
   return `${pad(h)}:${pad(m)}:${pad(s)}`
 }
 
-function StatusPill({ status }: { status: ProjectStatus }) {
+function WorkStatusPill({ status }: { status: ProjectTeamMemberWorkStatus }) {
   const styles: Record<string, { bg: string; text: string; dot: string; ring: string }> = {
-    pending: { bg: 'bg-slate-100', text: 'text-slate-700', dot: 'bg-slate-500', ring: 'ring-slate-500/20' },
-    in_progress: { bg: 'bg-cyan-50', text: 'text-cyan-700', dot: 'bg-cyan-600', ring: 'ring-cyan-600/20' },
+    not_started: { bg: 'bg-slate-100', text: 'text-slate-700', dot: 'bg-slate-500', ring: 'ring-slate-500/20' },
+    start: { bg: 'bg-cyan-50', text: 'text-cyan-700', dot: 'bg-cyan-600', ring: 'ring-cyan-600/20' },
     hold: { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-600', ring: 'ring-amber-600/20' },
-    completed: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-600', ring: 'ring-emerald-600/20' },
+    end: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-600', ring: 'ring-emerald-600/20' },
   }
   const labels: Record<string, string> = {
-    pending: 'Pending',
-    in_progress: 'In Progress',
-    hold: 'Hold',
-    completed: 'Completed',
+    not_started: 'Not started',
+    start: 'In progress',
+    hold: 'On hold',
+    end: 'Ended',
   }
-  const style = styles[status] ?? styles.pending
+  const style = styles[status] ?? styles.not_started
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-medium ${style.bg} ${style.text} ring-1 ring-inset ${style.ring}`}
@@ -293,7 +292,7 @@ export function WorkingProjectsSection({
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/50">
               <th className="text-left py-3 px-4 font-medium text-slate-700">Project</th>
-              <th className="text-left py-3 px-4 font-medium text-slate-700">Status</th>
+              <th className="text-left py-3 px-4 font-medium text-slate-700">Work status</th>
               {isAdmin && (
                 <th className="text-left py-3 px-4 font-medium text-slate-700">Team member</th>
               )}
@@ -325,14 +324,9 @@ export function WorkingProjectsSection({
                         )}
                       </td>
                     ) : null}
-                    {idx === 0 ? (
-                      <td
-                        rowSpan={project.team_members.length}
-                        className="py-3 px-4 align-top"
-                      >
-                        <StatusPill status={project.status} />
-                      </td>
-                    ) : null}
+                    <td className="py-3 px-4 align-top">
+                      <WorkStatusPill status={member.work_status} />
+                    </td>
                     <td className="py-3 px-4">
                       <span className="font-medium text-slate-800">
                         {member.full_name || 'Unknown'}
@@ -360,7 +354,9 @@ export function WorkingProjectsSection({
                     )}
                   </td>
                   <td className="py-3 px-4">
-                    <StatusPill status={project.status} />
+                    {project.team_members.length > 0 && (
+                      <WorkStatusPill status={project.team_members[0].work_status} />
+                    )}
                   </td>
                   <td className="py-3 px-4">
                     {project.team_members.length > 0 && (

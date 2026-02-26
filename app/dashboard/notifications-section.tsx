@@ -50,9 +50,7 @@ export function NotificationsSection({ notifications: initialNotifications }: No
       <div className="border-b border-slate-200 bg-slate-50/80 px-4 py-3 flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-[#1E1B4B]">Notifications</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            {unreadCount} unread
-          </p>
+          <p className="text-xs text-slate-500 mt-0.5">{unreadCount} unread</p>
         </div>
         {unreadCount > 0 && (
           <button
@@ -64,45 +62,59 @@ export function NotificationsSection({ notifications: initialNotifications }: No
           </button>
         )}
       </div>
-      <div className="max-h-[320px] overflow-y-auto">
-        {initialNotifications.map((notification) => (
-          <button
-            key={notification.id}
-            type="button"
-            onClick={() => handleMarkRead(notification.id)}
-            className={`w-full text-left px-4 py-3 border-b border-slate-100 transition-colors ${
-              notification.is_read ? 'bg-white' : 'bg-cyan-50/40'
-            } hover:bg-cyan-50/60`}
-          >
-            <div className="flex items-start gap-2">
-              <div
-                className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
-                  notification.is_read ? 'bg-transparent' : 'bg-cyan-500'
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-200 bg-slate-50/50">
+              <th className="w-6 py-3 pl-4 pr-2 text-left" aria-label="Status" />
+              <th className="text-left py-3 px-3 font-medium text-slate-700 min-w-[140px]">Title</th>
+              <th className="text-left py-3 px-3 font-medium text-slate-700">Content</th>
+              <th className="text-left py-3 px-3 font-medium text-slate-700 w-[100px] whitespace-nowrap">Time</th>
+              <th className="text-right py-3 pl-3 pr-4 font-medium text-slate-700 w-[100px]">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {initialNotifications.map((notification) => (
+              <tr
+                key={notification.id}
+                onClick={() => handleMarkRead(notification.id)}
+                className={`border-b border-slate-100 cursor-pointer transition-colors hover:bg-slate-50/80 ${
+                  notification.is_read ? 'bg-white' : 'bg-cyan-50/40'
                 }`}
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-slate-800">{notification.title}</p>
-                {notification.body && (
-                  <p className="mt-1 text-xs text-slate-600 line-clamp-2">{notification.body}</p>
-                )}
-                <div className="mt-1 flex items-center gap-2 flex-wrap">
-                  <span className="text-[11px] text-slate-400">
-                    {formatRelativeTime(notification.created_at)}
-                  </span>
-                  {notification.project_id && (
+              >
+                <td className="py-3 pl-4 pr-2 align-top">
+                  <div
+                    className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${
+                      notification.is_read ? 'bg-transparent' : 'bg-cyan-500'
+                    }`}
+                  />
+                </td>
+                <td className="py-3 px-3 align-top">
+                  <span className="font-semibold text-slate-800">{notification.title}</span>
+                </td>
+                <td className="py-3 px-3 align-top">
+                  <span className="text-slate-600 line-clamp-2">{notification.body || '—'}</span>
+                </td>
+                <td className="py-3 px-3 align-top whitespace-nowrap text-slate-500">
+                  {formatRelativeTime(notification.created_at)}
+                </td>
+                <td className="py-3 pl-3 pr-4 align-top text-right">
+                  {notification.project_id ? (
                     <Link
                       href={`/dashboard/projects/${notification.project_id}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="text-[11px] font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
+                      className="inline-flex items-center text-xs font-medium text-cyan-600 hover:text-cyan-700 hover:underline"
                     >
                       View project →
                     </Link>
+                  ) : (
+                    <span className="text-slate-300">—</span>
                   )}
-                </div>
-              </div>
-            </div>
-          </button>
-        ))}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </section>
   )

@@ -78,6 +78,7 @@ export function DashboardShell({
     // Pages that render their own in-content headers or intentionally hide the global header
     // For these pages, we hide the global header to prevent duplicates or flickering
     const hideGlobalHeader =
+        pathname === '/dashboard' ||
         pathname === '/dashboard/leads' ||
         pathname === '/dashboard/users' ||
         pathname === '/dashboard/clients' ||
