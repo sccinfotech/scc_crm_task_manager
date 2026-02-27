@@ -27,14 +27,14 @@ Exclude columns that are never used on the list page (e.g. `deleted_at`, `update
 | **Users** | `getUsers` | `id, email, full_name, designation, joining_date, personal_email, personal_mobile_no, home_mobile_no, address, date_of_birth, photo_url, role, module_permissions, is_active, created_at` | Excludes `deleted_at`, `updated_at`; includes fields for Edit and Permissions modals |
 | **Activity Logs** | `getActivityLogsPage` | `id, user_name, action_type, module_name, description, status, ip_address, created_at` | Excludes `user_id`, `record_id` (not displayed) |
 | **Technology Tools** | `getTechnologyTools` | `id, name, is_active, created_by, created_at, updated_at` | Used in dropdowns/settings; already selective |
-| **Project Detail** | `getProject` | Explicit columns (no `*`); `project_amount` omitted for staff; `includeTimeEvents: false` when initial tab ≠ Details | `getProjectDetailsSupplement` loads team work stats when user opens Details tab |
+| **Project Detail** | `getProject` | Explicit columns (no `*`); `project_amount` omitted for staff; `includeTimeEvents: true` so header work timer is accurate on first load | `getProjectDetailsSupplement` still used when switching to Details tab if supplement was not yet loaded (e.g. client navigation) |
 
 ---
 
 ## Project Detail Page Optimizations
 
-- **`getProject(projectId, options?)`** – Uses explicit column list; skips `project_amount` for staff; defers `team_member_time_events` when `includeTimeEvents: false` (e.g. when landing on Tasks tab).
-- **`getProjectDetailsSupplement(projectId)`** – Fetches `team_member_time_events` and computes `work_day_breakdown` for team members. Called client-side when user switches to Details tab and data was not loaded initially.
+- **`getProject(projectId, options?)`** – Uses explicit column list; skips `project_amount` for staff. Project detail page always passes `includeTimeEvents: true` so the header work timer shows accurate elapsed time on first load.
+- **`getProjectDetailsSupplement(projectId)`** – Fetches `team_member_time_events` and computes `work_day_breakdown` for team members. Called client-side when user switches to Details tab if supplement data was not yet loaded.
 - **`project_team_members`** – Only `user_id, work_status, users(id, full_name, email)`; `work_started_at`, `work_ended_at`, `work_done_notes` excluded (not used in detail view).
 
 ---

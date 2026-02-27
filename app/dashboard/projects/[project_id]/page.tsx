@@ -76,8 +76,9 @@ export default async function ProjectDetailPage({ params, searchParams }: Projec
     showRequirementsAndPayments
   )
 
+  // Always load time events so the header work timer shows accurate elapsed time on first load (no need to open Details tab).
   const projectResult = await getProject(project_id, {
-    includeTimeEvents: initialResolvedTab === 'details',
+    includeTimeEvents: true,
   })
 
   if (projectResult.error || !projectResult.data) {
