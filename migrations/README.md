@@ -13,6 +13,8 @@ This folder contains SQL migration files for the database schema, **merged by mo
 | **005_project_management.sql** | Projects (full) | `projects` (final schema: no expected_end_date; project_amount TEXT nullable; status pending\|in_progress\|hold\|completed; priority; staff_status; deadlines), `project_followups`, `technology_tools`, `project_technology_tools`, `project_team_members` (with work tracking), `project_team_member_time_events`, all RLS including staff/assigned access |
 | **006_project_notes_and_team_talk.sql** | Notes & Team Talk | `project_user_notes`, `project_note_attachments`, `project_team_talk_messages`, `project_team_talk_attachments`, RLS (owner-only update/delete for team talk) |
 | **007_project_requirements.sql** | Requirements | `project_requirements` (with pricing_type: hourly\|fixed\|milestone), `project_requirement_milestones`, RLS |
+| **022_quotation_module.sql** | Quotations | `quotations`, `quotation_technology_tools`, `quotation_requirements`, `quotation_requirement_milestones`, RLS (module_permissions: `quotations`); extends `project_requirements` with `is_from_quotation`, `quotation_id` |
+| **023_quotation_remove_quotation_date.sql** | Quotations | Drops `quotation_date`; creation date is used as quotation date |
 | **014_user_google_auth_and_profile_fields.sql** | Users (Google Auth + Profile) | user profile fields (designation/joining/personal details/photo), default inactive status, and `handle_new_user()` hardening for admin-provisioned user flow |
 | **015_users_google_only_preprovision.sql** | Users (Google-only Provisioning) | remove `users.id -> auth.users(id)` FK and set `users.id` default UUID so admin can pre-add users before first Google login |
 

@@ -15,6 +15,8 @@ Skeletons (loading placeholders with `animate-pulse`) are used in **Next.js rout
 | `app/dashboard/users/loading.tsx` | Users list page |
 | `app/dashboard/logs/loading.tsx` | Activity Logs page (table + filters) |
 | `app/dashboard/settings/loading.tsx` | Technology & Tools page (grid) |
+| `app/dashboard/quotations/loading.tsx` | Quotations list page (table + filters) |
+| `app/dashboard/quotations/[quotation_id]/loading.tsx` | Quotation detail page (tabs + content) |
 | `app/dashboard/loading.tsx` | Dashboard home (minimal placeholder) |
 
 **Skeleton behavior:** They use Tailwind’s `animate-pulse` and gray blocks (`bg-gray-200`, `bg-gray-100`). **No fixed “loading time” or delay** is set; visibility lasts only as long as the server/data load for that route.
