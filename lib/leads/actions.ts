@@ -232,6 +232,34 @@ export type LeadListItem = {
   created_by?: string
 }
 
+export type LeadSelectOption = {
+  id: string
+  name: string
+  company_name: string | null
+}
+
+export async function getLeadsForSelect(): Promise<{ data: LeadSelectOption[]; error: string | null }> {
+  const currentUser = await getCurrentUser()
+  if (!currentUser) {
+    return { data: [], error: 'You must be logged in to view leads' }
+  }
+  const canRead = await hasPermission(currentUser, MODULE_PERMISSION_IDS.leads, 'read')
+  if (!canRead) {
+    return { data: [], error: 'You do not have permission to view leads' }
+  }
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('leads')
+    .select('id, name, company_name')
+    .neq('status', 'converted')
+    .order('name', { ascending: true })
+  if (error) {
+    console.error('Error fetching leads for select:', error)
+    return { data: [], error: error.message || 'Failed to fetch leads' }
+  }
+  return { data: (data || []) as LeadSelectOption[], error: null }
+}
+
 export async function getLeadsPage(options: GetLeadsPageOptions = {}) {
   const currentUser = await getCurrentUser()
   if (!currentUser) {

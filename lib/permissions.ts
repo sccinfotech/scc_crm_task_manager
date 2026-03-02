@@ -4,6 +4,7 @@ export type ModulePermissions = Record<string, AccessLevel>
 export const MODULE_PERMISSION_IDS = {
   leads: 'leads',
   clients: 'customers',
+  quotations: 'quotations',
   projects: 'projects',
   logs: 'logs',
   settings: 'settings',
