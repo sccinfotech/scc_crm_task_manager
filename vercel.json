@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/projects/work-session-cutoff",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 14 * * *"
     }
   ]
 }
