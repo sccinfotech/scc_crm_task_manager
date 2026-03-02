@@ -381,11 +381,11 @@ export async function createQuotation(formData: QuotationFormData): Promise<Quot
   let client_snapshot_remark: string | null = null
   if (formData.source_type === 'lead' && formData.lead_id) {
     const { data: lead } = await getLead(formData.lead_id)
-    if (lead?.data) {
-      client_snapshot_name = lead.data.name?.trim() || null
-      client_snapshot_company_name = lead.data.company_name?.trim() || null
-      client_snapshot_phone = lead.data.phone?.trim() || null
-      client_snapshot_remark = lead.data.notes?.trim() || null
+    if (lead) {
+      client_snapshot_name = lead.name?.trim() || null
+      client_snapshot_company_name = lead.company_name?.trim() || null
+      client_snapshot_phone = lead.phone?.trim() || null
+      client_snapshot_remark = lead.notes?.trim() || null
     }
   }
 
@@ -502,11 +502,11 @@ export async function updateQuotation(
   let client_snapshot_remark: string | null = null
   if (formData.source_type === 'lead' && formData.lead_id) {
     const { data: lead } = await getLead(formData.lead_id)
-    if (lead?.data) {
-      client_snapshot_name = lead.data.name?.trim() || null
-      client_snapshot_company_name = lead.data.company_name?.trim() || null
-      client_snapshot_phone = lead.data.phone?.trim() || null
-      client_snapshot_remark = lead.data.notes?.trim() || null
+    if (lead) {
+      client_snapshot_name = lead.name?.trim() || null
+      client_snapshot_company_name = lead.company_name?.trim() || null
+      client_snapshot_phone = lead.phone?.trim() || null
+      client_snapshot_remark = lead.notes?.trim() || null
     }
   }
 
