@@ -46,31 +46,31 @@ export function NotificationsSection({ notifications: initialNotifications }: No
   }
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
-      <div className="border-b border-slate-200 bg-slate-50/80 px-4 py-3 flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-[#1E1B4B]">Notifications</h2>
+    <section className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden h-full flex flex-col min-h-0">
+      <div className="border-b border-slate-200 bg-slate-50/80 px-3 py-3 sm:px-4 flex items-center justify-between flex-shrink-0">
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold text-[#1E1B4B] sm:text-lg">Notifications</h2>
           <p className="text-xs text-slate-500 mt-0.5">{unreadCount} unread</p>
         </div>
         {unreadCount > 0 && (
           <button
             type="button"
             onClick={handleMarkAllRead}
-            className="text-xs font-semibold text-cyan-600 hover:text-cyan-700"
+            className="text-xs font-semibold text-cyan-600 hover:text-cyan-700 whitespace-nowrap flex-shrink-0 ml-2"
           >
             Mark all read
           </button>
         )}
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto min-h-0 flex-1 -mx-px sm:mx-0">
+        <table className="w-full text-sm min-w-[400px]">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/50">
-              <th className="w-6 py-3 pl-4 pr-2 text-left" aria-label="Status" />
-              <th className="text-left py-3 px-3 font-medium text-slate-700 min-w-[140px]">Title</th>
-              <th className="text-left py-3 px-3 font-medium text-slate-700">Content</th>
-              <th className="text-left py-3 px-3 font-medium text-slate-700 w-[100px] whitespace-nowrap">Time</th>
-              <th className="text-right py-3 pl-3 pr-4 font-medium text-slate-700 min-w-[110px] whitespace-nowrap">Action</th>
+              <th className="w-6 py-3 pl-3 pr-2 sm:pl-4 text-left" aria-label="Status" />
+              <th className="text-left py-3 px-3 sm:px-4 font-medium text-slate-700 min-w-[120px] sm:min-w-[140px]">Title</th>
+              <th className="text-left py-3 px-3 sm:px-4 font-medium text-slate-700">Content</th>
+              <th className="text-left py-3 px-3 sm:px-4 font-medium text-slate-700 w-[90px] sm:w-[100px] whitespace-nowrap">Time</th>
+              <th className="text-right py-3 pl-3 pr-3 sm:pr-4 font-medium text-slate-700 min-w-[100px] sm:min-w-[110px] whitespace-nowrap">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -82,7 +82,7 @@ export function NotificationsSection({ notifications: initialNotifications }: No
                   notification.is_read ? 'bg-white' : 'bg-cyan-50/40'
                 }`}
               >
-                <td className="py-3 pl-4 pr-2 align-top">
+                <td className="py-3 pl-3 pr-2 sm:pl-4 align-top">
                   <div
                     className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${
                       notification.is_read ? 'bg-transparent' : 'bg-cyan-500'
@@ -98,7 +98,7 @@ export function NotificationsSection({ notifications: initialNotifications }: No
                 <td className="py-3 px-3 align-top whitespace-nowrap text-slate-500">
                   {formatRelativeTime(notification.created_at)}
                 </td>
-                <td className="py-3 pl-3 pr-4 align-top text-right whitespace-nowrap">
+                <td className="py-3 pl-3 pr-3 sm:pr-4 align-top text-right whitespace-nowrap">
                   {notification.project_id ? (
                     <Link
                       href={`/dashboard/projects/${notification.project_id}`}

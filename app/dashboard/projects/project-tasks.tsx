@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/app/components/ui/toast-context'
 import { Tooltip } from '@/app/components/ui/tooltip'
+import { StaffAvatar } from '@/app/components/ui/staff-avatar'
 import { EmptyState } from '@/app/components/empty-state'
 import dynamic from 'next/dynamic'
 
@@ -1673,9 +1674,17 @@ function AssigneeSearchSelect({
               >
                 {/* Profile icon with remove badge on top-right */}
                 <span
-                  className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${color.bg} ${color.text} ring-2 ring-white shadow-sm transition-transform duration-200 hover:scale-110 ${showTooltip ? 'scale-110' : ''}`}
+                  className={`relative flex shrink-0 transition-transform duration-200 hover:scale-110 ${showTooltip ? 'scale-110' : ''}`}
                 >
-                  {staffInitials(o)}
+                  <StaffAvatar
+                    photoUrl={o.photo_url}
+                    fullName={o.full_name}
+                    email={o.email}
+                    size="md"
+                    className="h-8 w-8"
+                    bgClassName={color.bg}
+                    textClassName={color.text}
+                  />
                   {/* Remove: small dark circle with X at top-right of avatar, visible only on hover */}
                   <button
                     type="button"
@@ -1728,11 +1737,14 @@ function AssigneeSearchSelect({
                       isSelected ? 'bg-slate-50/80' : ''
                     }`}
                   >
-                    <span
-                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${color.bg} ${color.text}`}
-                    >
-                      {staffInitials(o)}
-                    </span>
+                    <StaffAvatar
+                      photoUrl={o.photo_url}
+                      fullName={o.full_name}
+                      email={o.email}
+                      size="md"
+                      bgClassName={color.bg}
+                      textClassName={color.text}
+                    />
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium text-slate-900 truncate">{staffLabel(o)}</div>
                       {o.email && (
@@ -2002,11 +2014,15 @@ function TaskBoardCard({
               >
                 {primaryAssignee ? (
                   <>
-                    <span
-                      title={staffLabel(primaryAssignee)}
-                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${getAssigneeColor(primaryAssignee.id).bg} ${getAssigneeColor(primaryAssignee.id).text}`}
-                    >
-                      {staffInitials(primaryAssignee)}
+                    <span title={staffLabel(primaryAssignee)} className="flex shrink-0">
+                      <StaffAvatar
+                        photoUrl={primaryAssignee.photo_url}
+                        fullName={primaryAssignee.full_name}
+                        email={primaryAssignee.email}
+                        size="xs"
+                        bgClassName={getAssigneeColor(primaryAssignee.id).bg}
+                        textClassName={getAssigneeColor(primaryAssignee.id).text}
+                      />
                     </span>
                     {extraCount > 0 && (
                       <span title={extraAssigneesTooltip} className="text-[11px] font-medium text-slate-600">
@@ -2044,9 +2060,14 @@ function TaskBoardCard({
                             }}
                             className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-slate-50 ${isSelected ? 'bg-cyan-50/80' : ''}`}
                           >
-                            <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${color.bg} ${color.text}`}>
-                              {staffInitials(option)}
-                            </span>
+                            <StaffAvatar
+                              photoUrl={option.photo_url}
+                              fullName={option.full_name}
+                              email={option.email}
+                              size="sm"
+                              bgClassName={color.bg}
+                              textClassName={color.text}
+                            />
                             <span className="text-sm truncate">{staffLabel(option)}</span>
                             {isSelected && (
                               <svg className="h-4 w-4 ml-auto text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2062,11 +2083,16 @@ function TaskBoardCard({
                 )}
             </div>
           ) : primaryAssignee ? (
-            <span
-              title={staffLabel(primaryAssignee)}
-              className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold ${getAssigneeColor(primaryAssignee.id).bg} ${getAssigneeColor(primaryAssignee.id).text}`}
-            >
-              {staffInitials(primaryAssignee)}
+            <span title={staffLabel(primaryAssignee)} className="inline-flex shrink-0">
+              <StaffAvatar
+                photoUrl={primaryAssignee.photo_url}
+                fullName={primaryAssignee.full_name}
+                email={primaryAssignee.email}
+                size="sm"
+                className="h-6 w-6"
+                bgClassName={getAssigneeColor(primaryAssignee.id).bg}
+                textClassName={getAssigneeColor(primaryAssignee.id).text}
+              />
             </span>
           ) : (
             <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-400">
@@ -2349,12 +2375,16 @@ function TaskListRow({
               {assigneeOptions.length > 0 ? (
                 <span className="flex items-center -space-x-2">
                   {assigneesToShow.map((m) => (
-                    <span
-                      key={m.id}
-                      title={staffLabel(m)}
-                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-white text-xs font-semibold ring-1 ring-slate-200 ${getAssigneeColor(m.id).bg} ${getAssigneeColor(m.id).text}`}
-                    >
-                      {staffInitials(m)}
+                    <span key={m.id} title={staffLabel(m)} className="flex shrink-0 rounded-full border-2 border-white ring-1 ring-slate-200">
+                      <StaffAvatar
+                        photoUrl={m.photo_url}
+                        fullName={m.full_name}
+                        email={m.email}
+                        size="md"
+                        className="border-0"
+                        bgClassName={getAssigneeColor(m.id).bg}
+                        textClassName={getAssigneeColor(m.id).text}
+                      />
                     </span>
                   ))}
                   {extraCount > 0 && (
@@ -2396,9 +2426,14 @@ function TaskListRow({
                           }}
                           className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-slate-50 ${isSelected ? 'bg-cyan-50/80' : ''}`}
                         >
-                          <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${color.bg} ${color.text}`}>
-                            {staffInitials(m)}
-                          </span>
+                          <StaffAvatar
+                            photoUrl={m.photo_url}
+                            fullName={m.full_name}
+                            email={m.email}
+                            size="sm"
+                            bgClassName={color.bg}
+                            textClassName={color.text}
+                          />
                           <span className="text-sm truncate">{staffLabel(m)}</span>
                           {isSelected && (
                             <svg className="h-4 w-4 ml-auto text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2416,12 +2451,16 @@ function TaskListRow({
         ) : assigneeOptions.length > 0 ? (
           <span className="inline-flex items-center -space-x-2">
             {assigneesToShow.map((m) => (
-              <span
-                key={m.id}
-                title={staffLabel(m)}
-                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-white text-xs font-semibold ring-1 ring-slate-200 ${getAssigneeColor(m.id).bg} ${getAssigneeColor(m.id).text}`}
-              >
-                {staffInitials(m)}
+              <span key={m.id} title={staffLabel(m)} className="flex shrink-0 rounded-full border-2 border-white ring-1 ring-slate-200">
+                <StaffAvatar
+                  photoUrl={m.photo_url}
+                  fullName={m.full_name}
+                  email={m.email}
+                  size="md"
+                  className="border-0"
+                  bgClassName={getAssigneeColor(m.id).bg}
+                  textClassName={getAssigneeColor(m.id).text}
+                />
               </span>
             ))}
             {extraCount > 0 && (
@@ -3681,7 +3720,7 @@ function TaskDetailPanel({
                 const assigneeOptions = assigneeIds.map((id) => {
                   const m = assignableUsers.find((u) => u.id === id)
                   const a = taskDetail?.assignees?.find((x) => x.id === id)
-                  return (m ?? (a ? { id: a.id, full_name: a.full_name, email: a.email, role: a.role } : null)) as StaffSelectOption | null
+                  return (m ?? (a ? { id: a.id, full_name: a.full_name, email: a.email, role: a.role, photo_url: a.photo_url } : null)) as StaffSelectOption | null
                 }).filter(Boolean) as StaffSelectOption[]
                 const maxAvatars = 3
                 const assigneesToShow = assigneeOptions.slice(0, maxAvatars)
@@ -3701,12 +3740,16 @@ function TaskDetailPanel({
                         {assigneeOptions.length > 0 ? (
                           <span className="flex items-center -space-x-2">
                             {assigneesToShow.map((m) => (
-                              <span
-                                key={m.id}
-                                title={staffLabel(m)}
-                                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-white text-xs font-semibold ring-1 ring-slate-200 ${getAssigneeColor(m.id).bg} ${getAssigneeColor(m.id).text}`}
-                              >
-                                {staffInitials(m)}
+                              <span key={m.id} title={staffLabel(m)} className="flex shrink-0 rounded-full border-2 border-white ring-1 ring-slate-200">
+                                <StaffAvatar
+                                  photoUrl={m.photo_url}
+                                  fullName={m.full_name}
+                                  email={m.email}
+                                  size="md"
+                                  className="border-0"
+                                  bgClassName={getAssigneeColor(m.id).bg}
+                                  textClassName={getAssigneeColor(m.id).text}
+                                />
                               </span>
                             ))}
                             {extraCount > 0 && (
@@ -3746,9 +3789,14 @@ function TaskDetailPanel({
                                     }}
                                     className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-slate-50 ${isSelected ? 'bg-cyan-50/80' : ''}`}
                                   >
-                                    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${color.bg} ${color.text}`}>
-                                      {staffInitials(m)}
-                                    </span>
+                                    <StaffAvatar
+                                      photoUrl={m.photo_url}
+                                      fullName={m.full_name}
+                                      email={m.email}
+                                      size="sm"
+                                      bgClassName={color.bg}
+                                      textClassName={color.text}
+                                    />
                                     <span className="text-sm truncate">{staffLabel(m)}</span>
                                     {isSelected && (
                                       <svg className="h-4 w-4 ml-auto text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -3768,12 +3816,16 @@ function TaskDetailPanel({
                 return assigneeOptions.length > 0 ? (
                   <span className="inline-flex items-center -space-x-2">
                     {assigneesToShow.map((m) => (
-                      <span
-                        key={m.id}
-                        title={staffLabel(m)}
-                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-white text-xs font-semibold ring-1 ring-slate-200 ${getAssigneeColor(m.id).bg} ${getAssigneeColor(m.id).text}`}
-                      >
-                        {staffInitials(m)}
+                      <span key={m.id} title={staffLabel(m)} className="flex shrink-0 rounded-full border-2 border-white ring-1 ring-slate-200">
+                        <StaffAvatar
+                          photoUrl={m.photo_url}
+                          fullName={m.full_name}
+                          email={m.email}
+                          size="md"
+                          className="border-0"
+                          bgClassName={getAssigneeColor(m.id).bg}
+                          textClassName={getAssigneeColor(m.id).text}
+                        />
                       </span>
                     ))}
                     {extraCount > 0 && (

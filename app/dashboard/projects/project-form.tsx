@@ -273,8 +273,8 @@ export function ProjectForm({
                 group relative flex flex-1 flex-col items-center justify-center rounded-2xl border-2 border-dashed transition-all duration-200 cursor-pointer
                 min-h-[120px] w-full overflow-hidden
                 ${hasLogo
-                  ? 'border-slate-200 bg-slate-50/50 hover:border-cyan-300 hover:bg-cyan-50/30'
-                  : 'border-slate-200 bg-white hover:border-[#06B6D4] hover:bg-[#06B6D4]/5 focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-offset-2'
+                  ? 'border-slate-200 bg-slate-50/50 hover:border-cyan-300 hover:bg-cyan-50/30 p-5 sm:p-6'
+                  : 'border-slate-200 bg-white hover:border-[#06B6D4] hover:bg-[#06B6D4]/5 focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-offset-2 p-4'
                 }
               `}
             >
@@ -283,9 +283,9 @@ export function ProjectForm({
                   <img
                     src={displayLogoUrl}
                     alt="Project logo"
-                    className="h-20 w-20 rounded-xl object-cover shadow-sm border border-slate-100"
+                    className="max-h-36 max-w-full rounded-lg object-contain shadow-sm border border-slate-100 bg-white"
                   />
-                  <p className="mt-3 text-sm font-medium text-slate-600">Click to change</p>
+                  <p className="mt-4 text-sm font-medium text-slate-600">Click to change</p>
                   {logoPreviewUrl ? (
                     <p className="mt-1 text-xs text-slate-500">Logo will upload when you save</p>
                   ) : null}
@@ -302,7 +302,7 @@ export function ProjectForm({
               )}
             </div>
             {hasLogo && (
-              <div className="mt-2 flex items-center gap-3">
+              <div className="mt-3 flex items-center gap-3">
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); handleLogoClick() }}

@@ -397,13 +397,15 @@ export const ProjectsTable = memo(function ProjectsTable({
                     className="flex items-center gap-2 sm:gap-3 no-underline text-inherit"
                   >
                     {project.logo_url ? (
-                      <Image
-                        src={project.logo_url}
-                        alt={project.name}
-                        width={36}
-                        height={36}
-                        className="h-8 w-8 sm:h-9 sm:w-9 rounded-full object-cover shadow-sm ring-2 ring-white"
-                      />
+                      <span className="relative flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-50 ring-1 ring-slate-200/80 shadow-sm sm:h-9 sm:w-9">
+                        <Image
+                          src={project.logo_url}
+                          alt={project.name}
+                          fill
+                          className="object-contain p-0.5"
+                          sizes="36px"
+                        />
+                      </span>
                     ) : (
                       <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 text-xs sm:text-sm font-bold text-white shadow-sm flex-shrink-0 ring-2 ring-white">
                         {getInitials(project.name)}

@@ -25,6 +25,7 @@ export type TaskAssignee = {
   full_name: string | null
   email: string | null
   role: string | null
+  photo_url?: string | null
 }
 
 export type ProjectTaskListItem = {
@@ -277,12 +278,13 @@ async function insertNotifications(
   )
 }
 
-function buildAssigneeList(rows: Array<{ user_id: string; users?: { full_name: string | null; email: string | null; role: string | null } | null }>) {
+function buildAssigneeList(rows: Array<{ user_id: string; users?: { full_name: string | null; email: string | null; role: string | null; photo_url?: string | null } | null }>) {
   return rows.map((row) => ({
     id: row.user_id,
     full_name: row.users?.full_name ?? null,
     email: row.users?.email ?? null,
     role: row.users?.role ?? null,
+    photo_url: row.users?.photo_url ?? null,
   }))
 }
 
@@ -412,7 +414,7 @@ export async function getProjectTasks(
     .from('project_tasks')
     .select(
       // Removed description_html - only load it in detail view to reduce data transfer and improve performance
-      'id, project_id, title, task_type, priority, status, due_date, created_by, created_at, updated_at, in_progress_at, completed_at, actual_minutes, assignees:project_task_assignees(user_id, users!project_task_assignees_user_id_fkey(full_name, email, role))'
+      'id, project_id, title, task_type, priority, status, due_date, created_by, created_at, updated_at, in_progress_at, completed_at, actual_minutes, assignees:project_task_assignees(user_id, users!project_task_assignees_user_id_fkey(full_name, email, role, photo_url))'
     )
     .eq('project_id', projectId)
 
@@ -513,7 +515,7 @@ export const getProjectTaskDetail = cache(async (taskId: string): Promise<Action
       .single(),
     (supabase as any)
       .from('project_task_assignees')
-      .select('user_id, users!project_task_assignees_user_id_fkey(full_name, email, role)')
+      .select('user_id, users!project_task_assignees_user_id_fkey(full_name, email, role, photo_url)')
       .eq('task_id', taskId),
     (supabase as any)
       .from('project_task_attachments')
@@ -568,7 +570,7 @@ export const getProjectTaskDetail = cache(async (taskId: string): Promise<Action
           .order('created_at', { ascending: true })
       : Promise.resolve({ data: [] }),
     userIds.length > 0
-      ? supabase.from('users').select('id, full_name, email, role').in('id', userIds)
+      ? supabase.from('users').select('id, full_name, email, role, photo_url').in('id', userIds)
       : Promise.resolve({ data: [] }),
   ])
 
@@ -666,7 +668,7 @@ export async function getTaskCommentsPage(
   const userIds = uniqueIds([...commentList.map((c: any) => c.created_by), ...mentionIds])
   const { data: users } = await supabase
     .from('users')
-    .select('id, full_name, email, role')
+    .select('id, full_name, email, role, photo_url')
     .in('id', userIds)
 
   const { userNameMap, userEmailMap, userRoleMap } = buildTaskUserMaps(
@@ -712,7 +714,7 @@ export async function getTaskActivityPage(
   const userIds = uniqueIds(activityList.map((e: any) => e.created_by))
   const { data: users } = await supabase
     .from('users')
-    .select('id, full_name, email, role')
+    .select('id, full_name, email, role, photo_url')
     .in('id', userIds)
 
   const userNameMap = new Map<string, string>()
@@ -778,7 +780,7 @@ export async function getTaskMentionableUsers(): Promise<ActionResult<TaskAssign
   const supabase = await createClient()
   const { data, error } = await (supabase
     .from('users')
-    .select('id, full_name, email, role, is_active')
+    .select('id, full_name, email, role, photo_url, is_active')
     .eq('is_active', true)
     .order('full_name', { ascending: true }) as any)
 
@@ -787,13 +789,14 @@ export async function getTaskMentionableUsers(): Promise<ActionResult<TaskAssign
     return { data: null, error: error.message || 'Failed to fetch users.' }
   }
 
-  const users = (data || []) as Array<{ id: string; full_name: string | null; email: string | null; role: string | null }>
+  const users = (data || []) as Array<{ id: string; full_name: string | null; email: string | null; role: string | null; photo_url?: string | null }>
   return {
     data: users.map((user) => ({
       id: user.id,
       full_name: user.full_name,
       email: user.email,
       role: user.role ?? null,
+      photo_url: user.photo_url ?? null,
     })),
     error: null,
   }
@@ -897,7 +900,7 @@ export async function createProjectTask(
 
   const { data: assignees } = await (supabase as any)
     .from('project_task_assignees')
-    .select('user_id, users!project_task_assignees_user_id_fkey(full_name, email, role)')
+    .select('user_id, users!project_task_assignees_user_id_fkey(full_name, email, role, photo_url)')
     .eq('task_id', task.id)
 
   revalidatePath(`/dashboard/projects/${projectId}`)
@@ -992,7 +995,7 @@ export async function updateProjectTask(
 
   const { data: assignees } = await (supabase as any)
     .from('project_task_assignees')
-    .select('user_id, users!project_task_assignees_user_id_fkey(full_name, email, role)')
+    .select('user_id, users!project_task_assignees_user_id_fkey(full_name, email, role, photo_url)')
     .eq('task_id', task.id)
 
   revalidatePath(`/dashboard/projects/${task.project_id}`)
@@ -1100,7 +1103,7 @@ export async function updateTaskAssignees(
 
   const { data: assignees } = await (supabase as any)
     .from('project_task_assignees')
-    .select('user_id, users!project_task_assignees_user_id_fkey(full_name, email, role)')
+    .select('user_id, users!project_task_assignees_user_id_fkey(full_name, email, role, photo_url)')
     .eq('task_id', taskId)
 
   revalidatePath(`/dashboard/projects/${task.project_id}`)
@@ -1240,7 +1243,7 @@ export async function updateTaskStatus(
 
   const { data: assignees } = await supabase
     .from('project_task_assignees')
-    .select('user_id, users!project_task_assignees_user_id_fkey(full_name, email, role)')
+    .select('user_id, users!project_task_assignees_user_id_fkey(full_name, email, role, photo_url)')
     .eq('task_id', updated.id)
 
   revalidatePath(`/dashboard/projects/${updated.project_id}`)
@@ -1434,7 +1437,7 @@ export async function createTaskComment(
 
   const { data: users } = await supabase
     .from('users')
-    .select('id, full_name, email, role')
+    .select('id, full_name, email, role, photo_url')
     .in('id', uniqueIds([comment.created_by, ...mentionList]))
 
   const { userNameMap, userEmailMap, userRoleMap } = buildTaskUserMaps(
@@ -1502,7 +1505,7 @@ export async function updateTaskComment(
 
   const { data: users } = await supabase
     .from('users')
-    .select('id, full_name, email, role')
+    .select('id, full_name, email, role, photo_url')
     .in('id', uniqueIds([comment.created_by, ...mentionList]))
 
   const { data: attachments } = await (supabase as any)

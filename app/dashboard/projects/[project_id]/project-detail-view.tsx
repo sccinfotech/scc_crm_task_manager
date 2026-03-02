@@ -7,6 +7,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Tooltip } from '@/app/components/ui/tooltip'
 import { useToast } from '@/app/components/ui/toast-context'
+import { StaffAvatar } from '@/app/components/ui/staff-avatar'
 import {
   Project,
   ProjectStatus,
@@ -871,13 +872,15 @@ export function ProjectDetailView({
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="flex min-w-0 items-start gap-3 sm:gap-5">
                         {project.logo_url ? (
-                          <Image
-                            src={project.logo_url}
-                            alt={project.name}
-                            width={80}
-                            height={80}
-                            className="h-20 w-20 rounded-2xl object-cover shadow-xl ring-2 ring-white"
-                          />
+                          <span className="relative flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-50 shadow-xl ring-1 ring-slate-200/80">
+                            <Image
+                              src={project.logo_url}
+                              alt={project.name}
+                              fill
+                              className="object-contain p-1"
+                              sizes="80px"
+                            />
+                          </span>
                         ) : (
                           <div className="relative h-20 w-20 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-xl transform -rotate-3 hover:rotate-0 transition-transform duration-300">
                             <span className="text-3xl font-extrabold text-white drop-shadow-sm">
@@ -1066,6 +1069,13 @@ export function ProjectDetailView({
                             >
                               <div className="flex flex-wrap items-center justify-between gap-2">
                                 <div className="flex items-center gap-2">
+                                  <StaffAvatar
+                                    photoUrl={member.photo_url}
+                                    fullName={member.full_name}
+                                    email={member.email}
+                                    size="md"
+                                    className="shrink-0"
+                                  />
                                   <span className="font-semibold text-slate-800">
                                     {member.full_name || member.email || 'Staff Member'}
                                   </span>
@@ -1075,7 +1085,7 @@ export function ProjectDetailView({
                                 </div>
                                 <div className="text-sm text-slate-500">
                                   Today Spent:
-                                  <span className="ml-2 font-semibold text-slate-700 tabular-nums">
+                                  <span className="font-digital ml-2 font-semibold text-slate-700 tabular-nums">
                                     {formatWorkSeconds(todayWorkSeconds)}
                                   </span>
                                 </div>

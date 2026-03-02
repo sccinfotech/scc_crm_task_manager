@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef, type ReactNode } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { updateMyProjectWorkStatus } from '@/lib/projects/actions'
@@ -10,9 +11,50 @@ import type {
   ProjectTeamMemberWorkStatus,
 } from '@/lib/projects/actions'
 import { useToast } from '@/app/components/ui/toast-context'
+import { StaffAvatar } from '@/app/components/ui/staff-avatar'
 import { EndWorkModal } from '@/app/dashboard/projects/end-work-modal'
 
 const WORK_TIMER_TICK_MS = 2000
+
+function getProjectInitials(name: string): string {
+  if (!name?.trim()) return '?'
+  const parts = name.trim().split(/\s+/)
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
+function ProjectNameWithIcon({
+  name,
+  logoUrl,
+  href,
+}: { name: string; logoUrl: string | null; href: string }) {
+  return (
+    <Link
+      href={href}
+      className="inline-flex items-center gap-2.5 min-w-0 font-medium text-cyan-700 hover:text-cyan-800 hover:underline"
+    >
+      {logoUrl ? (
+        <span className="relative flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-50 ring-1 ring-slate-200/80 shadow-sm">
+          <Image
+            src={logoUrl}
+            alt=""
+            fill
+            className="object-contain p-0.5"
+            sizes="32px"
+          />
+        </span>
+      ) : (
+        <span
+          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 text-xs font-bold text-white shadow-sm ring-2 ring-white"
+          aria-hidden
+        >
+          {getProjectInitials(name)}
+        </span>
+      )}
+      <span className="truncate">{name}</span>
+    </Link>
+  )
+}
 
 function formatWorkSecondsHhMmSs(seconds: number): string {
   const h = Math.floor(seconds / 3600)
@@ -20,30 +62,6 @@ function formatWorkSecondsHhMmSs(seconds: number): string {
   const s = Math.floor(seconds % 60)
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${pad(h)}:${pad(m)}:${pad(s)}`
-}
-
-function WorkStatusPill({ status }: { status: ProjectTeamMemberWorkStatus }) {
-  const styles: Record<string, { bg: string; text: string; dot: string; ring: string }> = {
-    not_started: { bg: 'bg-slate-100', text: 'text-slate-700', dot: 'bg-slate-500', ring: 'ring-slate-500/20' },
-    start: { bg: 'bg-cyan-50', text: 'text-cyan-700', dot: 'bg-cyan-600', ring: 'ring-cyan-600/20' },
-    hold: { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-600', ring: 'ring-amber-600/20' },
-    end: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-600', ring: 'ring-emerald-600/20' },
-  }
-  const labels: Record<string, string> = {
-    not_started: 'Not started',
-    start: 'In progress',
-    hold: 'On hold',
-    end: 'Ended',
-  }
-  const style = styles[status] ?? styles.not_started
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-medium ${style.bg} ${style.text} ring-1 ring-inset ${style.ring}`}
-    >
-      <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`} />
-      {labels[status] ?? status}
-    </span>
-  )
 }
 
 /** Computes current elapsed seconds for display (live when status is 'start'). */
@@ -71,10 +89,11 @@ function useLiveWorkSeconds(member: DashboardWorkingProjectMember): number {
   return member.total_work_seconds + runningDelta
 }
 
+/** Total Timer: digital font, red, slightly bigger */
 function MemberTimer({ member }: { member: DashboardWorkingProjectMember }) {
   const elapsedSec = useLiveWorkSeconds(member)
   return (
-    <span className="font-mono text-sm font-semibold tabular-nums text-slate-800">
+    <span className="font-digital text-base font-semibold tabular-nums text-red-600">
       {formatWorkSecondsHhMmSs(elapsedSec)}
     </span>
   )
@@ -282,9 +301,9 @@ export function WorkingProjectsSection({
   }
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
-      <div className="border-b border-slate-200 bg-slate-50/80 px-4 py-3">
-        <h2 className="text-lg font-semibold text-[#1E1B4B]">
+    <section className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden h-full flex flex-col min-h-0">
+      <div className="border-b border-slate-200 bg-slate-50/80 px-3 py-3 sm:px-4 flex-shrink-0">
+        <h2 className="text-base font-semibold text-[#1E1B4B] sm:text-lg">
           {isAdmin ? 'Working projects' : 'My started projects'}
         </h2>
         <p className="text-xs text-slate-500 mt-0.5">
@@ -293,17 +312,14 @@ export function WorkingProjectsSection({
             : 'Projects you have started and not yet ended.'}
         </p>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto -mx-px sm:mx-0 flex-1 min-h-0">
+        <table className="w-full min-w-[480px] text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/50">
-              <th className="text-left py-3 px-4 font-medium text-slate-700">Project</th>
-              <th className="text-left py-3 px-4 font-medium text-slate-700">Work status</th>
-              {isAdmin && (
-                <th className="text-left py-3 px-4 font-medium text-slate-700">Team member</th>
-              )}
-              <th className="text-left py-3 px-4 font-medium text-slate-700">Total timer</th>
-              <th className="text-left py-3 px-4 font-medium text-slate-700">Work</th>
+              <th className="text-left py-3 px-3 sm:px-4 font-medium text-slate-700">Project</th>
+              <th className="text-left py-3 px-3 sm:px-4 font-medium text-slate-700 whitespace-nowrap">Team member</th>
+              <th className="text-left py-3 px-3 sm:px-4 font-medium text-slate-700 whitespace-nowrap">Total timer</th>
+              <th className="text-left py-3 px-3 sm:px-4 font-medium text-slate-700">Work</th>
             </tr>
           </thead>
           <tbody>
@@ -312,64 +328,82 @@ export function WorkingProjectsSection({
                 project.team_members.map((member, idx) => (
                   <tr
                     key={`${project.id}-${member.user_id}`}
-                    className="border-b border-slate-100 hover:bg-slate-50/50"
+                    className={`border-b border-slate-100 transition-colors ${
+                      member.work_status === 'hold'
+                        ? 'bg-amber-50/70 hover:bg-amber-100/80'
+                        : 'hover:bg-slate-50/50'
+                    }`}
                   >
                     {idx === 0 ? (
                       <td
                         rowSpan={project.team_members.length}
-                        className="py-3 px-4 align-top"
+                        className="py-3 px-3 sm:px-4 align-middle"
                       >
-                        <Link
+                        <ProjectNameWithIcon
+                          name={project.name}
+                          logoUrl={project.logo_url}
                           href={`/dashboard/projects/${project.id}`}
-                          className="font-medium text-cyan-700 hover:text-cyan-800 hover:underline"
-                        >
-                          {project.name}
-                        </Link>
-                        {project.client_name && (
-                          <div className="text-xs text-slate-500 mt-0.5">{project.client_name}</div>
-                        )}
+                        />
                       </td>
                     ) : null}
-                    <td className="py-3 px-4 align-top">
-                      <WorkStatusPill status={member.work_status} />
+                    <td className="py-3 px-3 sm:px-4">
+                      <div className="flex items-center gap-2">
+                        <StaffAvatar
+                          photoUrl={member.photo_url}
+                          fullName={member.full_name}
+                          size="md"
+                          className="shrink-0"
+                        />
+                        <span className="font-medium text-slate-800">
+                          {member.full_name || 'Unknown'}
+                        </span>
+                      </div>
                     </td>
-                    <td className="py-3 px-4">
-                      <span className="font-medium text-slate-800">
-                        {member.full_name || 'Unknown'}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-3 sm:px-4">
                       <MemberTimer member={member} />
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-3 sm:px-4">
                       {renderWorkActions(project.id, project.name, member)}
                     </td>
                   </tr>
                 ))
               ) : (
-                <tr key={project.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                  <td className="py-3 px-4">
-                    <Link
+                <tr
+                  key={project.id}
+                  className={`border-b border-slate-100 transition-colors ${
+                    project.team_members[0]?.work_status === 'hold'
+                      ? 'bg-amber-50/70 hover:bg-amber-100/80'
+                      : 'hover:bg-slate-50/50'
+                  }`}
+                >
+                  <td className="py-3 px-3 sm:px-4 align-middle">
+                    <ProjectNameWithIcon
+                      name={project.name}
+                      logoUrl={project.logo_url}
                       href={`/dashboard/projects/${project.id}`}
-                      className="font-medium text-cyan-700 hover:text-cyan-800 hover:underline"
-                    >
-                      {project.name}
-                    </Link>
-                    {project.client_name && (
-                      <div className="text-xs text-slate-500 mt-0.5">{project.client_name}</div>
-                    )}
+                    />
                   </td>
-                  <td className="py-3 px-4">
-                    {project.team_members.length > 0 && (
-                      <WorkStatusPill status={project.team_members[0].work_status} />
-                    )}
+                  <td className="py-3 px-3 sm:px-4">
+                    <div className="flex items-center gap-2">
+                      {project.team_members[0] && (
+                        <StaffAvatar
+                          photoUrl={project.team_members[0].photo_url}
+                          fullName={project.team_members[0].full_name}
+                          size="md"
+                          className="shrink-0"
+                        />
+                      )}
+                      <span className="font-medium text-slate-800">
+                        {project.team_members[0]?.full_name || 'Unknown'}
+                      </span>
+                    </div>
                   </td>
-                  <td className="py-3 px-4">
+                  <td className="py-3 px-3 sm:px-4">
                     {project.team_members.length > 0 && (
                       <MemberTimer member={project.team_members[0]} />
                     )}
                   </td>
-                  <td className="py-3 px-4">
+                  <td className="py-3 px-3 sm:px-4">
                     {project.team_members.length > 0 &&
                       renderWorkActions(project.id, project.name, project.team_members[0])}
                   </td>

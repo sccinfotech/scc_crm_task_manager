@@ -48,6 +48,7 @@ export type ProjectTeamMember = {
   id: string
   full_name: string | null
   email: string | null
+  photo_url?: string | null
   work_status?: ProjectTeamMemberWorkStatus
   work_started_at?: string | null
   work_ended_at?: string | null
@@ -277,6 +278,7 @@ function normalizeTeamMember(row: any): ProjectTeamMember | null {
     id,
     full_name: userData?.full_name ?? null,
     email: userData?.email ?? null,
+    photo_url: userData?.photo_url ?? null,
     work_status: row.work_status ?? 'not_started',
     work_started_at: row.work_started_at ?? null,
     work_ended_at: row.work_ended_at ?? null,
@@ -458,6 +460,7 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
 export type DashboardWorkingProjectMember = {
   user_id: string
   full_name: string | null
+  photo_url?: string | null
   work_status: ProjectTeamMemberWorkStatus
   total_work_seconds: number
   work_running_since: string | null
@@ -467,6 +470,7 @@ export type DashboardWorkingProjectMember = {
 export type DashboardWorkingProject = {
   id: string
   name: string
+  logo_url: string | null
   status: ProjectStatus
   client_name: string | null
   team_members: DashboardWorkingProjectMember[]
@@ -499,7 +503,7 @@ export async function getWorkingProjectsForDashboard(): Promise<GetWorkingProjec
   // Fetch members in 'start' or 'hold' (working). Staff: only current user.
   let membersQuery = supabase
     .from('project_team_members')
-    .select('project_id, user_id, work_status, users!user_id(id, full_name)')
+    .select('project_id, user_id, work_status, users!user_id(id, full_name, photo_url)')
     .in('work_status', ['start', 'hold'])
 
   if (isStaff && !isAdmin) {
@@ -517,7 +521,7 @@ export async function getWorkingProjectsForDashboard(): Promise<GetWorkingProjec
     project_id: string
     user_id: string
     work_status: string
-    users: { id: string; full_name: string | null } | null
+    users: { id: string; full_name: string | null; photo_url?: string | null } | null
   }>
   if (rows.length === 0) {
     return { data: [], error: null }
@@ -525,10 +529,10 @@ export async function getWorkingProjectsForDashboard(): Promise<GetWorkingProjec
 
   const projectIds = [...new Set(rows.map((r) => r.project_id))]
 
-  // Load projects with client names
+  // Load projects with client names and logo
   const { data: projectRows, error: projectsError } = await supabase
     .from('projects')
-    .select('id, name, status, clients(name)')
+    .select('id, name, logo_url, status, clients(name)')
     .in('id', projectIds)
 
   if (projectsError || !projectRows?.length) {
@@ -556,12 +560,13 @@ export async function getWorkingProjectsForDashboard(): Promise<GetWorkingProjec
     }
   }
 
-  const projectMap = new Map<string, { name: string; status: ProjectStatus; client_name: string | null }>()
-  for (const p of projectRows as Array<{ id: string; name: string; status: string; clients: { name: string } | null }>) {
+  const projectMap = new Map<string, { name: string; logo_url: string | null; status: ProjectStatus; client_name: string | null }>()
+  for (const p of projectRows as Array<{ id: string; name: string; logo_url: string | null; status: string; clients: { name: string } | null }>) {
     const client = p.clients
     const clientName = client && !Array.isArray(client) ? client.name : (Array.isArray(client) ? client[0]?.name : null) ?? null
     projectMap.set(p.id, {
       name: p.name,
+      logo_url: p.logo_url ?? null,
       status: p.status as ProjectStatus,
       client_name: clientName,
     })
@@ -581,6 +586,7 @@ export async function getWorkingProjectsForDashboard(): Promise<GetWorkingProjec
     const member: DashboardWorkingProjectMember = {
       user_id: userId,
       full_name: fullName,
+      photo_url: (user as { photo_url?: string | null })?.photo_url ?? null,
       work_status: workStatus,
       total_work_seconds: computed.totalSeconds,
       work_running_since: computed.runningSince ?? null,
@@ -598,6 +604,7 @@ export async function getWorkingProjectsForDashboard(): Promise<GetWorkingProjec
     projects.push({
       id: projectId,
       name: info.name,
+      logo_url: info.logo_url,
       status: info.status,
       client_name: info.client_name,
       team_members: members,
@@ -685,7 +692,7 @@ export const getProject = cache(async (
   let teamRows: any[] | null = null
   const { data: teamRowsWithWork, error: teamWorkError } = await supabase
     .from('project_team_members')
-    .select('user_id, work_status, users!user_id(id, full_name, email)')
+    .select('user_id, work_status, users!user_id(id, full_name, email, photo_url)')
     .eq('project_id', projectId)
 
   if (!teamWorkError && teamRowsWithWork) {
@@ -696,7 +703,7 @@ export const getProject = cache(async (
     }
     const { data: teamRowsBasic } = await supabase
       .from('project_team_members')
-      .select('user_id, users!user_id(id, full_name, email)')
+      .select('user_id, users!user_id(id, full_name, email, photo_url)')
       .eq('project_id', projectId)
     teamRows = teamRowsBasic || []
   }
@@ -791,7 +798,7 @@ export async function getProjectDetailsSupplement(
   const [teamRes, timeEventsRes] = await Promise.all([
     supabase
       .from('project_team_members')
-      .select('user_id, work_status, users!user_id(id, full_name, email)')
+      .select('user_id, work_status, users!user_id(id, full_name, email, photo_url)')
       .eq('project_id', projectId),
     supabase
       .from('project_team_member_time_events')
@@ -1494,6 +1501,7 @@ export type ProjectWorkHistoryTeamMemberDay = {
   userId: string
   userName: string | null
   userEmail: string | null
+  userPhotoUrl?: string | null
   totalSeconds: number
   segments: WorkHistorySegment[]
 }
@@ -1516,6 +1524,7 @@ export type ProjectAnalyticsStaffTime = {
   userId: string
   userName: string | null
   userEmail: string | null
+  userPhotoUrl?: string | null
   totalSeconds: number
 }
 
@@ -1587,7 +1596,7 @@ export async function getProjectWorkHistory(
 
     const { data: users, error: usersError } = await supabase
       .from('users')
-      .select('id, full_name, email')
+      .select('id, full_name, email, photo_url')
       .in('id', userIds)
 
     if (usersError) {
@@ -1595,9 +1604,9 @@ export async function getProjectWorkHistory(
       return { data: null, error: usersError.message || 'Failed to fetch work history users' }
     }
 
-    const userMap = new Map<string, { name: string | null; email: string | null }>()
-      ; (users as Array<{ id: string; full_name: string | null; email: string | null }> | null)?.forEach((user) => {
-        userMap.set(user.id, { name: user.full_name, email: user.email })
+    const userMap = new Map<string, { name: string | null; email: string | null; photoUrl: string | null }>()
+      ; (users as Array<{ id: string; full_name: string | null; email: string | null; photo_url?: string | null }> | null)?.forEach((user) => {
+        userMap.set(user.id, { name: user.full_name, email: user.email, photoUrl: user.photo_url ?? null })
       })
 
     const dayMap = new Map<string, ProjectWorkHistoryTeamDay>()
@@ -1612,6 +1621,7 @@ export async function getProjectWorkHistory(
           userId,
           userName: userInfo?.name ?? null,
           userEmail: userInfo?.email ?? null,
+          userPhotoUrl: userInfo?.photoUrl ?? null,
           totalSeconds: day.totalSeconds,
           segments: day.segments,
         }
@@ -1707,7 +1717,7 @@ export async function getProjectAnalytics(
 
   const { data: teamRows, error: teamError } = await supabase
     .from('project_team_members')
-    .select('user_id, users!user_id(id, full_name, email)')
+    .select('user_id, users!user_id(id, full_name, email, photo_url)')
     .eq('project_id', projectId)
 
   if (teamError) {
@@ -1717,16 +1727,17 @@ export async function getProjectAnalytics(
 
   const userMetaById = new Map<
     string,
-    { userName: string | null; userEmail: string | null; isAssigned: boolean }
+    { userName: string | null; userEmail: string | null; userPhotoUrl: string | null; isAssigned: boolean }
   >()
 
-    ; (teamRows as Array<{ user_id: string; users?: { id?: string; full_name?: string | null; email?: string | null } | Array<{ id?: string; full_name?: string | null; email?: string | null }> }> | null)?.forEach((row) => {
+    ; (teamRows as Array<{ user_id: string; users?: { id?: string; full_name?: string | null; email?: string | null; photo_url?: string | null } | Array<{ id?: string; full_name?: string | null; email?: string | null; photo_url?: string | null }> }> | null)?.forEach((row) => {
       const userNode = Array.isArray(row.users) ? row.users[0] : row.users
       const userId = userNode?.id ?? row.user_id
       if (!userId) return
       userMetaById.set(userId, {
         userName: userNode?.full_name ?? null,
         userEmail: userNode?.email ?? null,
+        userPhotoUrl: userNode?.photo_url ?? null,
         isAssigned: true,
       })
     })
@@ -1757,7 +1768,7 @@ export async function getProjectAnalytics(
   if (missingEventUserIds.length > 0) {
     const { data: missingUsers, error: missingUsersError } = await supabase
       .from('users')
-      .select('id, full_name, email')
+      .select('id, full_name, email, photo_url')
       .in('id', missingEventUserIds)
 
     if (missingUsersError) {
@@ -1765,10 +1776,11 @@ export async function getProjectAnalytics(
       return { data: null, error: missingUsersError.message || 'Failed to fetch analytics users' }
     }
 
-    ; (missingUsers as Array<{ id: string; full_name: string | null; email: string | null }> | null)?.forEach((user) => {
+    ; (missingUsers as Array<{ id: string; full_name: string | null; email: string | null; photo_url?: string | null }> | null)?.forEach((user) => {
       userMetaById.set(user.id, {
         userName: user.full_name,
         userEmail: user.email,
+        userPhotoUrl: user.photo_url ?? null,
         isAssigned: false,
       })
     })
@@ -1792,6 +1804,7 @@ export async function getProjectAnalytics(
         userId,
         userName: meta.userName,
         userEmail: meta.userEmail,
+        userPhotoUrl: meta.userPhotoUrl ?? null,
         totalSeconds,
       })
     }

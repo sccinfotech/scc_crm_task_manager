@@ -8,6 +8,7 @@ import {
   type ProjectTeamMember,
 } from '@/lib/projects/actions'
 import { EmptyState } from '@/app/components/empty-state'
+import { StaffAvatar } from '@/app/components/ui/staff-avatar'
 
 /** Work history is sourced from project_team_member_time_events (start/hold/resume/end + note on end). */
 export const WORK_HISTORY_DATA_SOURCE = 'project_team_member_time_events'
@@ -313,7 +314,7 @@ export function ProjectWorkHistory({
                     <span className="text-base font-bold text-cyan-600">
                       {formatHistoryDate(day.date)}
                     </span>
-                    <span className="text-base font-bold text-cyan-600 tabular-nums">
+                    <span className="font-digital text-base font-bold text-cyan-600 tabular-nums">
                       {formatTotalHours(day.totalSeconds)}
                     </span>
                   </div>
@@ -326,15 +327,24 @@ export function ProjectWorkHistory({
                           className="rounded-xl border border-slate-200/80 bg-white shadow-sm"
                         >
                           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-3 py-2.5">
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-bold text-[#0C4A6E]">
-                                {member.userName || member.userEmail || 'Staff'}
-                              </p>
-                              {member.userEmail && member.userEmail !== member.userName && (
-                                <p className="truncate text-xs text-slate-500">{member.userEmail}</p>
-                              )}
+                            <div className="flex min-w-0 items-center gap-2">
+                              <StaffAvatar
+                                photoUrl={member.userPhotoUrl}
+                                fullName={member.userName}
+                                email={member.userEmail}
+                                size="md"
+                                className="shrink-0"
+                              />
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-bold text-[#0C4A6E]">
+                                  {member.userName || member.userEmail || 'Staff'}
+                                </p>
+                                {member.userEmail && member.userEmail !== member.userName && (
+                                  <p className="truncate text-xs text-slate-500">{member.userEmail}</p>
+                                )}
+                              </div>
                             </div>
-                            <span className="text-sm font-bold text-[#0C4A6E] tabular-nums whitespace-nowrap">
+                            <span className="font-digital text-sm font-bold text-[#0C4A6E] tabular-nums whitespace-nowrap">
                               {formatTotalHours(member.totalSeconds)}
                             </span>
                           </div>
@@ -357,7 +367,7 @@ export function ProjectWorkHistory({
                                           {formatTimeRange(seg.startAt, seg.endAt)}
                                         </span>
                                       </div>
-                                      <span className="flex-shrink-0 text-sm font-bold tabular-nums text-[#0C4A6E]">
+                                      <span className="font-digital flex-shrink-0 text-sm font-bold tabular-nums text-[#0C4A6E]">
                                         {formatWorkSecondsHhMmSs(segmentSec)}
                                       </span>
                                     </div>
@@ -399,7 +409,7 @@ export function ProjectWorkHistory({
                     <span className="text-base font-bold text-cyan-600">
                       {formatHistoryDate(day.date)}
                     </span>
-                    <span className="text-base font-bold text-cyan-600 tabular-nums">
+                    <span className="font-digital text-base font-bold text-cyan-600 tabular-nums">
                       {formatTotalHours(day.totalSeconds)}
                     </span>
                   </div>
@@ -421,7 +431,7 @@ export function ProjectWorkHistory({
                                   {formatTimeRange(seg.startAt, seg.endAt)}
                                 </span>
                               </div>
-                              <span className="flex-shrink-0 text-sm font-bold tabular-nums text-[#0C4A6E]">
+                              <span className="font-digital flex-shrink-0 text-sm font-bold tabular-nums text-[#0C4A6E]">
                                 {formatWorkSecondsHhMmSs(segmentSec)}
                               </span>
                             </div>

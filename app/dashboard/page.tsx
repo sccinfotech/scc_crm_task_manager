@@ -17,7 +17,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex h-full flex-col p-2 sm:p-3 lg:p-4">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 sm:mb-3 flex-shrink-0">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 sm:mb-4 flex-shrink-0">
         <div className="flex items-center gap-3">
           <SidebarToggleButton />
           <h1 className="text-xl font-semibold text-[#1E1B4B] sm:text-2xl">Dashboard</h1>
@@ -25,14 +25,17 @@ export default async function DashboardPage() {
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className="space-y-6 pb-4">
-          <WorkingProjectsSection
-            projects={workingProjects}
-            isAdmin={isAdmin}
-            currentUserId={user.id}
-          />
-
-          <NotificationsSection notifications={notifications} />
+        <div className="grid grid-cols-1 gap-3 pb-4 lg:grid-cols-2 lg:gap-4 lg:items-start">
+          <section className="min-w-0 flex flex-col lg:min-h-[320px]">
+            <WorkingProjectsSection
+              projects={workingProjects}
+              isAdmin={isAdmin}
+              currentUserId={user.id}
+            />
+          </section>
+          <section className="min-w-0 flex flex-col lg:min-h-[320px]">
+            <NotificationsSection notifications={notifications} />
+          </section>
         </div>
       </div>
     </div>

@@ -296,13 +296,15 @@ export const ProjectsCardList = memo(function ProjectsCardList({
             >
               <div className="flex items-start gap-3 p-3.5 sm:p-4">
                 {project.logo_url ? (
-                  <Image
-                    src={project.logo_url}
-                    alt={project.name}
-                    width={40}
-                    height={40}
-                    className="h-10 w-10 flex-shrink-0 rounded-full object-cover shadow-sm ring-2 ring-white"
-                  />
+                  <span className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-50 ring-1 ring-slate-200/80 shadow-sm">
+                    <Image
+                      src={project.logo_url}
+                      alt={project.name}
+                      fill
+                      className="object-contain p-0.5"
+                      sizes="40px"
+                    />
+                  </span>
                 ) : (
                   <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 text-sm font-bold text-white shadow-sm ring-2 ring-white">
                     {getInitials(project.name)}

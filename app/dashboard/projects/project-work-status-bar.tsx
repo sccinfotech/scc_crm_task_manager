@@ -92,7 +92,7 @@ export function ProjectWorkStatusBar({
     >
       <div className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50/80 px-2 py-1 sm:px-2.5 sm:py-1">
         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Timer</span>
-        <span className="font-mono text-sm font-bold tabular-nums text-slate-800 sm:text-base">
+        <span className="font-digital text-sm font-bold tabular-nums text-slate-800 sm:text-base">
           {formatWorkSecondsHhMmSs(elapsedSec)}
         </span>
       </div>

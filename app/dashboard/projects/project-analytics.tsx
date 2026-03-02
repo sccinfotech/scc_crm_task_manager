@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { EmptyState } from '@/app/components/empty-state'
+import { StaffAvatar } from '@/app/components/ui/staff-avatar'
 import {
   getProjectAnalytics,
   type ProjectAnalyticsPayload,
@@ -277,10 +278,10 @@ export function ProjectAnalytics({
             <div className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-cyan-50 p-4">
               <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Total Time Spent On This Project</p>
               <div className="mt-2 flex flex-wrap items-end justify-between gap-2">
-                <p className="text-3xl font-black tracking-tight text-[#14532D] tabular-nums">
+                <p className="font-digital text-3xl font-black tracking-tight text-[#14532D] tabular-nums">
                   {formatHoursMinutes(totalSeconds)}
                 </p>
-                <p className="text-sm font-semibold text-emerald-700 tabular-nums">
+                <p className="font-digital text-sm font-semibold text-emerald-700 tabular-nums">
                   {formatLongDuration(totalSeconds)}
                 </p>
               </div>
@@ -303,17 +304,26 @@ export function ProjectAnalytics({
                   return (
                     <div key={staff.userId} className="rounded-xl border border-slate-200 bg-white p-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-bold text-[#0F172A]">{formatStaffLabel(staff)}</p>
-                          {staff.userEmail && staff.userEmail !== staff.userName && (
-                            <p className="truncate text-xs text-slate-500">{staff.userEmail}</p>
-                          )}
+                        <div className="flex min-w-0 items-center gap-2">
+                          <StaffAvatar
+                            photoUrl={staff.userPhotoUrl}
+                            fullName={staff.userName}
+                            email={staff.userEmail}
+                            size="md"
+                            className="shrink-0"
+                          />
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold text-[#0F172A]">{formatStaffLabel(staff)}</p>
+                            {staff.userEmail && staff.userEmail !== staff.userName && (
+                              <p className="truncate text-xs text-slate-500">{staff.userEmail}</p>
+                            )}
+                          </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-lg font-extrabold text-cyan-700 tabular-nums">
+                          <p className="font-digital text-lg font-extrabold text-cyan-700 tabular-nums">
                             {formatHoursMinutes(staff.totalSeconds)}
                           </p>
-                          <p className="text-xs font-semibold text-slate-500 tabular-nums">
+                          <p className="font-digital text-xs font-semibold text-slate-500 tabular-nums">
                             {formatLongDuration(staff.totalSeconds)}
                           </p>
                         </div>
