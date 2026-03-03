@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { useCallback, useState } from 'react'
-import Link from 'next/link'
+import { Tooltip } from '@/app/components/ui/tooltip'
 import { useToast } from '@/app/components/ui/toast-context'
 import type { Quotation, QuotationRequirement, QuotationStatus } from '@/lib/quotations/actions'
 import {
@@ -11,7 +11,6 @@ import {
   deleteQuotation,
   startQuotationConversion,
   completeQuotationConversion,
-  createQuotationRequirement,
   type QuotationFormData,
 } from '@/lib/quotations/actions'
 import { createProject, type ProjectFormData } from '@/lib/projects/actions'
@@ -21,6 +20,7 @@ import type { ClientSelectOption } from '@/lib/clients/actions'
 import type { TechnologyTool } from '@/lib/settings/technology-tools-actions'
 import type { StaffSelectOption } from '@/lib/users/actions'
 import { QuotationModal } from '../quotation-modal'
+import { QuotationRequirements } from '../quotation-requirements'
 import { ProjectModal } from '@/app/dashboard/projects/project-modal'
 
 type TabId = 'overview' | 'requirements'
@@ -44,9 +44,26 @@ const STATUS_LABELS: Record<QuotationStatus, string> = {
   converted: 'Converted',
 }
 
+const STATUS_STYLES: Record<QuotationStatus, string> = {
+  draft: 'border-slate-300 bg-slate-100 text-slate-700',
+  sent: 'border-blue-300 bg-blue-100 text-blue-700',
+  under_discussion: 'border-amber-300 bg-amber-100 text-amber-800',
+  approved: 'border-emerald-300 bg-emerald-100 text-emerald-700',
+  rejected: 'border-rose-300 bg-rose-100 text-rose-700',
+  expired: 'border-orange-300 bg-orange-100 text-orange-700',
+  converted: 'border-violet-300 bg-violet-100 text-violet-700',
+}
+
 function formatDate(d: string | null) {
   if (!d) return '—'
   return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+function parseDateOnly(d: string | null) {
+  if (!d) return null
+  const parsed = new Date(`${d}T00:00:00`)
+  if (Number.isNaN(parsed.getTime())) return null
+  return parsed
 }
 
 function formatCurrency(amount: number) {
@@ -90,7 +107,8 @@ export function QuotationDetailView({
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const { success: showSuccess, error: showError } = useToast()
-  const tab = (searchParams.get('tab') as TabId) || 'overview'
+  const tabParam = searchParams.get('tab')
+  const tab: TabId = tabParam === 'requirements' ? 'requirements' : 'overview'
   const setTab = useCallback(
     (t: TabId) => {
       const params = new URLSearchParams(searchParams.toString())
@@ -178,10 +196,6 @@ export function QuotationDetailView({
   const [conversionQuotationId, setConversionQuotationId] = useState<string | null>(null)
   const [projectInitialData, setProjectInitialData] = useState<Partial<ProjectFormData> | null>(null)
   const [conversionClients, setConversionClients] = useState<ClientSelectOption[]>([])
-  const [addRequirementOpen, setAddRequirementOpen] = useState(false)
-  const [reqDescription, setReqDescription] = useState('')
-  const [reqAmount, setReqAmount] = useState('')
-  const [addReqLoading, setAddReqLoading] = useState(false)
 
   const handleProjectSubmitFromConversion = async (formData: ProjectFormData) => {
     const result = await createProject(formData)
@@ -203,32 +217,6 @@ export function QuotationDetailView({
     return result
   }
 
-  const handleAddRequirement = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const amount = Number.parseFloat(reqAmount)
-    if (Number.isNaN(amount) || amount < 0) {
-      showError('Invalid amount', 'Please enter a valid amount.')
-      return
-    }
-    setAddReqLoading(true)
-    const result = await createQuotationRequirement(quotation.id, {
-      requirement_type: 'initial',
-      pricing_type: 'fixed',
-      description: reqDescription.trim() || null,
-      amount,
-    })
-    setAddReqLoading(false)
-    if (!result.error) {
-      showSuccess('Requirement Added', 'The requirement has been added.')
-      setAddRequirementOpen(false)
-      setReqDescription('')
-      setReqAmount('')
-      router.refresh()
-    } else {
-      showError('Failed', result.error)
-    }
-  }
-
   const editInitialData: Partial<QuotationFormData> = {
     source_type: quotation.source_type,
     lead_id: quotation.lead_id ?? undefined,
@@ -240,144 +228,259 @@ export function QuotationDetailView({
     technology_tool_ids: quotation.technology_tools?.map((t) => t.id),
   }
 
+  const sourceLabel = quotation.source_type === 'client' ? 'Client' : 'Lead'
+  const sourceName =
+    quotation.source_type === 'client'
+      ? quotation.client?.name || quotation.client_snapshot_name || '—'
+      : quotation.client_snapshot_name || quotation.lead?.name || '—'
+  const sourceCompany =
+    quotation.source_type === 'client'
+      ? quotation.client?.company_name || quotation.client_snapshot_company_name || null
+      : quotation.client_snapshot_company_name || quotation.lead?.company_name || null
+  const sourcePhone =
+    quotation.source_type === 'client'
+      ? quotation.client?.phone || quotation.client_snapshot_phone || null
+      : quotation.client_snapshot_phone || quotation.lead?.phone || null
+  const sourceEmail = quotation.client_snapshot_email || null
+  const sourceRemark = quotation.client_snapshot_remark || null
+  const toolNames = quotation.technology_tools?.map((tool) => tool.name) ?? []
+  const validTillDate = parseDateOnly(quotation.valid_till)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const isValidTillExpired = validTillDate ? validTillDate.getTime() < today.getTime() : false
+  const validTillBadgeClass = validTillDate
+    ? isValidTillExpired
+      ? 'border-red-200 bg-red-50 text-red-700'
+      : 'border-amber-200 bg-amber-50 text-amber-800'
+    : 'border-slate-200 bg-slate-50 text-slate-600'
+
   return (
-    <div className="flex flex-col h-full bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-      {/* Top actions */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-6">
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700">
-            {STATUS_LABELS[quotation.status]}
-          </span>
-          {quotation.source_type && (
-            <span className="text-sm text-slate-500 capitalize">{quotation.source_type}</span>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {canWrite && !isConverted && (
-            <>
-              <button
-                type="button"
-                onClick={() => setEditModalOpen(true)}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                onClick={() => setStatusModalOpen(true)}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              >
-                Change Status
-              </button>
-            </>
-          )}
-          {showConvert && (
-            <button
-              type="button"
-              onClick={handleConvertClick}
-              disabled={conversionLoading}
-              className="rounded-lg bg-[#06B6D4] px-3 py-2 text-sm font-semibold text-white hover:bg-[#0891b2] disabled:opacity-50"
-            >
-              {conversionLoading ? 'Preparing…' : 'Convert'}
-            </button>
-          )}
-          {isAdmin && !isConverted && (
-            <button
-              type="button"
-              onClick={() => setDeleteModalOpen(true)}
-              className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
-            >
-              Delete
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex border-b border-slate-200">
-        <button
-          type="button"
-          onClick={() => setTab('overview')}
-          className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-            tab === 'overview'
-              ? 'border-[#06B6D4] text-[#06B6D4]'
-              : 'border-transparent text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          Overview
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab('requirements')}
-          className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-            tab === 'requirements'
-              ? 'border-[#06B6D4] text-[#06B6D4]'
-              : 'border-transparent text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          Requirements
-        </button>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-        {tab === 'overview' && (
-          <div className="space-y-6">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <div>
-                <p className="text-xs font-medium uppercase text-slate-500">Quotation Date</p>
-                <p className="mt-1 font-medium text-slate-900">{formatDate(quotation.created_at)}</p>
+    <div className="flex h-full flex-col gap-2 sm:gap-3">
+      <div className="flex-shrink-0 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm sm:p-4">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+              <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 text-xl font-black text-white shadow-lg">
+                Q
               </div>
-              <div>
-                <p className="text-xs font-medium uppercase text-slate-500">Valid Till</p>
-                <p className="mt-1 font-medium text-slate-900">{formatDate(quotation.valid_till)}</p>
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase text-slate-500">Reference</p>
-                <p className="mt-1 font-medium text-slate-900">{quotation.reference || '—'}</p>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1
+                    className="truncate text-xl font-extrabold tracking-tight text-[#1E1B4B] sm:text-2xl"
+                    title={quotation.quotation_number}
+                  >
+                    {quotation.quotation_number}
+                  </h1>
+                  <span
+                    className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${STATUS_STYLES[quotation.status]}`}
+                  >
+                    {STATUS_LABELS[quotation.status]}
+                  </span>
+                  <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${validTillBadgeClass}`}>
+                    Valid Till {formatDate(quotation.valid_till)}
+                  </span>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
+                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-slate-700">
+                    {sourceLabel} Quotation
+                  </span>
+                </div>
               </div>
             </div>
-            <div>
-              <p className="text-xs font-medium uppercase text-slate-500 mb-1">Technology & Tools</p>
-              <p className="font-medium text-slate-900">
-                {quotation.technology_tools?.length
-                  ? quotation.technology_tools.map((t) => t.name).join(', ')
-                  : '—'}
-              </p>
-            </div>
-            <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
-              <h4 className="text-sm font-semibold text-slate-700 mb-3">Client Information</h4>
-              {quotation.source_type === 'client' && quotation.client ? (
-                <div className="grid gap-2 sm:grid-cols-2 text-sm">
-                  <p><span className="text-slate-500">Name:</span> {quotation.client.name}</p>
-                  <p><span className="text-slate-500">Company:</span> {quotation.client.company_name ?? '—'}</p>
-                  <p><span className="text-slate-500">Phone:</span> {quotation.client.phone}</p>
-                </div>
-              ) : quotation.source_type === 'lead' && (quotation.client_snapshot_name || quotation.lead) ? (
-                <div className="grid gap-2 sm:grid-cols-2 text-sm">
-                  <p><span className="text-slate-500">Name:</span> {quotation.client_snapshot_name || quotation.lead?.name || '—'}</p>
-                  <p><span className="text-slate-500">Company:</span> {quotation.client_snapshot_company_name ?? quotation.lead?.company_name ?? '—'}</p>
-                  <p><span className="text-slate-500">Phone:</span> {quotation.client_snapshot_phone ?? quotation.lead?.phone ?? '—'}</p>
-                  {quotation.client_snapshot_email && <p><span className="text-slate-500">Email:</span> {quotation.client_snapshot_email}</p>}
-                  {quotation.client_snapshot_remark && <p className="sm:col-span-2"><span className="text-slate-500">Remark:</span> {quotation.client_snapshot_remark}</p>}
-                </div>
-              ) : (
-                <p className="text-sm text-slate-500">No client information.</p>
+
+            <div className="flex flex-wrap items-center gap-2 self-start lg:self-auto">
+              {canWrite && !isConverted && (
+                <>
+                  <Tooltip content="Edit quotation">
+                    <button
+                      type="button"
+                      onClick={() => setEditModalOpen(true)}
+                      className="rounded-lg p-2 text-slate-400 transition-colors duration-200 hover:bg-indigo-50 hover:text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:ring-offset-1"
+                      aria-label="Edit quotation"
+                    >
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Change status">
+                    <button
+                      type="button"
+                      onClick={() => setStatusModalOpen(true)}
+                      className="rounded-lg p-2 text-slate-400 transition-colors duration-200 hover:bg-cyan-50 hover:text-cyan-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:ring-offset-1"
+                      aria-label="Change quotation status"
+                    >
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h10m-10 6h6" />
+                      </svg>
+                    </button>
+                  </Tooltip>
+                </>
+              )}
+              {showConvert && (
+                <button
+                  type="button"
+                  onClick={handleConvertClick}
+                  disabled={conversionLoading}
+                  className="rounded-lg bg-[#06B6D4] px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#0891b2] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {conversionLoading ? 'Preparing...' : 'Convert'}
+                </button>
+              )}
+              {isAdmin && !isConverted && (
+                <Tooltip content="Delete quotation">
+                  <button
+                    type="button"
+                    onClick={() => setDeleteModalOpen(true)}
+                    className="rounded-lg p-2 text-slate-400 transition-colors duration-200 hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:ring-offset-1"
+                    aria-label="Delete quotation"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </Tooltip>
               )}
             </div>
-            <div className="rounded-xl border border-slate-200 p-4">
-              <h4 className="text-sm font-semibold text-slate-700 mb-3">Totals</h4>
-              <div className="flex flex-col gap-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-slate-600">Subtotal</span>
-                  <span className="font-medium">{formatCurrency(subtotal)}</span>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Requirements</p>
+              <p className="mt-1 text-xl font-extrabold text-slate-900">{requirements.length}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Subtotal</p>
+              <p className="mt-1 text-xl font-extrabold text-slate-900">{formatCurrency(subtotal)}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Discount</p>
+              <p className="mt-1 text-xl font-extrabold text-slate-900">{formatCurrency(discount)}</p>
+            </div>
+            <div className="rounded-xl border border-cyan-200 bg-cyan-50/80 px-4 py-3">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-cyan-700">Final Total</p>
+              <p className="mt-1 text-xl font-extrabold text-cyan-900">{formatCurrency(finalTotal)}</p>
+            </div>
+          </div>
+
+          <div className="flex items-stretch overflow-x-auto scrollbar-hide" role="tablist" aria-label="Quotation detail tabs">
+            {(['overview', 'requirements'] as TabId[]).map((tabId, index, list) => {
+              const isActive = tab === tabId
+              const isLast = index === list.length - 1
+
+              return (
+                <div key={tabId} className="flex items-stretch">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => setTab(tabId)}
+                    className={`
+                      relative whitespace-nowrap border-b-2 px-2.5 pb-2 pt-1 text-sm font-semibold transition-colors duration-200
+                      focus:outline-none focus-visible:ring-2 focus-visible:ring-[#06B6D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white
+                      ${isActive
+                        ? 'border-[#06B6D4] text-[#06B6D4]'
+                        : 'border-transparent text-slate-600 hover:text-slate-800'}
+                    `}
+                  >
+                    {tabId === 'overview' ? 'Overview' : 'Requirements'}
+                  </button>
+                  {!isLast && (
+                    <span
+                      aria-hidden="true"
+                      className="mx-2 w-px self-stretch bg-gradient-to-b from-slate-200/0 via-slate-200/70 to-slate-200/0 sm:mx-3"
+                    />
+                  )}
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600">Discount</span>
-                  <span className="font-medium">{formatCurrency(discount)}</span>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div
+        className={
+          tab === 'overview'
+            ? 'min-h-0 flex-1 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 lg:p-6'
+            : 'min-h-0 flex-1'
+        }
+      >
+        {tab === 'overview' && (
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200 bg-white">
+              <div className="border-b border-slate-100 px-4 py-3">
+                <h2 className="text-sm font-bold text-slate-900">Quotation Information</h2>
+              </div>
+              <div className="grid gap-4 p-4 sm:grid-cols-2">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Quotation Date</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(quotation.created_at)}</p>
                 </div>
-                <div className="flex justify-between border-t border-slate-200 pt-2 font-semibold text-slate-900">
-                  <span>Final Total</span>
-                  <span>{formatCurrency(finalTotal)}</span>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Last Updated</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(quotation.updated_at)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Valid Till</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(quotation.valid_till)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Reference</p>
+                  <p className="mt-1 break-words text-sm font-semibold text-slate-900">{quotation.reference || '—'}</p>
+                </div>
+                <div className="sm:col-span-2 border-t border-slate-100 pt-4">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Technology & Tools</p>
+                  {toolNames.length > 0 ? (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {toolNames.map((name, index) => (
+                        <span
+                          key={`${name}-${index}`}
+                          className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700"
+                        >
+                          {name}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm text-slate-500">No technology tools selected.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white">
+              <div className="border-b border-slate-100 px-4 py-3">
+                <h2 className="text-sm font-bold text-slate-900">{sourceLabel} Details</h2>
+              </div>
+              <div className="grid gap-4 p-4 sm:grid-cols-2">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Name</p>
+                  <p className="mt-1 break-words text-sm font-semibold text-slate-900">{sourceName}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Company</p>
+                  <p className="mt-1 break-words text-sm font-semibold text-slate-900">{sourceCompany || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Phone</p>
+                  {sourcePhone ? (
+                    <a
+                      href={`tel:${sourcePhone}`}
+                      className="mt-1 inline-flex text-sm font-semibold text-[#06B6D4] transition-colors hover:text-[#0891b2]"
+                    >
+                      {sourcePhone}
+                    </a>
+                  ) : (
+                    <p className="mt-1 text-sm font-semibold text-slate-900">—</p>
+                  )}
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Email</p>
+                  <p className="mt-1 break-words text-sm font-semibold text-slate-900">{sourceEmail || '—'}</p>
+                </div>
+                <div className="sm:col-span-2">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Remark</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm font-semibold text-slate-900">{sourceRemark || '—'}</p>
                 </div>
               </div>
             </div>
@@ -385,51 +488,13 @@ export function QuotationDetailView({
         )}
 
         {tab === 'requirements' && (
-          <div className="space-y-4">
-            {canWrite && !isConverted && (
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setAddRequirementOpen(true)}
-                  className="rounded-lg bg-[#06B6D4] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0891b2]"
-                >
-                  Add Requirement
-                </button>
-              </div>
-            )}
-            {requirements.length === 0 ? (
-              <p className="text-slate-500 text-sm">No requirements added yet. Add at least one requirement before approving.</p>
-            ) : (
-              <ul className="divide-y divide-slate-200">
-                {requirements.map((req) => (
-                  <li key={req.id} className="py-4 first:pt-0">
-                    <div className="flex justify-between items-start gap-2">
-                      <div>
-                        <span className="inline-block rounded px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-700 mr-2">
-                          {req.requirement_type}
-                        </span>
-                        <span className="text-sm text-slate-500">{req.pricing_type}</span>
-                        {req.title && <p className="font-medium text-slate-900 mt-1">{req.title}</p>}
-                        {req.description && <p className="text-sm text-slate-600 mt-1">{req.description}</p>}
-                      </div>
-                      {req.amount != null && (
-                        <span className="font-medium text-slate-900 whitespace-nowrap">{formatCurrency(req.amount)}</span>
-                      )}
-                    </div>
-                    {req.milestones && req.milestones.length > 0 && (
-                      <ul className="mt-2 ml-4 space-y-1 text-sm text-slate-600">
-                        {req.milestones.map((m) => (
-                          <li key={m.id}>
-                            {m.title}: {formatCurrency(m.amount)}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          <QuotationRequirements
+            quotationId={quotation.id}
+            canWrite={canWrite && !isConverted}
+            canViewAmount={canViewAmount}
+            className="h-full"
+            isActiveTab={tab === 'requirements'}
+          />
         )}
       </div>
 
@@ -503,54 +568,6 @@ export function QuotationDetailView({
                 Delete
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {addRequirementOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Add Requirement</h3>
-            <form onSubmit={handleAddRequirement} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-                <textarea
-                  value={reqDescription}
-                  onChange={(e) => setReqDescription(e.target.value)}
-                  rows={3}
-                  className="block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  placeholder="Requirement description"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Amount</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={reqAmount}
-                  onChange={(e) => setReqAmount(e.target.value)}
-                  className="block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => { setAddRequirementOpen(false); setReqDescription(''); setReqAmount(''); }}
-                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={addReqLoading}
-                  className="rounded-lg bg-[#06B6D4] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0891b2] disabled:opacity-50"
-                >
-                  {addReqLoading ? 'Adding…' : 'Add'}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

@@ -51,7 +51,9 @@ function ProjectNameWithIcon({
           {getProjectInitials(name)}
         </span>
       )}
-      <span className="truncate">{name}</span>
+      <span className="block max-w-[11rem] break-words leading-5 line-clamp-2 sm:max-w-[16rem] sm:line-clamp-none sm:truncate lg:max-w-[24rem]">
+        {name}
+      </span>
     </Link>
   )
 }
@@ -61,7 +63,7 @@ function formatWorkSecondsHhMmSs(seconds: number): string {
   const m = Math.floor((seconds % 3600) / 60)
   const s = Math.floor(seconds % 60)
   const pad = (n: number) => String(n).padStart(2, '0')
-  return `${pad(h)}:${pad(m)}:${pad(s)}`
+  return `${pad(h)} : ${pad(m)} : ${pad(s)}`
 }
 
 /** Computes current elapsed seconds for display (live when status is 'start'). */
@@ -93,7 +95,7 @@ function useLiveWorkSeconds(member: DashboardWorkingProjectMember): number {
 function MemberTimer({ member }: { member: DashboardWorkingProjectMember }) {
   const elapsedSec = useLiveWorkSeconds(member)
   return (
-    <span className="font-digital text-base font-semibold tabular-nums text-red-600">
+    <span className="font-digital text-base font-semibold tabular-nums tracking-[0.08em] text-red-600">
       {formatWorkSecondsHhMmSs(elapsedSec)}
     </span>
   )

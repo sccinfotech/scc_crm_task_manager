@@ -1,5 +1,6 @@
 'use server'
 
+import crypto from 'crypto'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser, hasPermission } from '@/lib/auth/utils'
@@ -31,6 +32,7 @@ export type QuotationFormData = {
   reference?: string
   status: QuotationStatus
   discount?: number
+  requirements?: QuotationRequirementFormData[]
 }
 
 export type Quotation = {
@@ -147,6 +149,16 @@ export type StartConversionResult = {
   error: string | null
 }
 
+type CloudinaryUploadSignature = {
+  signature: string
+  timestamp: number
+  cloudName: string
+  apiKey: string
+  folder: string
+}
+
+const QUOTATION_REQUIREMENT_CLOUDINARY_FOLDER = 'quotation-requirements'
+
 function roundCurrency(value: number) {
   return Math.round(value * 100) / 100
 }
@@ -155,6 +167,65 @@ function normalizeNumber(value?: number | string | null): number | null {
   if (value === null || value === undefined || value === '') return null
   const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value))
   return Number.isFinite(parsed) ? parsed : null
+}
+
+function getEnvVar(name: string, isPublic = false): string {
+  const value = process.env[name]
+  if (!value) {
+    const visibility = isPublic ? 'public' : 'server-only'
+    throw new Error(
+      `Missing required ${visibility} environment variable: ${name}. ` +
+        'Add it to .env.local and restart the dev server.'
+    )
+  }
+  return value
+}
+
+function getCloudinaryConfig() {
+  const cloudName = getEnvVar('NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME', true)
+  const apiKey = getEnvVar('NEXT_PUBLIC_CLOUDINARY_API_KEY', true)
+  const apiSecret = getEnvVar('CLOUDINARY_API_SECRET', false)
+
+  return { cloudName, apiKey, apiSecret }
+}
+
+function signCloudinaryParams(params: Record<string, string | number>, apiSecret: string) {
+  const sorted = Object.keys(params)
+    .sort()
+    .map((key) => `${key}=${params[key]}`)
+    .join('&')
+  return crypto.createHash('sha1').update(sorted + apiSecret).digest('hex')
+}
+
+export async function getQuotationRequirementUploadSignature(): Promise<{
+  data: CloudinaryUploadSignature | null
+  error: string | null
+}> {
+  const currentUser = await getCurrentUser()
+  if (!currentUser) {
+    return { data: null, error: 'You must be logged in to upload attachments.' }
+  }
+
+  const canWrite = await hasPermission(currentUser, MODULE_PERMISSION_IDS.quotations, 'write')
+  if (!canWrite) {
+    return { data: null, error: 'You do not have permission to upload attachments.' }
+  }
+
+  const { cloudName, apiKey, apiSecret } = getCloudinaryConfig()
+  const timestamp = Math.floor(Date.now() / 1000)
+  const folder = QUOTATION_REQUIREMENT_CLOUDINARY_FOLDER
+  const signature = signCloudinaryParams({ timestamp, folder }, apiSecret)
+
+  return {
+    data: {
+      signature,
+      timestamp,
+      cloudName,
+      apiKey,
+      folder,
+    },
+    error: null,
+  }
 }
 
 async function generateQuotationNumber(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string> {
@@ -374,6 +445,108 @@ export async function createQuotation(formData: QuotationFormData): Promise<Quot
     return { data: null, error: 'Invalid status' }
   }
 
+  type PreparedMilestone = {
+    title: string
+    description: string | null
+    due_date: string | null
+    amount: number
+  }
+
+  type PreparedRequirement = {
+    requirement_type: QuotationRequirementType
+    pricing_type: QuotationPricingType
+    title: string | null
+    description: string | null
+    attachment_url: string | null
+    estimated_hours: number | null
+    hourly_rate: number | null
+    amount: number | null
+    milestones: PreparedMilestone[]
+  }
+
+  const preparedRequirements: PreparedRequirement[] = []
+  const rawRequirements = Array.isArray(formData.requirements) ? formData.requirements : []
+
+  for (let index = 0; index < rawRequirements.length; index += 1) {
+    const requirement = rawRequirements[index] || {}
+    const itemNo = index + 1
+    const requirementType: QuotationRequirementType = 'initial'
+    const pricingType = (requirement.pricing_type ?? 'hourly') as QuotationPricingType
+
+    if (!['hourly', 'fixed', 'milestone'].includes(pricingType)) {
+      return { data: null, error: `Requirement ${itemNo}: invalid pricing type` }
+    }
+
+    const title = requirement.title?.trim() || null
+    const description = requirement.description?.trim() || null
+    const attachmentUrl = requirement.attachment_url?.trim() || null
+    const estimatedHours = pricingType === 'hourly' ? normalizeNumber(requirement.estimated_hours) : null
+    const hourlyRate = pricingType === 'hourly' ? normalizeNumber(requirement.hourly_rate) : null
+    const amountInput = pricingType === 'milestone' ? null : normalizeNumber(requirement.amount)
+    const milestones: PreparedMilestone[] = []
+
+    if (estimatedHours !== null && estimatedHours < 0) {
+      return { data: null, error: `Requirement ${itemNo}: estimated hours must be zero or greater` }
+    }
+    if (hourlyRate !== null && hourlyRate < 0) {
+      return { data: null, error: `Requirement ${itemNo}: hourly rate must be zero or greater` }
+    }
+    if (amountInput !== null && amountInput < 0) {
+      return { data: null, error: `Requirement ${itemNo}: amount must be zero or greater` }
+    }
+
+    let calculatedAmount: number | null = null
+    if (pricingType === 'milestone') {
+      const rawMilestones = requirement.milestones ?? []
+      if (rawMilestones.length === 0) {
+        return { data: null, error: `Requirement ${itemNo}: add at least one milestone` }
+      }
+      let milestoneTotal = 0
+      for (let milestoneIndex = 0; milestoneIndex < rawMilestones.length; milestoneIndex += 1) {
+        const milestone = rawMilestones[milestoneIndex]
+        const milestoneTitle = milestone.title?.trim() ?? ''
+        const milestoneAmount = normalizeNumber(milestone.amount)
+        if (!milestoneTitle) {
+          return { data: null, error: `Requirement ${itemNo}: milestone ${milestoneIndex + 1} title is required` }
+        }
+        if (milestoneAmount === null || milestoneAmount < 0) {
+          return { data: null, error: `Requirement ${itemNo}: milestone ${milestoneIndex + 1} amount must be zero or greater` }
+        }
+        milestoneTotal += milestoneAmount
+        milestones.push({
+          title: milestoneTitle,
+          description: milestone.description?.trim() || null,
+          due_date: milestone.due_date || null,
+          amount: milestoneAmount,
+        })
+      }
+      calculatedAmount = roundCurrency(milestoneTotal)
+    } else if (pricingType === 'hourly') {
+      calculatedAmount =
+        amountInput === null && estimatedHours != null && hourlyRate != null
+          ? roundCurrency(estimatedHours * hourlyRate)
+          : amountInput
+    } else {
+      calculatedAmount = amountInput
+    }
+
+    preparedRequirements.push({
+      requirement_type: requirementType,
+      pricing_type: pricingType,
+      title,
+      description,
+      attachment_url: attachmentUrl,
+      estimated_hours: estimatedHours,
+      hourly_rate: hourlyRate,
+      amount: calculatedAmount,
+      milestones,
+    })
+  }
+
+  if (status === 'approved' && preparedRequirements.length === 0) {
+    return { data: null, error: 'At least one requirement is required when status is Approved' }
+  }
+
   let client_snapshot_name: string | null = null
   let client_snapshot_company_name: string | null = null
   let client_snapshot_phone: string | null = null
@@ -426,6 +599,63 @@ export async function createQuotation(formData: QuotationFormData): Promise<Quot
       created_by: currentUser.id,
     }))
     await supabase.from('quotation_technology_tools').insert(toolRows as never)
+  }
+
+  if (preparedRequirements.length > 0) {
+    for (const requirement of preparedRequirements) {
+      const { data: insertedRequirement, error: requirementInsertError } = await supabase
+        .from('quotation_requirements')
+        .insert({
+          quotation_id: quotationId,
+          requirement_type: requirement.requirement_type,
+          pricing_type: requirement.pricing_type,
+          title: requirement.title,
+          description: requirement.description,
+          attachment_url: requirement.attachment_url,
+          estimated_hours: requirement.estimated_hours,
+          hourly_rate: requirement.hourly_rate != null ? encryptAmount(requirement.hourly_rate) : null,
+          amount: requirement.amount != null ? encryptAmount(requirement.amount) : null,
+          created_by: currentUser.id,
+        } as never)
+        .select('id')
+        .single()
+
+      if (requirementInsertError || !insertedRequirement) {
+        await supabase.from('quotations').delete().eq('id', quotationId)
+        console.error('Error creating quotation requirement:', requirementInsertError)
+        return {
+          data: null,
+          error: requirementInsertError?.message ?? 'Failed to save quotation requirements',
+        }
+      }
+
+      if (requirement.pricing_type === 'milestone' && requirement.milestones.length > 0) {
+        const insertedRequirementId = (insertedRequirement as { id: string }).id
+        const milestoneRows = requirement.milestones.map((milestone) => ({
+          requirement_id: insertedRequirementId,
+          quotation_id: quotationId,
+          title: milestone.title,
+          description: milestone.description,
+          due_date: milestone.due_date,
+          amount: encryptAmount(milestone.amount) ?? '0',
+          created_by: currentUser.id,
+        }))
+        const { error: milestoneInsertError } = await supabase
+          .from('quotation_requirement_milestones')
+          .insert(milestoneRows as never)
+
+        if (milestoneInsertError) {
+          await supabase.from('quotations').delete().eq('id', quotationId)
+          console.error('Error creating quotation requirement milestones:', milestoneInsertError)
+          return {
+            data: null,
+            error: milestoneInsertError.message ?? 'Failed to save requirement milestones',
+          }
+        }
+      }
+    }
+
+    await recalcQuotationTotals(supabase, quotationId)
   }
 
   await createActivityLogEntry({

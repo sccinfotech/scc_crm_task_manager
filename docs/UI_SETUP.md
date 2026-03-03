@@ -58,6 +58,48 @@ Every dashboard module **must** have a route-level `loading.tsx` file that shows
 
 ---
 
+## Tag / status pill style (all modules)
+
+Use a consistent pill style for small status / type tags like **stock adjustment type**, **statuses**, and **labels**:
+
+- **Shape & layout**:  
+  - `inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border`
+- **Positive / “Add / In / Active” states** (e.g. Add stock):  
+  - Background: soft green tint (e.g. `rgba(22, 163, 74, 0.08)`)  
+  - Text: dark green (e.g. `#15803D`)  
+  - Border: medium green (e.g. `rgba(22, 163, 74, 0.4)`)  
+  - Leading dot: `w-1.5 h-1.5 rounded-full` with brighter green (e.g. `#22C55E`)
+- **Negative / “Remove / Out / Inactive” states** (e.g. Remove stock):  
+  - Background: soft red tint (e.g. `rgba(220, 38, 38, 0.06)`)  
+  - Text: dark red (e.g. `#B91C1C`)  
+  - Border: medium red (e.g. `rgba(220, 38, 38, 0.4)`)  
+  - Leading dot: `w-1.5 h-1.5 rounded-full` with brighter red (e.g. `#F97373`)
+- **Text**: be explicit and user-friendly, e.g. `"Add stock"` / `"Remove stock"` instead of short codes.
+
+When adding new modules (e.g. other stock or status tables), reuse this pattern so type/status tags look and behave consistently across the app.
+
+---
+
+## List view pagination (all modules)
+
+Every list/table view **must** use consistent pagination:
+
+- **Page size:** 20 rows per page (fixed across all list views).
+- **URL sync:** Page number in query params (`?page=2`) so views are shareable and back/forward work correctly.
+- **UI elements:**
+  - **Range display:** `"X–Y of Z"` (e.g. "1–20 of 156")
+  - **Previous / Next** buttons (disabled when at first/last page)
+  - **Page number buttons** (show first, last, and pages around current; use ellipsis for gaps)
+- **API:** Pass `page` and `limit=20` to list endpoints. APIs must return `total` and support `range(from, from + limit - 1)`.
+
+### Implementation notes
+
+- Use a shared constant (e.g. `ROWS_PER_PAGE = 20` or `PAGE_SIZE = 20`) for consistency.
+- Reset to page 1 when search/filter changes.
+- Memoize pagination range computation to avoid unnecessary recalculations.
+
+---
+
 ## Related docs
 
 - [LOADING_AND_SKELETONS.md](./LOADING_AND_SKELETONS.md) – Skeletons, spinners, delays, and format guidelines

@@ -66,7 +66,7 @@ function formatWorkSecondsHhMmSs(seconds: number): string {
   const m = Math.floor((seconds % 3600) / 60)
   const s = Math.floor(seconds % 60)
   const pad = (n: number) => String(n).padStart(2, '0')
-  return `${pad(h)}:${pad(m)}:${pad(s)}`
+  return `${pad(h)} : ${pad(m)} : ${pad(s)}`
 }
 
 function WorkHistoryLoadingSkeleton({ isTeamView }: { isTeamView: boolean }) {

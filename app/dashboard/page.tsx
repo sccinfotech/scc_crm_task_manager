@@ -25,7 +25,7 @@ export default async function DashboardPage() {
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className="grid grid-cols-1 gap-3 pb-4 lg:grid-cols-2 lg:gap-4 lg:items-start">
+        <div className="grid grid-cols-1 gap-3 pb-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)] lg:gap-4 lg:items-start xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
           <section className="min-w-0 flex flex-col lg:min-h-[320px]">
             <WorkingProjectsSection
               projects={workingProjects}
