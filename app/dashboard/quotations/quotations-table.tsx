@@ -1,6 +1,4 @@
 'use client'
-
-import Link from 'next/link'
 import { EmptyState } from '@/app/components/empty-state'
 import type { QuotationListItem, QuotationStatus } from '@/lib/quotations/actions'
 import type { QuotationSortField } from './quotation-filters'
@@ -11,14 +9,6 @@ function formatDate(dateString: string) {
     month: 'short',
     day: 'numeric',
   })
-}
-
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 2,
-  }).format(amount)
 }
 
 const STATUS_STYLES: Record<QuotationStatus, string> = {
@@ -54,7 +44,11 @@ function StatusPill({ status }: { status: QuotationStatus }) {
 interface QuotationsTableProps {
   quotations: QuotationListItem[]
   canWrite: boolean
+  canDelete: boolean
   onView: (id: string) => void
+  onChangeStatus: (id: string, quotationNumber: string, currentStatus: QuotationStatus) => void
+  onEdit: (id: string) => void
+  onDelete: (id: string, quotationNumber: string) => void
   sortField: QuotationSortField
   sortDirection: 'asc' | 'desc' | null
   onSort?: (field: QuotationSortField) => void
@@ -64,7 +58,11 @@ interface QuotationsTableProps {
 export function QuotationsTable({
   quotations,
   canWrite,
+  canDelete,
   onView,
+  onChangeStatus,
+  onEdit,
+  onDelete,
   sortField,
   sortDirection,
   onSort,
@@ -118,16 +116,7 @@ export function QuotationsTable({
               <SortHeader field="quotation_number" label="Quotation #" />
             </th>
             <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-              Source
-            </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
               Lead / Client
-            </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-              Technology & Tools
-            </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-              <SortHeader field="final_total" label="Final Total" />
             </th>
             <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
               <SortHeader field="status" label="Status" />
@@ -147,27 +136,14 @@ export function QuotationsTable({
           {quotations.map((q) => (
             <tr
               key={q.id}
-              className="hover:bg-gray-50 transition-colors"
+              onClick={() => onView(q.id)}
+              className="cursor-pointer hover:bg-gray-50 transition-colors"
             >
               <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-[#06B6D4]">
-                <Link
-                  href={`/dashboard/quotations/${q.id}`}
-                  className="hover:underline"
-                >
-                  {q.quotation_number}
-                </Link>
-              </td>
-              <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600 capitalize">
-                {q.source_type}
+                <span className="hover:underline">{q.quotation_number}</span>
               </td>
               <td className="px-6 py-4 text-sm text-gray-900 max-w-[180px] truncate" title={q.source_name}>
                 {q.source_name}
-              </td>
-              <td className="px-6 py-4 text-sm text-gray-600 max-w-[160px] truncate" title={q.technology_tools_display}>
-                {q.technology_tools_display}
-              </td>
-              <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
-                {formatCurrency(q.final_total)}
               </td>
               <td className="whitespace-nowrap px-6 py-4">
                 <StatusPill status={q.status} />
@@ -179,12 +155,56 @@ export function QuotationsTable({
                 {formatDate(q.created_at)}
               </td>
               <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
-                <Link
-                  href={`/dashboard/quotations/${q.id}`}
-                  className="text-[#06B6D4] font-medium hover:underline"
-                >
-                  View
-                </Link>
+                <div className="flex items-center justify-end gap-1">
+                  {canWrite && q.status !== 'converted' && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onChangeStatus(q.id, q.quotation_number, q.status)
+                      }}
+                      className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-cyan-50 hover:text-cyan-600"
+                      aria-label="Change quotation status"
+                      title="Change quotation status"
+                    >
+                      <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h10m-10 6h6" />
+                      </svg>
+                    </button>
+                  )}
+                  {canWrite && q.status !== 'converted' && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onEdit(q.id)
+                      }}
+                      className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+                      aria-label="Edit quotation"
+                      title="Edit quotation"
+                    >
+                      <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                  )}
+                  {canDelete && q.status !== 'converted' && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onDelete(q.id, q.quotation_number)
+                      }}
+                      className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                      aria-label="Delete quotation"
+                      title="Delete quotation"
+                    >
+                      <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
               </td>
             </tr>
           ))}

@@ -107,7 +107,18 @@ const LeadCard = memo(function LeadCard({
             {getInitials(lead.name)}
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="truncate text-base font-semibold text-gray-900">{lead.name}</h3>
+            <h3
+              className="text-base font-semibold text-gray-900"
+              style={{
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+              }}
+              title={lead.name}
+            >
+              {lead.name}
+            </h3>
             {/* Phone — clickable tel: link */}
             <a
               href={`tel:${lead.phone}`}
@@ -117,7 +128,18 @@ const LeadCard = memo(function LeadCard({
               {lead.phone}
             </a>
             {lead.company_name && (
-              <p className="mt-0.5 truncate text-sm text-gray-500">{lead.company_name}</p>
+              <p
+                className="mt-0.5 text-sm text-gray-500"
+                style={{
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                }}
+                title={lead.company_name}
+              >
+                {lead.company_name}
+              </p>
             )}
             {/* Notes with 2-line clamp */}
             {lead.notes && (

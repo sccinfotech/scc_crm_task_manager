@@ -9,7 +9,11 @@ import { SidebarToggleButton } from '@/app/components/dashboard/sidebar-context'
 import { Pagination } from '@/app/components/ui/pagination'
 import {
   createQuotation,
-  getQuotationsPage,
+  deleteQuotation,
+  getQuotation,
+  changeQuotationStatus,
+  updateQuotation,
+  type Quotation,
   type QuotationListItem,
   type QuotationStatus,
   type QuotationSourceType,
@@ -19,6 +23,25 @@ import { getLeadsForSelect, type LeadSelectOption } from '@/lib/leads/actions'
 import type { ClientSelectOption } from '@/lib/clients/actions'
 import type { TechnologyTool } from '@/lib/settings/technology-tools-actions'
 import { useToast } from '@/app/components/ui/toast-context'
+
+const STATUS_OPTIONS: QuotationStatus[] = [
+  'draft',
+  'sent',
+  'under_discussion',
+  'approved',
+  'rejected',
+  'expired',
+]
+
+const STATUS_LABELS: Record<QuotationStatus, string> = {
+  draft: 'Draft',
+  sent: 'Sent',
+  under_discussion: 'Under Discussion',
+  approved: 'Approved',
+  rejected: 'Rejected',
+  expired: 'Expired',
+  converted: 'Converted',
+}
 
 interface QuotationsClientProps {
   quotations: QuotationListItem[]
@@ -54,6 +77,7 @@ export function QuotationsClient({
   initialSortField,
   initialSortDirection,
   canWrite,
+  isAdmin,
   canCreateLead = false,
   leads,
   clients,
@@ -64,7 +88,19 @@ export function QuotationsClient({
   const pathname = usePathname()
   const { success: showSuccess, error: showError } = useToast()
   const [createModalOpen, setCreateModalOpen] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [editLoading, setEditLoading] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [statusChanging, setStatusChanging] = useState(false)
+  const [selectedQuotationId, setSelectedQuotationId] = useState<string | null>(null)
+  const [selectedQuotation, setSelectedQuotation] = useState<Quotation | null>(null)
+  const [deleteQuotationNumber, setDeleteQuotationNumber] = useState('')
+  const [statusModalOpen, setStatusModalOpen] = useState(false)
+  const [statusQuotationId, setStatusQuotationId] = useState<string | null>(null)
+  const [statusQuotationNumber, setStatusQuotationNumber] = useState('')
+  const [statusCurrent, setStatusCurrent] = useState<QuotationStatus | null>(null)
   const safeLeads = Array.isArray(leads) ? leads : []
   const [leadsForForm, setLeadsForForm] = useState<LeadSelectOption[]>(safeLeads)
   const [preselectedLeadOrClient, setPreselectedLeadOrClient] = useState<string | null>(null)
@@ -186,6 +222,118 @@ export function QuotationsClient({
     return result
   }
 
+  const handleEdit = async (quotationId: string) => {
+    if (!canWrite) {
+      showError('Read-only Access', 'You do not have permission to edit quotations.')
+      return
+    }
+    setSelectedQuotationId(quotationId)
+    setEditModalOpen(true)
+    setEditLoading(true)
+    const result = await getQuotation(quotationId)
+    setEditLoading(false)
+    if (result.data) {
+      setSelectedQuotation(result.data)
+    } else {
+      showError('Error', result.error || 'Failed to load quotation for editing')
+      setEditModalOpen(false)
+      setSelectedQuotationId(null)
+      setSelectedQuotation(null)
+    }
+  }
+
+  const handleUpdate = async (formData: QuotationFormData) => {
+    if (!selectedQuotationId) return { error: 'No quotation selected' }
+    if (!canWrite) {
+      showError('Read-only Access', 'You do not have permission to edit quotations.')
+      return { error: 'Permission denied' }
+    }
+    setLoading(true)
+    const result = await updateQuotation(selectedQuotationId, formData)
+    setLoading(false)
+    if (!result.error) {
+      showSuccess('Quotation Updated', 'Quotation has been updated successfully.')
+      setEditModalOpen(false)
+      setSelectedQuotationId(null)
+      setSelectedQuotation(null)
+      router.refresh()
+    } else {
+      showError('Update Failed', result.error || 'Failed to update quotation')
+    }
+    return result
+  }
+
+  const handleDeleteOpen = (quotationId: string, quotationNumber: string) => {
+    if (!isAdmin) {
+      showError('Permission Denied', 'Only administrators can delete quotations.')
+      return
+    }
+    setSelectedQuotationId(quotationId)
+    setDeleteQuotationNumber(quotationNumber)
+    setDeleteModalOpen(true)
+  }
+
+  const handleOpenStatusChange = (
+    quotationId: string,
+    quotationNumber: string,
+    currentStatus: QuotationStatus
+  ) => {
+    if (!canWrite) {
+      showError('Read-only Access', 'You do not have permission to change quotation status.')
+      return
+    }
+    setStatusQuotationId(quotationId)
+    setStatusQuotationNumber(quotationNumber)
+    setStatusCurrent(currentStatus)
+    setStatusModalOpen(true)
+  }
+
+  const closeStatusModal = () => {
+    if (statusChanging) return
+    setStatusModalOpen(false)
+    setStatusQuotationId(null)
+    setStatusQuotationNumber('')
+    setStatusCurrent(null)
+  }
+
+  const handleStatusUpdate = async (nextStatus: QuotationStatus) => {
+    if (!statusQuotationId) return
+    if (statusCurrent === nextStatus) {
+      closeStatusModal()
+      return
+    }
+    setStatusChanging(true)
+    const result = await changeQuotationStatus(statusQuotationId, nextStatus)
+    setStatusChanging(false)
+    if (!result.error) {
+      showSuccess('Status Updated', `${statusQuotationNumber} set to ${STATUS_LABELS[nextStatus]}.`)
+      closeStatusModal()
+      router.refresh()
+    } else {
+      showError('Failed', result.error)
+    }
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedQuotationId) return
+    if (!isAdmin) {
+      showError('Permission Denied', 'Only administrators can delete quotations.')
+      return
+    }
+    setDeleting(true)
+    const result = await deleteQuotation(selectedQuotationId)
+    setDeleting(false)
+    if (!result.error) {
+      showSuccess('Quotation Deleted', `${deleteQuotationNumber} has been deleted.`)
+      setDeleteModalOpen(false)
+      setSelectedQuotationId(null)
+      setDeleteQuotationNumber('')
+      router.refresh()
+    } else {
+      showError('Delete Failed', result.error || 'Failed to delete quotation')
+    }
+  }
+
   const isFiltered =
     statusFilter !== 'all' ||
     sourceFilter !== 'all' ||
@@ -264,7 +412,11 @@ export function QuotationsClient({
               <QuotationsTable
                 quotations={quotations}
                 canWrite={canWrite}
+                canDelete={isAdmin}
                 onView={(id) => router.push(`/dashboard/quotations/${id}`)}
+                onChangeStatus={handleOpenStatusChange}
+                onEdit={handleEdit}
+                onDelete={handleDeleteOpen}
                 sortField={sortField}
                 sortDirection={sortDirection}
                 onSort={handleSort}
@@ -302,6 +454,112 @@ export function QuotationsClient({
         preselectedLeadOrClient={preselectedLeadOrClient}
         onPreselectedApplied={handlePreselectedApplied}
       />
+
+      <QuotationModal
+        isOpen={editModalOpen}
+        onClose={() => {
+          setEditModalOpen(false)
+          setEditLoading(false)
+          setSelectedQuotationId(null)
+          setSelectedQuotation(null)
+        }}
+        mode="edit"
+        initialData={
+          selectedQuotation
+            ? {
+                source_type: selectedQuotation.source_type,
+                lead_id: selectedQuotation.lead_id ?? undefined,
+                client_id: selectedQuotation.client_id ?? undefined,
+                valid_till: selectedQuotation.valid_till ?? undefined,
+                reference: selectedQuotation.reference ?? undefined,
+                status: selectedQuotation.status,
+                discount: selectedQuotation.discount,
+                technology_tool_ids: selectedQuotation.technology_tools?.map((tool) => tool.id),
+              }
+            : undefined
+        }
+        onSubmit={handleUpdate}
+        isLoading={editLoading || loading}
+        leads={leadsForForm}
+        clients={clients}
+        technologyTools={technologyTools}
+        technologyToolsError={technologyToolsError}
+        canCreateLead={canCreateLead}
+      />
+
+      {deleteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <div className="absolute inset-0 bg-black/50" />
+          <div className="relative z-10 w-full max-w-md rounded-2xl bg-white shadow-xl">
+            <div className="border-b border-gray-200 px-6 py-4">
+              <h2 className="text-xl font-semibold text-[#1E1B4B]">Delete Quotation</h2>
+            </div>
+            <div className="px-6 py-6">
+              <p className="text-sm text-gray-600">
+                Are you sure you want to delete quotation{' '}
+                <span className="font-semibold">{deleteQuotationNumber}</span>? This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex justify-end gap-3 border-t border-gray-200 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteModalOpen(false)
+                  setSelectedQuotationId(null)
+                  setDeleteQuotationNumber('')
+                }}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteConfirm}
+                disabled={deleting}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {statusModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="mb-1 text-lg font-semibold text-slate-900">Change Status</h3>
+            {statusQuotationNumber && (
+              <p className="mb-3 text-sm text-slate-500">{statusQuotationNumber}</p>
+            )}
+            <div className="space-y-2">
+              {STATUS_OPTIONS.map((status) => (
+                <button
+                  key={status}
+                  type="button"
+                  onClick={() => handleStatusUpdate(status)}
+                  disabled={statusChanging}
+                  className={`w-full rounded-lg border px-4 py-2 text-left text-sm font-medium transition-colors ${
+                    statusCurrent === status
+                      ? 'border-cyan-300 bg-cyan-50 text-cyan-700'
+                      : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                  } disabled:cursor-not-allowed disabled:opacity-60`}
+                >
+                  {STATUS_LABELS[status]}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={closeStatusModal}
+              disabled={statusChanging}
+              className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </>
   )
 }
