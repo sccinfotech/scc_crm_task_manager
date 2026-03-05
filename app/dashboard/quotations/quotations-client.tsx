@@ -51,8 +51,6 @@ interface QuotationsClientProps {
   initialSearch: string
   initialStatus: QuotationStatus | 'all'
   initialSourceType: QuotationSourceType | 'all'
-  initialDateFrom: string
-  initialDateTo: string
   initialSortField: string
   initialSortDirection: 'asc' | 'desc'
   canWrite: boolean
@@ -72,8 +70,6 @@ export function QuotationsClient({
   initialSearch,
   initialStatus,
   initialSourceType,
-  initialDateFrom,
-  initialDateTo,
   initialSortField,
   initialSortDirection,
   canWrite,
@@ -111,8 +107,6 @@ export function QuotationsClient({
   const [searchQuery, setSearchQuery] = useState(initialSearch)
   const [statusFilter, setStatusFilter] = useState<QuotationStatus | 'all'>(initialStatus)
   const [sourceFilter, setSourceFilter] = useState<QuotationSourceType | 'all'>(initialSourceType)
-  const [dateFrom, setDateFrom] = useState(initialDateFrom)
-  const [dateTo, setDateTo] = useState(initialDateTo)
   const [sortField, setSortField] = useState<QuotationSortField>(
     initialSortField as QuotationSortField
   )
@@ -123,8 +117,6 @@ export function QuotationsClient({
       search?: string
       status?: QuotationStatus | 'all'
       source?: QuotationSourceType | 'all'
-      dateFrom?: string
-      dateTo?: string
       sort?: QuotationSortField
       sortDir?: 'asc' | 'desc'
       page?: number
@@ -133,16 +125,12 @@ export function QuotationsClient({
       const search = updates.search !== undefined ? updates.search : searchQuery
       const status = updates.status !== undefined ? updates.status : statusFilter
       const source = updates.source !== undefined ? updates.source : sourceFilter
-      const from = updates.dateFrom !== undefined ? updates.dateFrom : dateFrom
-      const to = updates.dateTo !== undefined ? updates.dateTo : dateTo
       const sort = updates.sort !== undefined ? updates.sort : sortField
       const sortDir = updates.sortDir !== undefined ? updates.sortDir : sortDirection
       const pageNum = updates.page !== undefined ? updates.page : page
       if (search) params.set('search', search)
       if (status && status !== 'all') params.set('status', status)
       if (source && source !== 'all') params.set('source', source)
-      if (from) params.set('dateFrom', from)
-      if (to) params.set('dateTo', to)
       if (sort) {
         params.set('sort', sort)
         params.set('sortDir', sortDir)
@@ -150,7 +138,7 @@ export function QuotationsClient({
       if (pageNum > 1) params.set('page', String(pageNum))
       return params.toString()
     },
-    [searchQuery, statusFilter, sourceFilter, dateFrom, dateTo, sortField, sortDirection, page]
+    [searchQuery, statusFilter, sourceFilter, sortField, sortDirection, page]
   )
 
   const handleSearchChange = (query: string) => {
@@ -168,22 +156,10 @@ export function QuotationsClient({
     router.push(`${pathname}?${buildSearchParams({ source, page: 1 })}`)
   }
 
-  const handleDateFromChange = (v: string) => {
-    setDateFrom(v)
-    router.push(`${pathname}?${buildSearchParams({ dateFrom: v, page: 1 })}`)
-  }
-
-  const handleDateToChange = (v: string) => {
-    setDateTo(v)
-    router.push(`${pathname}?${buildSearchParams({ dateTo: v, page: 1 })}`)
-  }
-
   const handleClearFilters = () => {
     setSearchQuery('')
     setStatusFilter('all')
     setSourceFilter('all')
-    setDateFrom('')
-    setDateTo('')
     router.push(pathname || '/dashboard/quotations')
   }
 
@@ -337,9 +313,7 @@ export function QuotationsClient({
   const isFiltered =
     statusFilter !== 'all' ||
     sourceFilter !== 'all' ||
-    searchQuery.trim() !== '' ||
-    dateFrom !== '' ||
-    dateTo !== ''
+    searchQuery.trim() !== ''
 
   const handleRefresh = () => {
     router.refresh()
@@ -400,10 +374,6 @@ export function QuotationsClient({
             onSourceChange={handleSourceChange}
             searchQuery={searchQuery}
             onSearchChange={handleSearchChange}
-            dateFrom={dateFrom}
-            dateTo={dateTo}
-            onDateFromChange={handleDateFromChange}
-            onDateToChange={handleDateToChange}
             onClearFilters={handleClearFilters}
           />
 

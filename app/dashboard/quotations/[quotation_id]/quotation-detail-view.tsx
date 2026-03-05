@@ -1,13 +1,14 @@
 'use client'
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Tooltip } from '@/app/components/ui/tooltip'
 import { useToast } from '@/app/components/ui/toast-context'
 import type { Quotation, QuotationRequirement, QuotationStatus } from '@/lib/quotations/actions'
 import {
   updateQuotation,
   changeQuotationStatus,
+  updateQuotationTermsSupport,
   deleteQuotation,
   startQuotationConversion,
   completeQuotationConversion,
@@ -124,10 +125,22 @@ export function QuotationDetailView({
   const [projectModalOpen, setProjectModalOpen] = useState(false)
   const [conversionLoading, setConversionLoading] = useState(false)
   const [editLoading, setEditLoading] = useState(false)
+  const [termsValue, setTermsValue] = useState(quotation.terms ?? '')
+  const [supportValue, setSupportValue] = useState(quotation.support ?? '')
+  const [termsSaving, setTermsSaving] = useState(false)
+  const [supportSaving, setSupportSaving] = useState(false)
+
+  useEffect(() => {
+    setTermsValue(quotation.terms ?? '')
+    setSupportValue(quotation.support ?? '')
+  }, [quotation.id, quotation.terms, quotation.support])
 
   const isConverted = quotation.status === 'converted'
   const canConvert = canWrite && quotation.status === 'approved'
   const showConvert = canConvert && !isConverted
+  const canEditNotes = canWrite && !isConverted
+  const termsDirty = termsValue.trim() !== (quotation.terms ?? '').trim()
+  const supportDirty = supportValue.trim() !== (quotation.support ?? '').trim()
 
   const handleEditSubmit = async (formData: QuotationFormData) => {
     if (!canWrite) return { error: 'No permission' }
@@ -146,6 +159,10 @@ export function QuotationDetailView({
 
   const handleStatusChange = async (newStatus: QuotationStatus) => {
     if (!canWrite) return
+    if (newStatus === quotation.status) {
+      setStatusModalOpen(false)
+      return
+    }
     const result = await changeQuotationStatus(quotation.id, newStatus)
     if (!result.error) {
       showSuccess('Status Updated', `Status set to ${STATUS_LABELS[newStatus]}.`)
@@ -165,6 +182,38 @@ export function QuotationDetailView({
       router.refresh()
     } else {
       showError('Delete Failed', result.error)
+    }
+  }
+
+  const handleSaveTerms = async () => {
+    if (!canEditNotes || termsSaving) return
+    setTermsSaving(true)
+    const result = await updateQuotationTermsSupport(quotation.id, {
+      terms: termsValue,
+      support: quotation.support ?? '',
+    })
+    setTermsSaving(false)
+    if (!result.error) {
+      showSuccess('Saved', 'Terms updated successfully.')
+      router.refresh()
+    } else {
+      showError('Failed', result.error)
+    }
+  }
+
+  const handleSaveSupport = async () => {
+    if (!canEditNotes || supportSaving) return
+    setSupportSaving(true)
+    const result = await updateQuotationTermsSupport(quotation.id, {
+      terms: quotation.terms ?? '',
+      support: supportValue,
+    })
+    setSupportSaving(false)
+    if (!result.error) {
+      showSuccess('Saved', 'Support updated successfully.')
+      router.refresh()
+    } else {
+      showError('Failed', result.error)
     }
   }
 
@@ -358,7 +407,7 @@ export function QuotationDetailView({
               <p className="mt-1 text-xl font-extrabold text-slate-900">{formatCurrency(discount)}</p>
             </div>
             <div className="rounded-xl border border-cyan-200 bg-cyan-50/80 px-4 py-3">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-cyan-700">Final Total</p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-cyan-700">Estimated Total</p>
               <p className="mt-1 text-xl font-extrabold text-cyan-900">{formatCurrency(finalTotal)}</p>
             </div>
           </div>
@@ -484,6 +533,61 @@ export function QuotationDetailView({
                 </div>
               </div>
             </div>
+
+            <div className="grid gap-3 lg:col-span-2 lg:grid-cols-2">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <label htmlFor="quotation-terms" className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    Terms
+                  </label>
+                  {canEditNotes && (
+                    <button
+                      type="button"
+                      onClick={handleSaveTerms}
+                      disabled={!termsDirty || termsSaving}
+                      className="rounded-md bg-cyan-600 px-2 py-1 text-[10px] font-semibold text-white transition-colors hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {termsSaving ? 'Saving...' : 'Save'}
+                    </button>
+                  )}
+                </div>
+                <textarea
+                  id="quotation-terms"
+                  value={termsValue}
+                  onChange={(e) => setTermsValue(e.target.value)}
+                  readOnly={!canEditNotes}
+                  rows={4}
+                  placeholder="Add quotation terms..."
+                  className="mt-1.5 block w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-xs text-slate-800 shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 read-only:cursor-default read-only:bg-slate-50"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <label htmlFor="quotation-support" className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    Support
+                  </label>
+                  {canEditNotes && (
+                    <button
+                      type="button"
+                      onClick={handleSaveSupport}
+                      disabled={!supportDirty || supportSaving}
+                      className="rounded-md bg-cyan-600 px-2 py-1 text-[10px] font-semibold text-white transition-colors hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {supportSaving ? 'Saving...' : 'Save'}
+                    </button>
+                  )}
+                </div>
+                <textarea
+                  id="quotation-support"
+                  value={supportValue}
+                  onChange={(e) => setSupportValue(e.target.value)}
+                  readOnly={!canEditNotes}
+                  rows={4}
+                  placeholder="Add support details..."
+                  className="mt-1.5 block w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-xs text-slate-800 shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 read-only:cursor-default read-only:bg-slate-50"
+                />
+              </div>
+            </div>
           </div>
         )}
 
@@ -517,16 +621,27 @@ export function QuotationDetailView({
           <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
             <h3 className="text-lg font-semibold text-slate-900 mb-3">Change Status</h3>
             <div className="space-y-2">
-              {STATUS_OPTIONS.filter((s) => s !== 'converted').map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => handleStatusChange(s)}
-                  className="w-full rounded-lg border border-slate-200 px-4 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
-                >
-                  {STATUS_LABELS[s]}
-                </button>
-              ))}
+              {STATUS_OPTIONS.filter((s) => s !== 'converted').map((s) => {
+                const isCurrent = s === quotation.status
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => handleStatusChange(s)}
+                    className={`w-full rounded-lg border px-4 py-2 text-left text-sm font-medium transition-colors ${
+                      isCurrent
+                        ? 'border-cyan-300 bg-cyan-50 text-cyan-800'
+                        : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                    aria-current={isCurrent ? 'true' : undefined}
+                  >
+                    <span className="flex items-center justify-between">
+                      <span>{STATUS_LABELS[s]}</span>
+                      {isCurrent ? <span className="text-xs font-semibold">Current</span> : null}
+                    </span>
+                  </button>
+                )
+              })}
             </div>
             <button
               type="button"

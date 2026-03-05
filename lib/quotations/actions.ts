@@ -30,6 +30,8 @@ export type QuotationFormData = {
   valid_till?: string
   technology_tool_ids?: string[]
   reference?: string
+  terms?: string
+  support?: string
   status: QuotationStatus
   discount?: number
   requirements?: QuotationRequirementFormData[]
@@ -47,6 +49,8 @@ export type Quotation = {
   final_total: number
   status: QuotationStatus
   reference: string | null
+  terms: string | null
+  support: string | null
   created_by: string
   created_at: string
   updated_at: string
@@ -125,8 +129,6 @@ export type GetQuotationsPageOptions = {
   status?: QuotationStatus | 'all'
   source_type?: QuotationSourceType | 'all'
   technology_tool_ids?: string[]
-  date_from?: string
-  date_to?: string
   sortField?: 'quotation_number' | 'valid_till' | 'final_total' | 'status' | 'created_at'
   sortDirection?: 'asc' | 'desc'
   page?: number
@@ -278,12 +280,6 @@ export async function getQuotationsPage(
   }
   if (options.source_type && options.source_type !== 'all') {
     query = query.eq('source_type', options.source_type)
-  }
-  if (options.date_from) {
-    query = query.gte('created_at', `${options.date_from}T00:00:00.000Z`)
-  }
-  if (options.date_to) {
-    query = query.lte('created_at', `${options.date_to}T23:59:59.999Z`)
   }
 
   const sortField = options.sortField ?? 'created_at'
@@ -872,6 +868,55 @@ export async function changeQuotationStatus(
   const { error: updateError } = await supabase
     .from('quotations')
     .update({ status: newStatus } as never)
+    .eq('id', id)
+
+  if (updateError) {
+    return { data: null, error: updateError.message }
+  }
+
+  revalidatePath('/dashboard/quotations')
+  revalidatePath(`/dashboard/quotations/${id}`)
+  return getQuotation(id)
+}
+
+export async function updateQuotationTermsSupport(
+  id: string,
+  payload: { terms?: string; support?: string }
+): Promise<QuotationActionResult> {
+  const currentUser = await getCurrentUser()
+  if (!currentUser) {
+    return { data: null, error: 'You must be logged in to update this quotation' }
+  }
+  const canWrite = await hasPermission(currentUser, MODULE_PERMISSION_IDS.quotations, 'write')
+  if (!canWrite) {
+    return { data: null, error: 'You do not have permission to update quotations' }
+  }
+
+  const supabase = await createClient()
+  const { data: existing, error: fetchError } = await supabase
+    .from('quotations')
+    .select('id, status')
+    .eq('id', id)
+    .single()
+
+  if (fetchError || !existing) {
+    return { data: null, error: 'Quotation not found' }
+  }
+
+  const row = existing as { id: string; status: string }
+  if (row.status === 'converted') {
+    return { data: null, error: 'Converted quotation cannot be edited' }
+  }
+
+  const terms = payload.terms?.trim() || null
+  const support = payload.support?.trim() || null
+
+  const { error: updateError } = await supabase
+    .from('quotations')
+    .update({
+      terms,
+      support,
+    } as never)
     .eq('id', id)
 
   if (updateError) {
