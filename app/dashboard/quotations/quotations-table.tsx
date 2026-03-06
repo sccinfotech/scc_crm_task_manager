@@ -1,6 +1,9 @@
 'use client'
+import { useState } from 'react'
 import { EmptyState } from '@/app/components/empty-state'
+import { useToast } from '@/app/components/ui/toast-context'
 import type { QuotationListItem, QuotationStatus } from '@/lib/quotations/actions'
+import { downloadQuotationPdf } from '@/lib/quotations/pdf-download'
 import type { QuotationSortField } from './quotation-filters'
 
 function formatDate(dateString: string) {
@@ -68,6 +71,9 @@ export function QuotationsTable({
   onSort,
   isFiltered = false,
 }: QuotationsTableProps) {
+  const { error: showError } = useToast()
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
+
   if (quotations.length === 0) {
     return (
       <div className="flex h-full w-full min-h-[500px] items-center justify-center bg-white">
@@ -107,6 +113,18 @@ export function QuotationsTable({
     </button>
   )
 
+  const handleDownloadPdf = async (quotationId: string, quotationNumber: string) => {
+    if (downloadingId) return
+    setDownloadingId(quotationId)
+    try {
+      await downloadQuotationPdf(quotationId, `${quotationNumber}.pdf`)
+    } catch {
+      showError('Download Failed', 'Unable to download quotation PDF right now.')
+    } finally {
+      setDownloadingId(null)
+    }
+  }
+
   return (
     <div className="overflow-x-auto bg-white">
       <table className="min-w-full divide-y divide-gray-200">
@@ -133,7 +151,9 @@ export function QuotationsTable({
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-200 bg-white">
-          {quotations.map((q) => (
+          {quotations.map((q) => {
+            const isDownloading = downloadingId === q.id
+            return (
             <tr
               key={q.id}
               onClick={() => onView(q.id)}
@@ -156,6 +176,28 @@ export function QuotationsTable({
               </td>
               <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
                 <div className="flex items-center justify-end gap-1">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      void handleDownloadPdf(q.id, q.quotation_number)
+                    }}
+                    disabled={isDownloading}
+                    className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label="Download quotation PDF"
+                    title="Download quotation PDF"
+                  >
+                    {isDownloading ? (
+                      <svg className="h-4.5 w-4.5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                        <path className="opacity-90" fill="currentColor" d="M12 2a10 10 0 0 1 10 10h-3a7 7 0 0 0-7-7V2z" />
+                      </svg>
+                    ) : (
+                      <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v11m0 0l4-4m-4 4l-4-4M5 17v1a2 2 0 002 2h10a2 2 0 002-2v-1" />
+                      </svg>
+                    )}
+                  </button>
                   {canWrite && q.status !== 'converted' && (
                     <button
                       type="button"
@@ -207,7 +249,8 @@ export function QuotationsTable({
                 </div>
               </td>
             </tr>
-          ))}
+            )
+          })}
         </tbody>
       </table>
     </div>

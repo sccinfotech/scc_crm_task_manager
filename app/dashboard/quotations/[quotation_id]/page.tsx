@@ -67,7 +67,7 @@ export default async function QuotationDetailPage({ params }: QuotationDetailPag
   return (
     <div className="flex flex-col h-full">
       <Header pageTitle={quotation.quotation_number} breadcrumb={breadcrumb} />
-      <div className="flex-1 overflow-hidden px-4 lg:px-6 pt-2 lg:pt-3 pb-2">
+      <div className="flex-1 overflow-hidden px-2 sm:px-3 lg:px-4 pt-2 lg:pt-3 pb-2">
         <QuotationDetailView
           quotation={quotation}
           requirements={requirements}

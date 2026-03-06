@@ -20,6 +20,7 @@ import type { LeadSelectOption } from '@/lib/leads/actions'
 import type { ClientSelectOption } from '@/lib/clients/actions'
 import type { TechnologyTool } from '@/lib/settings/technology-tools-actions'
 import type { StaffSelectOption } from '@/lib/users/actions'
+import { downloadQuotationPdf } from '@/lib/quotations/pdf-download'
 import { QuotationModal } from '../quotation-modal'
 import { QuotationRequirements } from '../quotation-requirements'
 import { ProjectModal } from '@/app/dashboard/projects/project-modal'
@@ -125,6 +126,7 @@ export function QuotationDetailView({
   const [projectModalOpen, setProjectModalOpen] = useState(false)
   const [conversionLoading, setConversionLoading] = useState(false)
   const [editLoading, setEditLoading] = useState(false)
+  const [pdfDownloading, setPdfDownloading] = useState(false)
   const [termsValue, setTermsValue] = useState(quotation.terms ?? '')
   const [supportValue, setSupportValue] = useState(quotation.support ?? '')
   const [termsSaving, setTermsSaving] = useState(false)
@@ -242,6 +244,18 @@ export function QuotationDetailView({
     setProjectInitialData(initialData)
   }
 
+  const handleDownloadPdf = async () => {
+    if (pdfDownloading) return
+    setPdfDownloading(true)
+    try {
+      await downloadQuotationPdf(quotation.id, `${quotation.quotation_number}.pdf`)
+    } catch {
+      showError('Download Failed', 'Unable to download quotation PDF right now.')
+    } finally {
+      setPdfDownloading(false)
+    }
+  }
+
   const [conversionQuotationId, setConversionQuotationId] = useState<string | null>(null)
   const [projectInitialData, setProjectInitialData] = useState<Partial<ProjectFormData> | null>(null)
   const [conversionClients, setConversionClients] = useState<ClientSelectOption[]>([])
@@ -338,6 +352,26 @@ export function QuotationDetailView({
             </div>
 
             <div className="flex flex-wrap items-center gap-2 self-start lg:self-auto">
+              <Tooltip content="Download quotation PDF">
+                <button
+                  type="button"
+                  onClick={handleDownloadPdf}
+                  disabled={pdfDownloading}
+                  className="rounded-lg p-2 text-slate-400 transition-colors duration-200 hover:bg-emerald-50 hover:text-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label="Download quotation PDF"
+                >
+                  {pdfDownloading ? (
+                    <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                      <path className="opacity-90" fill="currentColor" d="M12 2a10 10 0 0 1 10 10h-3a7 7 0 0 0-7-7V2z" />
+                    </svg>
+                  ) : (
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v11m0 0l4-4m-4 4l-4-4M5 17v1a2 2 0 002 2h10a2 2 0 002-2v-1" />
+                    </svg>
+                  )}
+                </button>
+              </Tooltip>
               {canWrite && !isConverted && (
                 <>
                   <Tooltip content="Edit quotation">
@@ -450,17 +484,17 @@ export function QuotationDetailView({
       <div
         className={
           tab === 'overview'
-            ? 'min-h-0 flex-1 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 lg:p-6'
+            ? 'min-h-0 flex-1 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4'
             : 'min-h-0 flex-1'
         }
       >
         {tab === 'overview' && (
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-3 lg:grid-cols-2">
             <div className="rounded-2xl border border-slate-200 bg-white">
-              <div className="border-b border-slate-100 px-4 py-3">
+              <div className="border-b border-slate-100 px-3 py-2.5">
                 <h2 className="text-sm font-bold text-slate-900">Quotation Information</h2>
               </div>
-              <div className="grid gap-4 p-4 sm:grid-cols-2">
+              <div className="grid gap-3 px-3 py-3 sm:grid-cols-2">
                 <div>
                   <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Quotation Date</p>
                   <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(quotation.created_at)}</p>
@@ -477,7 +511,7 @@ export function QuotationDetailView({
                   <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Reference</p>
                   <p className="mt-1 break-words text-sm font-semibold text-slate-900">{quotation.reference || '—'}</p>
                 </div>
-                <div className="sm:col-span-2 border-t border-slate-100 pt-4">
+                <div className="sm:col-span-2 border-t border-slate-100 pt-3">
                   <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Technology & Tools</p>
                   {toolNames.length > 0 ? (
                     <div className="mt-2 flex flex-wrap gap-2">
@@ -498,10 +532,10 @@ export function QuotationDetailView({
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white">
-              <div className="border-b border-slate-100 px-4 py-3">
+              <div className="border-b border-slate-100 px-3 py-2.5">
                 <h2 className="text-sm font-bold text-slate-900">{sourceLabel} Details</h2>
               </div>
-              <div className="grid gap-4 p-4 sm:grid-cols-2">
+              <div className="grid gap-3 px-3 py-3 sm:grid-cols-2">
                 <div>
                   <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Name</p>
                   <p className="mt-1 break-words text-sm font-semibold text-slate-900">{sourceName}</p>
@@ -534,10 +568,10 @@ export function QuotationDetailView({
               </div>
             </div>
 
-            <div className="grid gap-3 lg:col-span-2 lg:grid-cols-2">
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <label htmlFor="quotation-terms" className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            <div className="grid gap-3 pt-1 lg:col-span-2 lg:grid-cols-2">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-1.5">
+                  <label htmlFor="quotation-terms" className="text-base font-bold text-black">
                     Terms
                   </label>
                   {canEditNotes && (
@@ -545,9 +579,20 @@ export function QuotationDetailView({
                       type="button"
                       onClick={handleSaveTerms}
                       disabled={!termsDirty || termsSaving}
-                      className="rounded-md bg-cyan-600 px-2 py-1 text-[10px] font-semibold text-white transition-colors hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-cyan-600 text-white transition-colors hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label={termsSaving ? 'Saving terms' : 'Save terms'}
+                      title={termsSaving ? 'Saving...' : 'Save'}
                     >
-                      {termsSaving ? 'Saving...' : 'Save'}
+                      {termsSaving ? (
+                        <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                          <path className="opacity-90" fill="currentColor" d="M12 2a10 10 0 0 1 10 10h-3a7 7 0 0 0-7-7V2z" />
+                        </svg>
+                      ) : (
+                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 12l5 5L20 7" />
+                        </svg>
+                      )}
                     </button>
                   )}
                 </div>
@@ -556,14 +601,14 @@ export function QuotationDetailView({
                   value={termsValue}
                   onChange={(e) => setTermsValue(e.target.value)}
                   readOnly={!canEditNotes}
-                  rows={4}
+                  rows={7}
                   placeholder="Add quotation terms..."
-                  className="mt-1.5 block w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-xs text-slate-800 shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 read-only:cursor-default read-only:bg-slate-50"
+                  className="mt-2 block w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-xs text-slate-800 shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 read-only:cursor-default read-only:bg-slate-50"
                 />
               </div>
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <label htmlFor="quotation-support" className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-1.5">
+                  <label htmlFor="quotation-support" className="text-base font-bold text-black">
                     Support
                   </label>
                   {canEditNotes && (
@@ -571,9 +616,20 @@ export function QuotationDetailView({
                       type="button"
                       onClick={handleSaveSupport}
                       disabled={!supportDirty || supportSaving}
-                      className="rounded-md bg-cyan-600 px-2 py-1 text-[10px] font-semibold text-white transition-colors hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-cyan-600 text-white transition-colors hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label={supportSaving ? 'Saving support' : 'Save support'}
+                      title={supportSaving ? 'Saving...' : 'Save'}
                     >
-                      {supportSaving ? 'Saving...' : 'Save'}
+                      {supportSaving ? (
+                        <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                          <path className="opacity-90" fill="currentColor" d="M12 2a10 10 0 0 1 10 10h-3a7 7 0 0 0-7-7V2z" />
+                        </svg>
+                      ) : (
+                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 12l5 5L20 7" />
+                        </svg>
+                      )}
                     </button>
                   )}
                 </div>
@@ -582,9 +638,9 @@ export function QuotationDetailView({
                   value={supportValue}
                   onChange={(e) => setSupportValue(e.target.value)}
                   readOnly={!canEditNotes}
-                  rows={4}
+                  rows={7}
                   placeholder="Add support details..."
-                  className="mt-1.5 block w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-xs text-slate-800 shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 read-only:cursor-default read-only:bg-slate-50"
+                  className="mt-2 block w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-xs text-slate-800 shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 read-only:cursor-default read-only:bg-slate-50"
                 />
               </div>
             </div>
