@@ -38,10 +38,6 @@ interface QuotationFiltersProps {
   onSourceChange: (source: QuotationSourceType | 'all') => void
   searchQuery: string
   onSearchChange: (query: string) => void
-  dateFrom: string
-  dateTo: string
-  onDateFromChange: (v: string) => void
-  onDateToChange: (v: string) => void
   onClearFilters: () => void
 }
 
@@ -52,18 +48,12 @@ export function QuotationFilters({
   onSourceChange,
   searchQuery,
   onSearchChange,
-  dateFrom,
-  dateTo,
-  onDateFromChange,
-  onDateToChange,
   onClearFilters,
 }: QuotationFiltersProps) {
   const hasActiveFilters =
     statusFilter !== 'all' ||
     sourceFilter !== 'all' ||
-    searchQuery.trim() !== '' ||
-    dateFrom !== '' ||
-    dateTo !== ''
+    searchQuery.trim() !== ''
 
   return (
     <div className="border-b border-gray-200 bg-white px-6 py-4">
@@ -91,23 +81,6 @@ export function QuotationFilters({
               options={SOURCE_OPTIONS}
               onChange={(v) => onSourceChange(v as QuotationSourceType | 'all')}
               ariaLabel="Filter by source"
-            />
-          </div>
-          <div className="flex gap-2 items-center">
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => onDateFromChange(e.target.value)}
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              aria-label="Date from"
-            />
-            <span className="text-slate-400">–</span>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => onDateToChange(e.target.value)}
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              aria-label="Date to"
             />
           </div>
         </div>

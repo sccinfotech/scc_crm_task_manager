@@ -51,7 +51,7 @@ function ProjectNameWithIcon({
           {getProjectInitials(name)}
         </span>
       )}
-      <span className="block max-w-[11rem] break-words leading-5 line-clamp-2 sm:max-w-[16rem] sm:line-clamp-none sm:truncate lg:max-w-[24rem]">
+      <span className="block max-w-[10rem] break-words leading-5 line-clamp-2 sm:max-w-[14rem] lg:max-w-[18rem]">
         {name}
       </span>
     </Link>
@@ -95,7 +95,7 @@ function useLiveWorkSeconds(member: DashboardWorkingProjectMember): number {
 function MemberTimer({ member }: { member: DashboardWorkingProjectMember }) {
   const elapsedSec = useLiveWorkSeconds(member)
   return (
-    <span className="font-digital text-base font-semibold tabular-nums tracking-[0.08em] text-red-600">
+    <span className="inline-block whitespace-nowrap font-digital text-base font-semibold tabular-nums tracking-[0.08em] text-red-600">
       {formatWorkSecondsHhMmSs(elapsedSec)}
     </span>
   )
@@ -315,7 +315,7 @@ export function WorkingProjectsSection({
         </p>
       </div>
       <div className="overflow-x-auto -mx-px sm:mx-0 flex-1 min-h-0">
-        <table className="w-full min-w-[480px] text-sm">
+        <table className="w-full min-w-[560px] text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/50">
               <th className="text-left py-3 px-3 sm:px-4 font-medium text-slate-700">Project</th>
@@ -361,7 +361,7 @@ export function WorkingProjectsSection({
                         </span>
                       </div>
                     </td>
-                    <td className="py-3 px-3 sm:px-4">
+                    <td className="py-3 px-3 sm:px-4 whitespace-nowrap">
                       <MemberTimer member={member} />
                     </td>
                     <td className="py-3 px-3 sm:px-4">
@@ -400,7 +400,7 @@ export function WorkingProjectsSection({
                       </span>
                     </div>
                   </td>
-                  <td className="py-3 px-3 sm:px-4">
+                  <td className="py-3 px-3 sm:px-4 whitespace-nowrap">
                     {project.team_members.length > 0 && (
                       <MemberTimer member={project.team_members[0]} />
                     )}

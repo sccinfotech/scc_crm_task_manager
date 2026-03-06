@@ -20,8 +20,6 @@ export default async function QuotationsPage({
     search?: string
     status?: string
     source?: string
-    dateFrom?: string
-    dateTo?: string
     tool?: string
     sort?: string
     sortDir?: 'asc' | 'desc'
@@ -44,8 +42,6 @@ export default async function QuotationsPage({
     search: params.search,
     status: (params.status as QuotationStatus | undefined) ?? 'all',
     source_type: (params.source as QuotationSourceType | undefined) ?? 'all',
-    date_from: params.dateFrom,
-    date_to: params.dateTo,
     technology_tool_ids: params.tool ? [params.tool] : undefined,
     sortField: (params.sort as 'quotation_number' | 'valid_till' | 'final_total' | 'status' | 'created_at') ?? 'created_at',
     sortDirection: params.sortDir ?? 'desc',
@@ -78,8 +74,6 @@ export default async function QuotationsPage({
       initialSearch={params.search ?? ''}
       initialStatus={(params.status as QuotationStatus | 'all') ?? 'all'}
       initialSourceType={(params.source as QuotationSourceType | 'all') ?? 'all'}
-      initialDateFrom={params.dateFrom ?? ''}
-      initialDateTo={params.dateTo ?? ''}
       initialSortField={params.sort ?? 'created_at'}
       initialSortDirection={params.sortDir ?? 'desc'}
       canWrite={canWrite}
