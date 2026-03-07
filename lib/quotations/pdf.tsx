@@ -10,494 +10,592 @@ import {
 } from '@react-pdf/renderer'
 import type { Quotation, QuotationRequirement } from '@/lib/quotations/actions'
 
-const COMPANY_PROFILE = {
+// ─── Company Profile ─────────────────────────────────────────────────────────
+const COMPANY = {
   name: 'SCC INFOTECH',
-  address:
-    '349-350, Vikas Shoppers, B/H Filter House Bhagvan Nagar Circle, near Sarthana Jakat Naka, Nana Varachha, Surat, Gujarat 395006',
-  phone: '9974361458',
+  addressLine1: '349-350, Vikas Shoppers, B/H Filter House Bhagvan Nagar Circle,',
+  addressLine2: 'Near Sarthana Jakat Naka, Nana Varachha, Surat, Gujarat - 395006',
+  phone: '+91 99743 61458',
   email: 'vipul@sccinfotech.com',
   website: 'www.sccinfotech.com',
-  gstin: null as string | null,
 }
 
-const GST_NOTE = 'Applicable GST will be charged extra as per prevailing government regulations.'
 const SCC_LOGO_PATH = `${process.cwd()}/public/scc_logo.png`
 
-const styles = StyleSheet.create({
+// ─── Styles — Black & White Document Format ───────────────────────────────────
+const S = StyleSheet.create({
   page: {
-    paddingTop: 32,
-    paddingBottom: 34,
-    paddingHorizontal: 36,
+    paddingTop: 40,
+    paddingBottom: 60,
+    paddingHorizontal: 50,
     backgroundColor: '#FFFFFF',
-    color: '#0F172A',
-    fontSize: 10.5,
-    fontFamily: 'Helvetica',
-    lineHeight: 1.45,
-  },
-  headerTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  headerLeftBlock: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: 16,
-  },
-  headerRightBlock: {
-    width: 220,
-  },
-  headerAddressText: {
-    textAlign: 'left',
-    color: '#334155',
-    marginBottom: 2,
-  },
-  dividerBlue: {
-    height: 4,
-    backgroundColor: '#5AADE2',
-    marginTop: 10,
-    marginBottom: 16,
-  },
-  quoteMetaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 18,
-  },
-  quoteMetaText: {
-    fontSize: 10.5,
-    fontFamily: 'Helvetica-Bold',
-    color: '#111827',
-  },
-  preparedTable: {
-    borderWidth: 1,
-    borderColor: '#4B5563',
-    marginBottom: 22,
-  },
-  preparedTableRow: {
-    flexDirection: 'row',
-  },
-  preparedHeaderCell: {
-    flex: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 10,
-    borderRightWidth: 1,
-    borderRightColor: '#4B5563',
-    borderBottomWidth: 1,
-    borderBottomColor: '#4B5563',
-  },
-  preparedHeaderCellLast: {
-    borderRightWidth: 0,
-  },
-  preparedHeaderText: {
+    color: '#000000',
     fontSize: 10,
-    fontFamily: 'Helvetica-Bold',
-    color: '#111827',
-  },
-  preparedBodyCell: {
-    flex: 1,
-    minHeight: 62,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    borderRightWidth: 1,
-    borderRightColor: '#4B5563',
-  },
-  preparedBodyCellLast: {
-    borderRightWidth: 0,
-  },
-  preparedBodyPrimary: {
-    fontSize: 11,
-    fontFamily: 'Helvetica-Bold',
-    color: '#111827',
-    marginBottom: 3,
-  },
-  preparedBodyText: {
-    color: '#334155',
-    marginBottom: 2,
-  },
-  introBlock: {
-    marginBottom: 16,
-  },
-  introGreetingLine: {
-    fontSize: 10.5,
-    fontFamily: 'Helvetica-Bold',
-    color: '#111827',
-    marginBottom: 8,
-  },
-  introCentered: {
-    color: '#334155',
+    fontFamily: 'Helvetica',
     lineHeight: 1.5,
-    marginBottom: 7,
   },
-  contentSection: {
-    marginTop: 14,
-  },
-  footerBlueLine: {
-    height: 5,
-    backgroundColor: '#5AADE2',
-    marginTop: 20,
-    marginBottom: 12,
-  },
-  footerContactRow: {
+
+  // ── Letterhead ────────────────────────────────────────────────────────────
+  letterhead: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  footerWebsite: {
-    fontSize: 11,
-    fontFamily: 'Helvetica-Bold',
-    color: '#3B82F6',
-  },
-  footerContacts: {
-    fontSize: 11,
-    fontFamily: 'Helvetica-Bold',
-    color: '#1F2937',
-  },
-  heroCard: {
-    borderWidth: 1,
-    borderColor: '#D7E6F0',
-    borderRadius: 16,
-    padding: 18,
-    backgroundColor: '#F8FBFD',
-    marginBottom: 18,
-  },
-  heroTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  logoWrap: {
-    width: 58,
-    height: 58,
-    marginRight: 14,
-  },
-  brandLabel: {
-    fontSize: 8.5,
-    fontFamily: 'Helvetica-Bold',
-    color: '#0EA5E9',
-    letterSpacing: 0.8,
-    marginBottom: 4,
-  },
-  brandName: {
-    fontSize: 18,
-    fontFamily: 'Helvetica-Bold',
-    color: '#0F172A',
-    marginBottom: 3,
-  },
-  brandSubtext: {
-    fontSize: 9.5,
-    color: '#475569',
-  },
-  documentMeta: {
-    alignItems: 'flex-end',
-    maxWidth: 180,
-  },
-  documentTitle: {
-    fontSize: 22,
-    fontFamily: 'Helvetica-Bold',
-    color: '#0F172A',
-    marginBottom: 5,
-  },
-  documentSubtitle: {
-    fontSize: 9.5,
-    color: '#64748B',
-    marginBottom: 2,
-  },
-  accentLine: {
-    height: 3,
-    backgroundColor: '#0EA5E9',
-    borderRadius: 999,
-    marginBottom: 14,
-  },
-  detailsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  detailPanel: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 12,
-    padding: 13,
-    backgroundColor: '#FFFFFF',
-  },
-  detailPanelLeft: {
-    marginRight: 9,
-  },
-  detailPanelRight: {
-    marginLeft: 9,
-  },
-  detailPanelHeading: {
-    fontSize: 8.5,
-    fontFamily: 'Helvetica-Bold',
-    letterSpacing: 0.8,
-    color: '#0891B2',
-    marginBottom: 8,
-  },
-  detailPanelName: {
-    fontSize: 13.5,
-    fontFamily: 'Helvetica-Bold',
-    color: '#0F172A',
-    marginBottom: 5,
-  },
-  detailPanelText: {
-    marginBottom: 3.5,
-    color: '#334155',
-  },
-  quoteMeta: {
-    flexDirection: 'row',
-    marginTop: 8,
-    flexWrap: 'wrap',
-  },
-  metaPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 999,
-    backgroundColor: '#E0F2FE',
-    color: '#0C4A6E',
-    fontSize: 8.5,
-    fontFamily: 'Helvetica-Bold',
-  },
-  metaPillSpacing: {
-    marginRight: 8,
-    marginBottom: 6,
-  },
-  section: {
-    marginTop: 16,
-  },
-  sectionHeading: {
-    fontSize: 13.5,
-    fontFamily: 'Helvetica-Bold',
-    color: '#0F4C81',
-    marginBottom: 10,
-  },
-  sectionLead: {
-    color: '#64748B',
-    marginBottom: 10,
-  },
-  introCard: {
-    padding: 0,
-    marginTop: 2,
-  },
-  paragraph: {
-    color: '#334155',
-    marginBottom: 8,
-  },
-  requirementCard: {
-    padding: 0,
-    marginBottom: 12,
-  },
-  requirementHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
     alignItems: 'flex-start',
+    marginBottom: 10,
   },
-  requirementIndexWrap: {
+  letterheadLeft: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    flex: 1,
+  },
+  logo: {
+    width: 54,
+    height: 54,
     marginRight: 12,
   },
-  requirementIndex: {
-    width: 22,
-    height: 22,
-    borderRadius: 999,
-    backgroundColor: '#CFFAFE',
-    color: '#155E75',
+  companyName: {
+    fontSize: 16,
+    fontFamily: 'Helvetica-Bold',
+    color: '#000000',
+    marginBottom: 3,
+  },
+  companyDetail: {
+    fontSize: 8.5,
+    color: '#333333',
+    marginBottom: 1.5,
+  },
+  letterheadRight: {
+    width: 220,
+    alignItems: 'flex-end',
+  },
+  docLabel: {
+    fontSize: 22,
+    fontFamily: 'Helvetica-Bold',
+    color: '#000000',
+    marginBottom: 3,
+  },
+  docRefLine: {
     fontSize: 9,
-    fontFamily: 'Helvetica-Bold',
-    textAlign: 'center',
-    paddingTop: 5,
+    color: '#333333',
+    marginBottom: 1.5,
+    textAlign: 'right',
   },
-  requirementTitleWrap: {
-    flex: 1,
-  },
-  requirementTitle: {
-    fontSize: 11.5,
-    fontFamily: 'Helvetica-Bold',
-    color: '#0F172A',
-    marginBottom: 4,
-  },
-  pricingBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 7,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: '#ECFEFF',
-    color: '#155E75',
-    fontSize: 8,
-    fontFamily: 'Helvetica-Bold',
-  },
-  requirementMetaText: {
-    marginTop: 6,
-    color: '#475569',
-  },
-  pricingCard: {
-    padding: 0,
-    marginBottom: 12,
-  },
-  pricingTitle: {
-    fontSize: 11,
-    fontFamily: 'Helvetica-Bold',
-    color: '#0F172A',
-    marginBottom: 7,
-  },
-  pricingLineLabel: {
-    fontSize: 7.8,
-    fontFamily: 'Helvetica-Bold',
-    color: '#64748B',
+
+  // ── Thick rule under letterhead ───────────────────────────────────────────
+  ruleThick: {
+    height: 2,
+    backgroundColor: '#000000',
+    marginTop: 8,
     marginBottom: 2,
   },
-  pricingLineValue: {
-    fontSize: 9.6,
-    fontFamily: 'Helvetica-Bold',
-    color: '#0F172A',
-    marginBottom: 5,
+  ruleThin: {
+    height: 0.5,
+    backgroundColor: '#000000',
+    marginBottom: 12,
   },
-  milestoneTable: {
+
+  // ── From / To Address Block ───────────────────────────────────────────────
+  addressRow: {
+    flexDirection: 'row',
+    marginBottom: 20,
     marginTop: 10,
+  },
+  preparedForWrap: {
+    backgroundColor: '#FAFAFA',
+    borderLeftWidth: 2,
+    borderLeftColor: '#000000',
+    padding: 12,
+    flex: 1,
+  },
+  addressSectionLabel: {
+    fontSize: 7.5,
+    fontFamily: 'Helvetica-Bold',
+    color: '#666666',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 6,
+  },
+  addressName: {
+    fontSize: 12,
+    fontFamily: 'Helvetica-Bold',
+    color: '#000000',
+    marginBottom: 4,
+  },
+  addressCompany: {
+    fontSize: 10,
+    fontFamily: 'Helvetica-Bold',
+    color: '#444444',
+    marginBottom: 8,
+  },
+  addressContactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  addressContactLabel: {
+    fontSize: 8.5,
+    fontFamily: 'Helvetica-Bold',
+    color: '#666666',
+    width: 35,
+  },
+  addressContactText: {
+    fontSize: 8.5,
+    color: '#000000',
+  },
+  addressLine: {
+    fontSize: 9,
+    color: '#333333',
+    marginBottom: 1.5,
+  },
+
+  // ── Subject line ──────────────────────────────────────────────────────────
+  subjectRow: {
+    flexDirection: 'row',
+    marginBottom: 14,
+  },
+  subjectLabel: {
+    fontSize: 10,
+    fontFamily: 'Helvetica-Bold',
+    color: '#000000',
+    marginRight: 6,
+  },
+  subjectText: {
+    fontSize: 10,
+    fontFamily: 'Helvetica-Bold',
+    color: '#000000',
+    flex: 1,
+  },
+
+  // ── Greeting ──────────────────────────────────────────────────────────────
+  greeting: {
+    fontSize: 10,
+    color: '#000000',
+    marginBottom: 6,
+  },
+  greetingBody: {
+    fontSize: 10,
+    color: '#333333',
+    lineHeight: 1.6,
+    marginBottom: 14,
+  },
+
+  // ── Section Title ─────────────────────────────────────────────────────────
+  sectionTitle: {
+    fontSize: 10.5,
+    fontFamily: 'Helvetica-Bold',
+    color: '#000000',
+    marginBottom: 6,
+    marginTop: 14,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#000000',
+    paddingBottom: 3,
+  },
+
+  // ── Scope of Work ────────────────────────────────────────────────────────
+  scopeItem: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  scopeNumber: {
+    width: 20,
+    fontSize: 10,
+    fontFamily: 'Helvetica-Bold',
+    color: '#000000',
+  },
+  scopeContent: {
+    flex: 1,
+  },
+  scopeItemTitle: {
+    fontSize: 10,
+    fontFamily: 'Helvetica-Bold',
+    color: '#000000',
+    marginBottom: 2,
+  },
+  scopeItemDesc: {
+    fontSize: 9.5,
+    color: '#333333',
+    lineHeight: 1.55,
+  },
+
+  // ── Pricing Table ─────────────────────────────────────────────────────────
+  table: {
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 10,
+    borderColor: '#000000',
+    marginTop: 6,
   },
-  milestoneHeaderRow: {
-    flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-  },
-  milestoneRow: {
+  tableHeaderRow: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#000000',
+    backgroundColor: '#F0F0F0',
   },
-  milestoneCellWide: {
-    flex: 2.2,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+  tableRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#666666',
   },
-  milestoneCell: {
+  tableRowLast: {
+    flexDirection: 'row',
+  },
+
+  // Column widths
+  colSr: {
+    width: 30,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+    borderRightWidth: 0.5,
+    borderRightColor: '#666666',
+    alignItems: 'center',
+  },
+  colWork: {
     flex: 1,
     paddingHorizontal: 8,
-    paddingVertical: 8,
+    paddingVertical: 6,
+    borderRightWidth: 0.5,
+    borderRightColor: '#666666',
   },
-  milestoneHeadText: {
+  colType: {
+    width: 120,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+    borderRightWidth: 0.5,
+    borderRightColor: '#666666',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  colAmt: {
+    flex: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    alignItems: 'flex-end',
+    justifyContent: 'flex-start',
+  },
+
+  thText: {
+    fontSize: 9,
+    fontFamily: 'Helvetica-Bold',
+    color: '#000000',
+  },
+  tdSr: {
+    fontSize: 9,
+    color: '#333333',
+    textAlign: 'center',
+  },
+  tdTitle: {
+    fontSize: 9.5,
+    fontFamily: 'Helvetica-Bold',
+    color: '#000000',
+    marginBottom: 2,
+  },
+  tdDesc: {
+    fontSize: 9,
+    color: '#333333',
+    lineHeight: 1.5,
+  },
+  tdType: {
+    fontSize: 9,
+    color: '#333333',
+    textAlign: 'center',
+  },
+  tdAmt: {
+    fontSize: 9.5,
+    fontFamily: 'Helvetica-Bold',
+    color: '#000000',
+    textAlign: 'right',
+  },
+  tdAmtTbd: {
+    fontSize: 9,
+    color: '#666666',
+    textAlign: 'right',
+  },
+  tdAmtLabel: {
+    fontSize: 7.5,
+    color: '#555555',
+    textAlign: 'right',
+    marginBottom: 2,
+  },
+  tdRateAmt: {
+    fontSize: 9.5,
+    fontFamily: 'Helvetica-Bold',
+    color: '#000000',
+    textAlign: 'right',
+  },
+  tdRateUnit: {
+    fontSize: 8,
+    color: '#333333',
+    textAlign: 'right',
+    marginTop: 1,
+  },
+
+  // ── Milestone nested table ────────────────────────────────────────────────
+  msWrap: {
+    marginTop: 5,
+    borderWidth: 0.5,
+    borderColor: '#999999',
+  },
+  msHeaderRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#999999',
+    backgroundColor: '#F8F8F8',
+  },
+  msRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#DDDDDD',
+  },
+  msRowLast: {
+    flexDirection: 'row',
+  },
+  msCellNo: {
+    width: 22,
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+    borderRightWidth: 0.5,
+    borderRightColor: '#BBBBBB',
+    alignItems: 'center',
+  },
+  msCellMile: {
+    flex: 2,
+    paddingHorizontal: 5,
+    paddingVertical: 4,
+    borderRightWidth: 0.5,
+    borderRightColor: '#BBBBBB',
+  },
+  msCellDue: {
+    width: 64,
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+    borderRightWidth: 0.5,
+    borderRightColor: '#BBBBBB',
+  },
+  msCellAmt: {
+    width: 72,
+    paddingHorizontal: 5,
+    paddingVertical: 4,
+    alignItems: 'flex-end',
+  },
+  msTh: {
+    fontSize: 7.5,
+    fontFamily: 'Helvetica-Bold',
+    color: '#333333',
+  },
+  msTd: {
+    fontSize: 8,
+    color: '#000000',
+  },
+  msTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 5,
+    paddingVertical: 4,
+    borderTopWidth: 0.5,
+    borderTopColor: '#999999',
+    backgroundColor: '#F0F0F0',
+  },
+  msTotalLabel: {
+    fontSize: 7.5,
+    fontFamily: 'Helvetica-Bold',
+    color: '#333333',
+  },
+  msTotalValue: {
     fontSize: 8,
     fontFamily: 'Helvetica-Bold',
-    color: '#334155',
+    color: '#000000',
   },
-  milestoneText: {
-    fontSize: 8.7,
-    color: '#0F172A',
+
+  // ── Summary rows ──────────────────────────────────────────────────────────
+  summarySection: {
+    alignItems: 'flex-end',
+    marginTop: 8,
   },
-  summaryGrid: {
-    marginTop: 10,
+  summaryTable: {
+    width: 240,
+    borderWidth: 1,
+    borderColor: '#000000',
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: '#D7E3EC',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#666666',
   },
-  summaryRowStrong: {
-    borderTopWidth: 1,
-    borderTopColor: '#94A3B8',
-    marginTop: 4,
-    paddingTop: 8,
+  summaryTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#000000',
   },
   summaryLabel: {
     fontSize: 9,
     fontFamily: 'Helvetica-Bold',
-    color: '#334155',
+    color: '#333333',
   },
   summaryValue: {
-    fontSize: 10.5,
+    fontSize: 9,
     fontFamily: 'Helvetica-Bold',
-    color: '#0F172A',
+    color: '#000000',
   },
-  listItemRow: {
+  summaryTotalLabel: {
+    fontSize: 9.5,
+    fontFamily: 'Helvetica-Bold',
+    color: '#FFFFFF',
+  },
+  summaryTotalValue: {
+    fontSize: 9.5,
+    fontFamily: 'Helvetica-Bold',
+    color: '#FFFFFF',
+  },
+  gstNote: {
+    marginTop: 4,
+  },
+  gstNoteText: {
+    fontSize: 8,
+    color: '#555555',
+  },
+
+  // ── Terms / Support / Notes ───────────────────────────────────────────────
+  listItem: {
     flexDirection: 'row',
-    marginBottom: 6,
+    marginBottom: 4,
   },
-  listBullet: {
-    width: 11,
-    color: '#0891B2',
+  listIndex: {
+    width: 20,
+    fontSize: 9.5,
     fontFamily: 'Helvetica-Bold',
+    color: '#000000',
   },
   listText: {
     flex: 1,
-    color: '#334155',
-    marginLeft: 8,
+    fontSize: 9.5,
+    color: '#333333',
+    lineHeight: 1.55,
   },
-  noticeBox: {
-    marginTop: 16,
+
+  // ── Closing ───────────────────────────────────────────────────────────────
+  closingPara: {
+    fontSize: 10,
+    color: '#333333',
+    lineHeight: 1.6,
+    marginTop: 14,
+    marginBottom: 14,
   },
-  noticeTitle: {
+
+  // ── Signature Block ───────────────────────────────────────────────────────
+  signatureSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  signatureBlock: {
+    flex: 1,
+    marginRight: 30,
+  },
+  signatureBlockLast: {
+    flex: 1,
+  },
+  signatureHeading: {
     fontSize: 9,
     fontFamily: 'Helvetica-Bold',
-    color: '#92400E',
-    marginBottom: 2,
+    color: '#000000',
+    marginBottom: 30,
   },
-  noticeText: {
-    color: '#78350F',
+  signatureLine: {
+    borderTopWidth: 0.5,
+    borderTopColor: '#000000',
+    paddingTop: 4,
   },
-  closingText: {
-    marginTop: 18,
-    color: '#334155',
+  signatureLineText: {
+    fontSize: 9,
+    fontFamily: 'Helvetica-Bold',
+    color: '#000000',
   },
-  footer: {
-    marginTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-    paddingTop: 10,
-    color: '#64748B',
+  signatureSubText: {
     fontSize: 8.5,
+    color: '#333333',
+    marginTop: 2,
+  },
+
+  // ── Footer ────────────────────────────────────────────────────────────────
+  footer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 50,
+    right: 50,
+  },
+  footerRule: {
+    height: 0.5,
+    backgroundColor: '#000000',
+    marginBottom: 6,
+  },
+  footerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  footerLeft: {
+    fontSize: 8,
+    color: '#333333',
+  },
+  footerCenter: {
+    fontSize: 8,
+    color: '#333333',
+    textAlign: 'center',
+  },
+  footerRight: {
+    fontSize: 8,
+    color: '#333333',
+    textAlign: 'right',
   },
 })
 
-function formatCurrency(value: number | null | undefined) {
-  if (value == null) return 'Estimated value to be shared'
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function formatCurrency(value: number | null | undefined): string {
+  if (value == null) return 'TBD'
+  // Note: '₹' (U+20B9) is NOT in Helvetica's glyph set — react-pdf silently drops it.
+  // We format the number in Indian style and prepend 'Rs.' which is ASCII-safe.
+  const formatted = new Intl.NumberFormat('en-IN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value)
+  return `Rs. ${formatted}`
 }
 
-function formatDate(value: string | null | undefined) {
-  if (!value) return 'To be aligned'
+function formatDate(value: string | null | undefined): string {
+  if (!value) return '-'
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return 'To be aligned'
-  return date.toLocaleDateString('en-US', {
+  if (Number.isNaN(date.getTime())) return '-'
+  return date.toLocaleDateString('en-IN', {
     year: 'numeric',
-    month: 'short',
+    month: 'long',
     day: 'numeric',
   })
 }
 
-function splitParagraphs(value: string | null | undefined) {
-  if (!value?.trim()) return []
-  return value
-    .split(/\n{2,}/)
-    .map((part) => part.trim())
-    .filter(Boolean)
+// Note: Helvetica does not support many common UTF-8 symbols (bullets, checkmarks, etc.)
+// which results in garbage characters like 'V', 'd', 'l' in the PDF output.
+// This helper replaces them with safe ASCII-compatible symbols.
+function sanitizeText(text: string | null | undefined): string {
+  if (!text) return ''
+  return text
+    .replace(/[●•○■□▪▫‣◦]/g, '-') // Common bullets
+    .replace(/[✔✅☑✓]/g, 'Y')      // Checkmarks
+    .replace(/[➤►▶»›]/g, '>')      // Arrows
+    .replace(/[✖✘✕×]/g, 'X')      // Crosses
+    .replace(/[^\x00-\x7F\r\n]/g, '-') // Final catch-all for any other non-ASCII symbol
 }
 
-function splitLines(value: string | null | undefined) {
+function splitLines(value: string | null | undefined): string[] {
   if (!value?.trim()) return []
   return value
-    .split('\n')
+    .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
 }
 
-function hasText(value: string | null | undefined) {
+function hasText(value: string | null | undefined): boolean {
   return Boolean(value?.trim())
 }
 
@@ -519,30 +617,32 @@ function getSourceDetails(quotation: Quotation) {
   }
 }
 
-function getGreetingParagraphs(recipientName: string) {
-  return [
-    `Dear ${recipientName},`,
-    'Thank you for the opportunity to submit our quotation. Based on the current discussion and the shared business requirements, please find below our proposed scope of work, estimated pricing structure, support coverage, and commercial terms.',
-    'This document is intended to present the engagement in a clear and professional format so the scope, pricing model, and expected deliverables can be reviewed with confidence.',
-  ]
+function getPricingLabel(type: QuotationRequirement['pricing_type']): string {
+  if (type === 'fixed') return 'Fixed'
+  if (type === 'milestone') return 'Milestone'
+  return 'Hourly'
 }
 
-function getSupportItems(support: string | null | undefined) {
-  return splitLines(support)
+function getRequirementAmount(req: QuotationRequirement): number | null {
+  if (req.pricing_type === 'fixed') return req.amount
+  if (req.pricing_type === 'milestone') {
+    if (!req.milestones?.length) return null
+    return req.milestones.reduce((sum, m) => sum + (m.amount ?? 0), 0)
+  }
+  if (req.hourly_rate != null && req.estimated_hours != null) {
+    return req.hourly_rate * req.estimated_hours
+  }
+  return req.amount
 }
 
-function getTermsItems(terms: string | null | undefined, validTill: string | null) {
-  void validTill
-  return splitLines(terms)
+// ─── Exports ─────────────────────────────────────────────────────────────────
+
+// Note: Ensure Next.js dev server uses port 3001 if requested.
+export function getQuotationPdfFilename(quotationNumber: string): string {
+  return `${quotationNumber.replace(/[^A-Za-z0-9_-]+/g, '_')}.pdf`
 }
 
-function getPricingTypeLabel(pricingType: QuotationRequirement['pricing_type']) {
-  if (pricingType === 'fixed') return 'Fixed Cost'
-  if (pricingType === 'milestone') return 'Milestone Based'
-  return 'Hourly Based'
-}
-
-type QuotationPdfDocumentProps = {
+type Props = {
   quotation: Quotation
   requirements: QuotationRequirement[]
   subtotal: number
@@ -550,15 +650,7 @@ type QuotationPdfDocumentProps = {
   finalTotal: number
 }
 
-export function getQuotationPdfFilename(quotationNumber: string) {
-  return `${quotationNumber.replace(/[^A-Za-z0-9_-]+/g, '_')}.pdf`
-}
-
-function hasRequirementPricing(requirement: QuotationRequirement) {
-  if (requirement.pricing_type === 'fixed') return requirement.amount != null
-  if (requirement.pricing_type === 'hourly') return requirement.hourly_rate != null || requirement.estimated_hours != null
-  return Boolean(requirement.milestones && requirement.milestones.length > 0)
-}
+// ─── Document ─────────────────────────────────────────────────────────────────
 
 export function QuotationPdfDocument({
   quotation,
@@ -566,246 +658,371 @@ export function QuotationPdfDocument({
   subtotal,
   discount,
   finalTotal,
-}: QuotationPdfDocumentProps): React.ReactElement<DocumentProps> {
+}: Props): React.ReactElement<DocumentProps> {
   const source = getSourceDetails(quotation)
-  const greetingParagraphs = getGreetingParagraphs(source.name?.trim() || 'Sir/Madam')
-  const supportItems = getSupportItems(quotation.support)
-  const termsItems = getTermsItems(quotation.terms, quotation.valid_till)
-  const showPreparedFor = [source.name, source.company, source.phone, source.email].some(hasText)
-  const showScope = requirements.length > 0
-  const pricedRequirements = requirements.filter(hasRequirementPricing)
-  const showPricing = pricedRequirements.length > 0 || subtotal > 0 || discount > 0 || finalTotal > 0
-  const showSupport = supportItems.length > 0
-  const showTerms = termsItems.length > 0
-  const showGstNote = showPricing
+  const termsItems = splitLines(quotation.terms)
+  const supportItems = splitLines(quotation.support)
+  const hasRequirements = requirements.length > 0
+  const showPricing = hasRequirements || finalTotal > 0
+  const showDiscount = discount > 0
+  const recipientName = hasText(source.name) ? source.name! : 'Sir/Madam'
+
+  // Subject: reference or auto-generated
+  const subjectText = hasText(quotation.reference)
+    ? quotation.reference!
+    : 'Quotation for IT Services'
 
   return (
     <Document
-      title={`${quotation.quotation_number} quotation`}
-      author={COMPANY_PROFILE.name}
-      subject="Quotation document"
-      creator={COMPANY_PROFILE.name}
-      producer={COMPANY_PROFILE.name}
+      title={`${quotation.quotation_number} - Quotation`}
+      author={COMPANY.name}
+      subject={subjectText}
+      creator={COMPANY.name}
+      producer={COMPANY.name}
     >
-      <Page size="A4" style={styles.page}>
-        <View style={styles.headerTopRow}>
-          <View style={styles.headerLeftBlock}>
-            <View style={styles.logoWrap}>
-              <Image src={SCC_LOGO_PATH} style={{ width: 58, height: 58 }} />
-            </View>
+      <Page size="A4" style={S.page}>
+
+        {/* ── LETTERHEAD ─────────────────────────────────────────────────── */}
+        <View style={S.letterhead}>
+
+          {/* Left: Logo + Company */}
+          <View style={S.letterheadLeft}>
+            <Image src={SCC_LOGO_PATH} style={S.logo} />
             <View>
-              <Text style={styles.brandName}>{COMPANY_PROFILE.name}</Text>
-              <Text style={styles.brandSubtext}>Think Smart</Text>
+              <Text style={S.companyName}>{COMPANY.name}</Text>
+              <Text style={S.companyDetail}>{COMPANY.addressLine1}</Text>
+              <Text style={S.companyDetail}>{COMPANY.addressLine2}</Text>
+              <Text style={S.companyDetail}>Tel: {COMPANY.phone}  |  {COMPANY.email}</Text>
+              <Text style={S.companyDetail}>{COMPANY.website}</Text>
             </View>
           </View>
 
-          <View style={styles.headerRightBlock}>
-            <Text style={styles.headerAddressText}>349-350, Vikas Shoppers, B/H Filter House Bhagvan Nagar Circle,</Text>
-            <Text style={styles.headerAddressText}>near Sarthana Jakat Naka, Nana Varachha,</Text>
-            <Text style={styles.headerAddressText}>Surat, Gujarat 395006</Text>
+          {/* Right: Document type */}
+          <View style={S.letterheadRight}>
+            <Text style={S.docLabel}>QUOTATION</Text>
+            <Text style={S.docRefLine}>Ref No: {quotation.quotation_number}</Text>
+            <Text style={S.docRefLine}>Date: {formatDate(quotation.created_at)}</Text>
+            {quotation.valid_till && (
+              <Text style={S.docRefLine}>Valid Till: {formatDate(quotation.valid_till)}</Text>
+            )}
           </View>
+
         </View>
 
-        <View style={styles.dividerBlue} />
+        {/* ── DOUBLE RULE ────────────────────────────────────────────────── */}
+        <View style={S.ruleThick} />
+        <View style={S.ruleThin} />
 
-        <View style={styles.quoteMetaRow}>
-          <Text style={styles.quoteMetaText}>Quotation No.: {quotation.quotation_number}</Text>
-          <Text style={styles.quoteMetaText}>Date: {formatDate(quotation.created_at)}</Text>
-        </View>
+        {/* ── FROM / TO ──────────────────────────────────────────────────── */}
+        <View style={S.addressRow}>
+          {/* To - Prepared For */}
+          <View style={S.preparedForWrap}>
+            <Text style={S.addressSectionLabel}>PREPARED FOR</Text>
+            {hasText(source.name) && (
+              <Text style={S.addressName}>{source.name}</Text>
+            )}
+            {hasText(source.company) && (
+              <Text style={S.addressCompany}>{source.company}</Text>
+            )}
 
-        <View style={styles.preparedTable}>
-          <View style={styles.preparedTableRow}>
-            <View style={styles.preparedHeaderCell}>
-              <Text style={styles.preparedHeaderText}>Prepared For:</Text>
-            </View>
-            <View style={[styles.preparedHeaderCell, styles.preparedHeaderCellLast]}>
-              <Text style={styles.preparedHeaderText}>Prepared By:</Text>
-            </View>
-          </View>
-          <View style={styles.preparedTableRow}>
-            <View style={styles.preparedBodyCell}>
-              {hasText(source.name) ? <Text style={styles.preparedBodyPrimary}>{source.name}</Text> : null}
-              {hasText(source.company) ? <Text style={styles.preparedBodyText}>({source.company})</Text> : null}
-              {hasText(source.phone) ? <Text style={styles.preparedBodyText}>{source.phone}</Text> : null}
-              {hasText(source.email) ? <Text style={styles.preparedBodyText}>{source.email}</Text> : null}
-            </View>
-            <View style={[styles.preparedBodyCell, styles.preparedBodyCellLast]}>
-              <Text style={styles.preparedBodyPrimary}>{COMPANY_PROFILE.name}</Text>
-              <Text style={styles.preparedBodyText}>{COMPANY_PROFILE.website}</Text>
-              <Text style={styles.preparedBodyText}>{COMPANY_PROFILE.email}</Text>
-              <Text style={styles.preparedBodyText}>{COMPANY_PROFILE.phone}</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.introBlock}>
-          <Text style={styles.introGreetingLine}>{greetingParagraphs[0]}</Text>
-          {greetingParagraphs.slice(1).map((paragraph, index) => (
-            <Text key={index} style={styles.introCentered}>
-              {paragraph}
-            </Text>
-          ))}
-        </View>
-
-        {showScope ? (
-          <View style={styles.contentSection}>
-            <Text style={styles.sectionHeading}>Scope of Work:</Text>
-            {requirements.map((requirement, index) => (
-              <View key={requirement.id} style={styles.requirementCard}>
-                <Text style={styles.requirementTitle}>
-                  {index + 1}. {requirement.title?.trim() || `Requirement ${index + 1}`}
-                </Text>
-                {splitParagraphs(requirement.description).map((paragraph, paragraphIndex) => (
-                  <View key={paragraphIndex} style={styles.listItemRow}>
-                    <Text style={styles.listBullet}>-</Text>
-                    <Text style={styles.listText}>{paragraph}</Text>
+            {(hasText(source.phone) || hasText(source.email)) && (
+              <View style={{ marginTop: 4 }}>
+                {hasText(source.phone) && (
+                  <View style={S.addressContactRow}>
+                    <Text style={S.addressContactLabel}>Tel:</Text>
+                    <Text style={S.addressContactText}>{source.phone}</Text>
                   </View>
-                ))}
+                )}
+                {hasText(source.email) && (
+                  <View style={S.addressContactRow}>
+                    <Text style={S.addressContactLabel}>Email:</Text>
+                    <Text style={S.addressContactText}>{source.email}</Text>
+                  </View>
+                )}
               </View>
-            ))}
+            )}
           </View>
-        ) : null}
+        </View>
 
-        {showPricing ? (
-          <View style={styles.contentSection}>
-            <Text style={styles.sectionHeading}>Pricing Details:</Text>
-            {pricedRequirements.map((requirement, index) => (
-              <View key={requirement.id} style={styles.pricingCard}>
-                <Text style={styles.pricingTitle}>
-                  {index + 1}. {requirement.title?.trim() || `Requirement ${index + 1}`}
-                </Text>
+        {/* ── SUBJECT ────────────────────────────────────────────────────── */}
+        <View style={S.subjectRow}>
+          <Text style={S.subjectLabel}>Subject:</Text>
+          <Text style={S.subjectText}>{subjectText}</Text>
+        </View>
 
-                {requirement.pricing_type === 'fixed' && requirement.amount != null ? (
-                  <>
-                    <Text style={styles.pricingLineLabel}>Estimated Pricing Model</Text>
-                    <Text style={styles.pricingLineValue}>Fixed Cost</Text>
-                    <Text style={styles.pricingLineLabel}>Estimated Cost</Text>
-                    <Text style={styles.pricingLineValue}>{formatCurrency(requirement.amount)}</Text>
-                  </>
-                ) : null}
+        {/* ── GREETING ───────────────────────────────────────────────────── */}
+        <Text style={S.greeting}>Dear {recipientName},</Text>
+        <Text style={S.greetingBody}>
+          Thank you for giving us the opportunity to submit this quotation. We are pleased to present
+          our proposal for the above-mentioned subject. Please find below the detailed scope of work
+          and commercial terms for your review.
+        </Text>
 
-                {requirement.pricing_type === 'hourly' ? (
-                  <>
-                    <Text style={styles.pricingLineLabel}>Estimated Pricing Model</Text>
-                    <Text style={styles.pricingLineValue}>Hourly Based</Text>
-                    {requirement.hourly_rate != null ? (
-                      <>
-                        <Text style={styles.pricingLineLabel}>Estimated Hourly Rate</Text>
-                        <Text style={styles.pricingLineValue}>{formatCurrency(requirement.hourly_rate)} / hour</Text>
-                      </>
-                    ) : null}
-                    {requirement.estimated_hours != null ? (
-                      <>
-                        <Text style={styles.pricingLineLabel}>Estimated Hours</Text>
-                        <Text style={styles.pricingLineValue}>{requirement.estimated_hours} hours</Text>
-                      </>
-                    ) : null}
-                  </>
-                ) : null}
-
-                {requirement.pricing_type === 'milestone' && requirement.milestones && requirement.milestones.length > 0 ? (
-                  <View style={styles.milestoneTable}>
-                    <View style={styles.milestoneHeaderRow}>
-                      <View style={styles.milestoneCellWide}>
-                        <Text style={styles.milestoneHeadText}>Milestone</Text>
-                      </View>
-                      <View style={styles.milestoneCellWide}>
-                        <Text style={styles.milestoneHeadText}>Details</Text>
-                      </View>
-                      <View style={styles.milestoneCell}>
-                        <Text style={styles.milestoneHeadText}>Due</Text>
-                      </View>
-                      <View style={styles.milestoneCell}>
-                        <Text style={styles.milestoneHeadText}>Estimated Value</Text>
-                      </View>
-                    </View>
-                    {requirement.milestones.map((milestone, milestoneIndex) => (
-                      <View
-                        key={milestone.id}
-                        style={
-                          milestoneIndex === requirement.milestones!.length - 1
-                            ? [styles.milestoneRow, { borderBottomWidth: 0 }]
-                            : styles.milestoneRow
-                        }
-                      >
-                        <View style={styles.milestoneCellWide}>
-                          <Text style={styles.milestoneText}>{milestone.title}</Text>
-                        </View>
-                        <View style={styles.milestoneCellWide}>
-                          <Text style={styles.milestoneText}>{milestone.description?.trim() || '-'}</Text>
-                        </View>
-                        <View style={styles.milestoneCell}>
-                          <Text style={styles.milestoneText}>{formatDate(milestone.due_date)}</Text>
-                        </View>
-                        <View style={styles.milestoneCell}>
-                          <Text style={styles.milestoneText}>{formatCurrency(milestone.amount)}</Text>
-                        </View>
-                      </View>
+        {/* ── SCOPE OF WORK ──────────────────────────────────────────────── */}
+        {hasRequirements && (
+          <View>
+            <Text style={S.sectionTitle}>Scope of Work</Text>
+            {requirements.map((req, idx) => {
+              const descriptionLines = splitLines(req.description)
+              return (
+                <View key={req.id} style={S.scopeItem}>
+                  <Text style={S.scopeNumber}>{idx + 1}.</Text>
+                  <View style={S.scopeContent}>
+                    <Text style={S.scopeItemTitle}>
+                      {req.title?.trim() || `Requirement ${idx + 1}`}
+                    </Text>
+                    {descriptionLines.map((line, lIdx) => (
+                      <Text key={lIdx} style={S.scopeItemDesc}>
+                        {sanitizeText(line)}
+                      </Text>
                     ))}
                   </View>
-                ) : null}
+                </View>
+              )
+            })}
+          </View>
+        )}
+
+        {/* ── PRICING TABLE ──────────────────────────────────────────────── */}
+        {showPricing && (
+          <View>
+            <Text style={S.sectionTitle}>Pricing Details</Text>
+
+            <View style={S.table}>
+
+              {/* Header */}
+              <View style={S.tableHeaderRow}>
+                <View style={S.colSr}>
+                  <Text style={S.thText}>Sr.</Text>
+                </View>
+                <View style={S.colType}>
+                  <Text style={S.thText}>Type / Billing Model</Text>
+                </View>
+                <View style={S.colAmt}>
+                  <Text style={[S.thText, { textAlign: 'right' }]}>Amount / Details</Text>
+                </View>
+              </View>
+
+              {/* Rows */}
+              {requirements.map((req, idx) => {
+                const isLast = idx === requirements.length - 1
+                const amount = getRequirementAmount(req)
+
+                return (
+                  <View
+                    key={req.id}
+                    style={isLast ? S.tableRowLast : S.tableRow}
+                  >
+                    {/* Sr# */}
+                    <View style={S.colSr}>
+                      <Text style={S.tdSr}>{idx + 1}</Text>
+                    </View>
+
+                    {/* Pricing Type */}
+                    <View style={S.colType}>
+                      <Text style={S.tdType}>{getPricingLabel(req.pricing_type)}</Text>
+                    </View>
+
+                    {/* Amount / Details — per pricing type */}
+                    <View style={S.colAmt}>
+
+                      {/* FIXED: Estimated amount */}
+                      {req.pricing_type === 'fixed' && (
+                        req.amount != null ? (
+                          <View>
+                            <Text style={S.tdAmtLabel}>Estimated</Text>
+                            <Text style={S.tdAmt}>{formatCurrency(req.amount)}</Text>
+                          </View>
+                        ) : (
+                          <Text style={S.tdAmtTbd}>TBD</Text>
+                        )
+                      )}
+
+                      {/* HOURLY: Price per hour only */}
+                      {req.pricing_type === 'hourly' && (
+                        req.hourly_rate != null ? (
+                          <View>
+                            <Text style={S.tdRateAmt}>{formatCurrency(req.hourly_rate)}</Text>
+                            <Text style={S.tdRateUnit}>per hour</Text>
+                          </View>
+                        ) : (
+                          <Text style={S.tdAmtTbd}>TBD</Text>
+                        )
+                      )}
+
+                      {/* MILESTONE: nested breakdown table */}
+                      {req.pricing_type === 'milestone' && (
+                        req.milestones != null && req.milestones.length > 0 ? (
+                          <View style={S.msWrap}>
+                            {/* Milestone table header */}
+                            <View style={S.msHeaderRow}>
+                              <View style={S.msCellNo}>
+                                <Text style={S.msTh}>#</Text>
+                              </View>
+                              <View style={S.msCellMile}>
+                                <Text style={S.msTh}>Milestone</Text>
+                              </View>
+                              <View style={S.msCellDue}>
+                                <Text style={S.msTh}>Due Date</Text>
+                              </View>
+                              <View style={S.msCellAmt}>
+                                <Text style={[S.msTh, { textAlign: 'right' }]}>Amt.</Text>
+                              </View>
+                            </View>
+
+                            {/* Milestone rows — no description */}
+                            {req.milestones.map((ms, mIdx) => {
+                              const msLast = mIdx === req.milestones!.length - 1
+                              return (
+                                <View
+                                  key={ms.id}
+                                  style={msLast ? S.msRowLast : S.msRow}
+                                >
+                                  <View style={S.msCellNo}>
+                                    <Text style={[S.msTd, { textAlign: 'center' }]}>{mIdx + 1}</Text>
+                                  </View>
+                                  <View style={S.msCellMile}>
+                                    <Text style={S.msTd}>{sanitizeText(ms.title || '-')}</Text>
+                                  </View>
+                                  <View style={S.msCellDue}>
+                                    <Text style={S.msTd}>{formatDate(ms.due_date)}</Text>
+                                  </View>
+                                  <View style={S.msCellAmt}>
+                                    <Text style={[S.msTd, { textAlign: 'right' }]}>
+                                      {formatCurrency(ms.amount)}
+                                    </Text>
+                                  </View>
+                                </View>
+                              )
+                            })}
+
+                            {/* Estimated total row */}
+                            {amount != null && (
+                              <View style={S.msTotalRow}>
+                                <Text style={S.msTotalLabel}>Estimated Total</Text>
+                                <Text style={S.msTotalValue}>{formatCurrency(amount)}</Text>
+                              </View>
+                            )}
+                          </View>
+                        ) : (
+                          <Text style={S.tdAmtTbd}>TBD</Text>
+                        )
+                      )}
+
+                    </View>
+
+                  </View>
+                )
+              })}
+
+            </View>
+
+            {/* Summary */}
+            <View style={S.summarySection}>
+              <View style={S.summaryTable}>
+                {showDiscount && (
+                  <View style={S.summaryRow}>
+                    <Text style={S.summaryLabel}>Subtotal</Text>
+                    <Text style={S.summaryValue}>{formatCurrency(subtotal)}</Text>
+                  </View>
+                )}
+                {showDiscount && (
+                  <View style={S.summaryRow}>
+                    <Text style={S.summaryLabel}>Discount</Text>
+                    <Text style={S.summaryValue}>- {formatCurrency(discount)}</Text>
+                  </View>
+                )}
+                <View style={S.summaryTotalRow}>
+                  <Text style={S.summaryTotalLabel}>Total Estimated Value</Text>
+                  <Text style={S.summaryTotalValue}>{formatCurrency(finalTotal)}</Text>
+                </View>
+              </View>
+              <View style={S.gstNote}>
+                <Text style={S.gstNoteText}>
+                  * All amounts are exclusive of GST. Applicable GST will be charged extra as per government norms.
+                </Text>
+              </View>
+            </View>
+
+          </View>
+        )}
+
+        {/* ── SUPPORT & MAINTENANCE (only if available) ──────────────────── */}
+        {supportItems.length > 0 && (
+          <View>
+            <Text style={S.sectionTitle}>Support &amp; Maintenance</Text>
+            {supportItems.map((item, i) => (
+              <View key={i} style={S.listItem}>
+                <Text style={S.listIndex}>{i + 1}.</Text>
+                <Text style={S.listText}>{item}</Text>
               </View>
             ))}
+          </View>
+        )}
 
-            <View style={styles.summaryGrid}>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Estimated Subtotal</Text>
-                <Text style={styles.summaryValue}>{formatCurrency(subtotal)}</Text>
+        {/* ── TERMS & CONDITIONS (only if available) ─────────────────────── */}
+        {termsItems.length > 0 && (
+          <View>
+            <Text style={S.sectionTitle}>Terms &amp; Conditions</Text>
+            {termsItems.map((item, i) => (
+              <View key={i} style={S.listItem}>
+                <Text style={S.listIndex}>{i + 1}.</Text>
+                <Text style={S.listText}>{item}</Text>
               </View>
-              {discount > 0 ? (
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Estimated Discount</Text>
-                  <Text style={styles.summaryValue}>{formatCurrency(discount)}</Text>
-                </View>
-              ) : null}
-              <View style={[styles.summaryRow, styles.summaryRowStrong]}>
-                <Text style={styles.summaryLabel}>Estimated Project Value</Text>
-                <Text style={styles.summaryValue}>{formatCurrency(finalTotal)}</Text>
-              </View>
+            ))}
+          </View>
+        )}
+
+        {/* ── CLOSING PARAGRAPH ──────────────────────────────────────────── */}
+        <Text style={S.closingPara}>
+          We hope the above proposal meets your requirements. Should you need any clarification or
+          wish to discuss any aspect of this quotation, please feel free to contact us. We look
+          forward to the opportunity of working with you.
+        </Text>
+
+        {/* ── SIGNATURE BLOCK ────────────────────────────────────────────── */}
+        <View style={S.signatureSection}>
+
+          {/* Authorized Signatory — company signs first (left side) */}
+          <View style={S.signatureBlock}>
+            <Text style={S.signatureHeading}>For {COMPANY.name}</Text>
+            <View style={S.signatureLine}>
+              <Text style={S.signatureLineText}>{COMPANY.name}</Text>
+              <Text style={S.signatureSubText}>Authorized Signatory</Text>
             </View>
           </View>
-        ) : null}
 
-        {showSupport ? (
-          <View style={styles.contentSection}>
-            <Text style={styles.sectionHeading}>Support:</Text>
-            <View style={styles.introCard}>
-              {supportItems.map((item, index) => (
-                <View key={index} style={styles.listItemRow}>
-                  <Text style={styles.listBullet}>-</Text>
-                  <Text style={styles.listText}>{item}</Text>
-                </View>
-              ))}
+          {/* Client Acceptance (right side) */}
+          <View style={S.signatureBlockLast}>
+            <Text style={S.signatureHeading}>Accepted By (Client)</Text>
+            <View style={S.signatureLine}>
+              <Text style={S.signatureLineText}>
+                {hasText(source.name) ? source.name! : '___________________________'}
+              </Text>
+              {hasText(source.company) && (
+                <Text style={S.signatureSubText}>{source.company}</Text>
+              )}
+              <Text style={S.signatureSubText}>Date: _________________________</Text>
             </View>
           </View>
-        ) : null}
 
-        {showTerms ? (
-          <View style={styles.contentSection}>
-            <Text style={styles.sectionHeading}>Terms:</Text>
-            <View style={styles.introCard}>
-              {termsItems.map((item, index) => (
-                <View key={index} style={styles.listItemRow}>
-                  <Text style={styles.listBullet}>-</Text>
-                  <Text style={styles.listText}>{item}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        ) : null}
-
-        {showGstNote ? (
-          <View style={styles.noticeBox}>
-            <Text style={styles.noticeTitle}>Important Tax Note</Text>
-            <Text style={styles.noticeText}>{GST_NOTE}</Text>
-          </View>
-        ) : null}
-
-        <View style={styles.footerBlueLine} />
-        <View style={styles.footerContactRow}>
-          <Text style={styles.footerWebsite}>{COMPANY_PROFILE.website}</Text>
-          <Text style={styles.footerContacts}>{COMPANY_PROFILE.email} | {COMPANY_PROFILE.phone}</Text>
         </View>
+
+        {/* ── FOOTER ─────────────────────────────────────────────────────── */}
+        <View style={S.footer} fixed>
+          <View style={S.footerRule} />
+          <View style={S.footerContent}>
+            <Text style={S.footerLeft}>{COMPANY.name}  |  {COMPANY.email}</Text>
+            <Text
+              style={S.footerCenter}
+              render={({ pageNumber, totalPages }) =>
+                `Page ${pageNumber} of ${totalPages}`
+              }
+            />
+            <Text style={S.footerRight}>{quotation.quotation_number}  |  Confidential</Text>
+          </View>
+        </View>
+
       </Page>
     </Document>
   )
