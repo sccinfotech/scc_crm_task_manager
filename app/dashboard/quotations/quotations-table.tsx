@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { EmptyState } from '@/app/components/empty-state'
 import { useToast } from '@/app/components/ui/toast-context'
+import { Tooltip } from '@/app/components/ui/tooltip'
 import type { QuotationListItem, QuotationStatus } from '@/lib/quotations/actions'
 import { downloadQuotationPdf } from '@/lib/quotations/pdf-download'
 import type { QuotationSortField } from './quotation-filters'
@@ -52,6 +53,7 @@ interface QuotationsTableProps {
   onChangeStatus: (id: string, quotationNumber: string, currentStatus: QuotationStatus) => void
   onEdit: (id: string) => void
   onDelete: (id: string, quotationNumber: string) => void
+  onConvert?: (id: string) => void
   sortField: QuotationSortField
   sortDirection: 'asc' | 'desc' | null
   onSort?: (field: QuotationSortField) => void
@@ -66,6 +68,7 @@ export function QuotationsTable({
   onChangeStatus,
   onEdit,
   onDelete,
+  onConvert,
   sortField,
   sortDirection,
   onSort,
@@ -176,75 +179,100 @@ export function QuotationsTable({
               </td>
               <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
                 <div className="flex items-center justify-end gap-1">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      void handleDownloadPdf(q.id, q.quotation_number)
-                    }}
-                    disabled={isDownloading}
-                    className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
-                    aria-label="Download quotation PDF"
-                    title="Download quotation PDF"
-                  >
-                    {isDownloading ? (
-                      <svg className="h-4.5 w-4.5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
-                        <path className="opacity-90" fill="currentColor" d="M12 2a10 10 0 0 1 10 10h-3a7 7 0 0 0-7-7V2z" />
-                      </svg>
-                    ) : (
-                      <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v11m0 0l4-4m-4 4l-4-4M5 17v1a2 2 0 002 2h10a2 2 0 002-2v-1" />
-                      </svg>
-                    )}
-                  </button>
-                  {canWrite && q.status !== 'converted' && (
+                  <Tooltip content="Download quotation PDF">
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation()
-                        onChangeStatus(q.id, q.quotation_number, q.status)
+                        void handleDownloadPdf(q.id, q.quotation_number)
                       }}
-                      className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-cyan-50 hover:text-cyan-600"
-                      aria-label="Change quotation status"
-                      title="Change quotation status"
+                      disabled={isDownloading}
+                      className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label="Download quotation PDF"
                     >
-                      <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h10m-10 6h6" />
-                      </svg>
+                      {isDownloading ? (
+                        <svg className="h-4.5 w-4.5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                          <path className="opacity-90" fill="currentColor" d="M12 2a10 10 0 0 1 10 10h-3a7 7 0 0 0-7-7V2z" />
+                        </svg>
+                      ) : (
+                        <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v11m0 0l4-4m-4 4l-4-4M5 17v1a2 2 0 002 2h10a2 2 0 002-2v-1" />
+                        </svg>
+                      )}
                     </button>
+                  </Tooltip>
+                  {canWrite && q.status !== 'converted' && (
+                    <Tooltip content="Change quotation status">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onChangeStatus(q.id, q.quotation_number, q.status)
+                        }}
+                        className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-cyan-50 hover:text-cyan-600"
+                        aria-label="Change quotation status"
+                      >
+                        <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h10m-10 6h6" />
+                        </svg>
+                      </button>
+                    </Tooltip>
+                  )}
+                  {canWrite && q.status === 'approved' && q.status !== 'converted' && onConvert && (
+                    <Tooltip content="Convert to project">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onConvert(q.id)
+                        }}
+                        className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-teal-50 hover:text-teal-600"
+                        aria-label="Convert quotation to project"
+                      >
+                        <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M9 5h6a2 2 0 012 2v2M9 19h6a2 2 0 002-2v-2M9 19a2 2 0 01-2-2v-2m0-4V7a2 2 0 012-2m0 0L7 3m2 2l2 2"
+                          />
+                        </svg>
+                      </button>
+                    </Tooltip>
                   )}
                   {canWrite && q.status !== 'converted' && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onEdit(q.id)
-                      }}
-                      className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
-                      aria-label="Edit quotation"
-                      title="Edit quotation"
-                    >
-                      <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                    </button>
+                    <Tooltip content="Edit quotation">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onEdit(q.id)
+                        }}
+                        className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+                        aria-label="Edit quotation"
+                      >
+                        <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                    </Tooltip>
                   )}
                   {canDelete && q.status !== 'converted' && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onDelete(q.id, q.quotation_number)
-                      }}
-                      className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-                      aria-label="Delete quotation"
-                      title="Delete quotation"
-                    >
-                      <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
+                    <Tooltip content="Delete quotation">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onDelete(q.id, q.quotation_number)
+                        }}
+                        className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                        aria-label="Delete quotation"
+                      >
+                        <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </Tooltip>
                   )}
                 </div>
               </td>

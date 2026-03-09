@@ -15,7 +15,7 @@ type Lead = {
   created_by?: string
 }
 
-type SortField = 'name' | 'company_name' | 'phone' | 'status' | 'follow_up_date' | 'created_at' | null
+type SortField = 'name' | 'phone' | 'status' | 'follow_up_date' | 'created_at' | null
 type SortDirection = 'asc' | 'desc' | null
 
 interface LeadsTableProps {
@@ -169,6 +169,11 @@ const LeadTableRow = memo(function LeadTableRow({
             <span className="truncate text-sm sm:text-base font-semibold text-gray-900 leading-tight" title={lead.name}>
               {lead.name}
             </span>
+            {lead.company_name && (
+              <span className="truncate text-xs sm:text-sm text-gray-500 mt-0.5" title={lead.company_name}>
+                {lead.company_name}
+              </span>
+            )}
           </div>
         </Link>
       </td>
@@ -187,13 +192,6 @@ const LeadTableRow = memo(function LeadTableRow({
           ) : (
             <span className="text-gray-500 font-medium">—</span>
           )}
-        </div>
-      </td>
-
-      {/* Company */}
-      <td className="hidden px-4 py-3 sm:table-cell">
-        <div className="truncate text-sm text-gray-500" title={lead.company_name || '—'}>
-          {lead.company_name || '—'}
         </div>
       </td>
 
@@ -352,15 +350,6 @@ export const LeadsTable = memo(function LeadsTable({
               <div className="flex items-center">
                 Phone
                 <SortIcon direction={sortField === 'phone' ? sortDirection : null} />
-              </div>
-            </th>
-            <th
-              className="group hidden sm:table-cell sm:w-[15%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-all duration-200"
-              onClick={() => handleSort('company_name')}
-            >
-              <div className="flex items-center">
-                Company
-                <SortIcon direction={sortField === 'company_name' ? sortDirection : null} />
               </div>
             </th>
             {/* Notes column — only visible on large screens */}

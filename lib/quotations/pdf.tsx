@@ -40,43 +40,56 @@ const S = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 10,
+    marginBottom: 14,
+    gap: 24,
   },
   letterheadLeft: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     flex: 1,
+    minWidth: 0,
+    maxWidth: 320,
   },
   logo: {
-    width: 54,
-    height: 54,
-    marginRight: 12,
+    width: 72,
+    height: 72,
+    minWidth: 72,
+    minHeight: 72,
+    marginRight: 16,
+    flexShrink: 0,
+  },
+  companyInfoBlock: {
+    flex: 1,
+    minWidth: 0,
   },
   companyName: {
     fontSize: 16,
     fontFamily: 'Helvetica-Bold',
     color: '#000000',
-    marginBottom: 3,
+    marginBottom: 4,
   },
   companyDetail: {
     fontSize: 8.5,
     color: '#333333',
-    marginBottom: 1.5,
+    marginBottom: 2,
+    lineHeight: 1.4,
   },
   letterheadRight: {
     width: 220,
+    minWidth: 220,
+    flexShrink: 0,
     alignItems: 'flex-end',
   },
   docLabel: {
     fontSize: 22,
     fontFamily: 'Helvetica-Bold',
     color: '#000000',
-    marginBottom: 3,
+    marginBottom: 15,
   },
   docRefLine: {
     fontSize: 9,
     color: '#333333',
-    marginBottom: 1.5,
+    marginBottom: 2.5,
     textAlign: 'right',
   },
 
@@ -84,7 +97,7 @@ const S = StyleSheet.create({
   ruleThick: {
     height: 2,
     backgroundColor: '#000000',
-    marginTop: 8,
+    marginTop: 12,
     marginBottom: 2,
   },
   ruleThin: {
@@ -167,9 +180,12 @@ const S = StyleSheet.create({
 
   // ── Greeting ──────────────────────────────────────────────────────────────
   greeting: {
-    fontSize: 10,
+    fontSize: 12,
     color: '#000000',
     marginBottom: 6,
+  },
+  greetingName: {
+    fontFamily: 'Helvetica-Bold',
   },
   greetingBody: {
     fontSize: 10,
@@ -236,6 +252,12 @@ const S = StyleSheet.create({
   tableRowLast: {
     flexDirection: 'row',
   },
+  tableTotalRow: {
+    flexDirection: 'row',
+    backgroundColor: '#2d2d2d',
+    borderTopWidth: 1.5,
+    borderTopColor: '#000000',
+  },
 
   // Column widths
   colSr: {
@@ -268,6 +290,11 @@ const S = StyleSheet.create({
     paddingVertical: 6,
     alignItems: 'flex-end',
     justifyContent: 'flex-start',
+  },
+  tableTotalCellText: {
+    fontSize: 9.5,
+    fontFamily: 'Helvetica-Bold',
+    color: '#FFFFFF',
   },
 
   thText: {
@@ -688,7 +715,7 @@ export function QuotationPdfDocument({
           {/* Left: Logo + Company */}
           <View style={S.letterheadLeft}>
             <Image src={SCC_LOGO_PATH} style={S.logo} />
-            <View>
+            <View style={S.companyInfoBlock}>
               <Text style={S.companyName}>{COMPANY.name}</Text>
               <Text style={S.companyDetail}>{COMPANY.addressLine1}</Text>
               <Text style={S.companyDetail}>{COMPANY.addressLine2}</Text>
@@ -744,18 +771,11 @@ export function QuotationPdfDocument({
           </View>
         </View>
 
-        {/* ── SUBJECT ────────────────────────────────────────────────────── */}
-        <View style={S.subjectRow}>
-          <Text style={S.subjectLabel}>Subject:</Text>
-          <Text style={S.subjectText}>{subjectText}</Text>
-        </View>
-
         {/* ── GREETING ───────────────────────────────────────────────────── */}
-        <Text style={S.greeting}>Dear {recipientName},</Text>
+        <Text style={S.greeting}>Dear <Text style={S.greetingName}>{recipientName},</Text></Text>
         <Text style={S.greetingBody}>
           Thank you for giving us the opportunity to submit this quotation. We are pleased to present
-          our proposal for the above-mentioned subject. Please find below the detailed scope of work
-          and commercial terms for your review.
+          our proposal. Please find below the detailed scope of work and commercial terms for your review.
         </Text>
 
         {/* ── SCOPE OF WORK ──────────────────────────────────────────────── */}
@@ -915,34 +935,47 @@ export function QuotationPdfDocument({
                 )
               })}
 
+              {/* Total Estimated Value — merged row with highlight */}
+              <View style={S.tableTotalRow}>
+                <View style={S.colSr}>
+                  <Text style={S.tableTotalCellText} />
+                </View>
+                <View style={[S.colType, { alignItems: 'flex-start' }]}>
+                  <Text style={S.tableTotalCellText}>Total Estimated Value</Text>
+                </View>
+                <View style={S.colAmt}>
+                  <Text style={[S.tableTotalCellText, { textAlign: 'right' }]}>{formatCurrency(finalTotal)}</Text>
+                </View>
+              </View>
+
             </View>
 
-            {/* Summary */}
-            <View style={S.summarySection}>
-              <View style={S.summaryTable}>
-                {showDiscount && (
+            {/* Summary: Subtotal/Discount only when applicable; GST note always */}
+            {showDiscount ? (
+              <View style={S.summarySection}>
+                <View style={S.summaryTable}>
                   <View style={S.summaryRow}>
                     <Text style={S.summaryLabel}>Subtotal</Text>
                     <Text style={S.summaryValue}>{formatCurrency(subtotal)}</Text>
                   </View>
-                )}
-                {showDiscount && (
                   <View style={S.summaryRow}>
                     <Text style={S.summaryLabel}>Discount</Text>
                     <Text style={S.summaryValue}>- {formatCurrency(discount)}</Text>
                   </View>
-                )}
-                <View style={S.summaryTotalRow}>
-                  <Text style={S.summaryTotalLabel}>Total Estimated Value</Text>
-                  <Text style={S.summaryTotalValue}>{formatCurrency(finalTotal)}</Text>
+                </View>
+                <View style={S.gstNote}>
+                  <Text style={S.gstNoteText}>
+                    * All amounts are exclusive of GST. Applicable GST will be charged extra as per government norms.
+                  </Text>
                 </View>
               </View>
-              <View style={S.gstNote}>
+            ) : (
+              <View style={[S.gstNote, { marginTop: 8 }]}>
                 <Text style={S.gstNoteText}>
                   * All amounts are exclusive of GST. Applicable GST will be charged extra as per government norms.
                 </Text>
               </View>
-            </View>
+            )}
 
           </View>
         )}

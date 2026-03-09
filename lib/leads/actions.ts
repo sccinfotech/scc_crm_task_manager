@@ -204,7 +204,6 @@ export type FollowUpDateFilter =
 
 export type LeadSortField =
   | 'name'
-  | 'company_name'
   | 'phone'
   | 'status'
   | 'follow_up_date'
