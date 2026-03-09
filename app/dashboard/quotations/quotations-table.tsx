@@ -219,7 +219,7 @@ export function QuotationsTable({
                       </button>
                     </Tooltip>
                   )}
-                  {canWrite && q.status === 'approved' && q.status !== 'converted' && onConvert && (
+                  {canWrite && q.status === 'approved' && onConvert && (
                     <Tooltip content="Convert to project">
                       <button
                         type="button"
