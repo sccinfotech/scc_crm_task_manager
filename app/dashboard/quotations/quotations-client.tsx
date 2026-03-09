@@ -7,21 +7,27 @@ import { QuotationFilters, type QuotationSortField } from './quotation-filters'
 import { QuotationModal } from './quotation-modal'
 import { SidebarToggleButton } from '@/app/components/dashboard/sidebar-context'
 import { Pagination } from '@/app/components/ui/pagination'
+import { Tooltip } from '@/app/components/ui/tooltip'
+import { ProjectModal } from '@/app/dashboard/projects/project-modal'
 import {
   createQuotation,
   deleteQuotation,
   getQuotation,
   changeQuotationStatus,
   updateQuotation,
+  startQuotationConversion,
+  completeQuotationConversion,
   type Quotation,
   type QuotationListItem,
   type QuotationStatus,
   type QuotationSourceType,
   type QuotationFormData,
 } from '@/lib/quotations/actions'
+import { createProject, type ProjectFormData } from '@/lib/projects/actions'
 import { getLeadsForSelect, type LeadSelectOption } from '@/lib/leads/actions'
-import type { ClientSelectOption } from '@/lib/clients/actions'
+import { getClientsForSelect, type ClientSelectOption } from '@/lib/clients/actions'
 import type { TechnologyTool } from '@/lib/settings/technology-tools-actions'
+import type { StaffSelectOption } from '@/lib/users/actions'
 import { useToast } from '@/app/components/ui/toast-context'
 
 const STATUS_OPTIONS: QuotationStatus[] = [
@@ -60,6 +66,8 @@ interface QuotationsClientProps {
   clients: ClientSelectOption[]
   technologyTools: TechnologyTool[]
   technologyToolsError?: string | null
+  teamMembers: StaffSelectOption[]
+  canViewAmount: boolean
 }
 
 export function QuotationsClient({
@@ -79,6 +87,8 @@ export function QuotationsClient({
   clients,
   technologyTools,
   technologyToolsError = null,
+  teamMembers,
+  canViewAmount,
 }: QuotationsClientProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -90,6 +100,9 @@ export function QuotationsClient({
   const [editLoading, setEditLoading] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [statusChanging, setStatusChanging] = useState(false)
+  const [convertConfirmOpen, setConvertConfirmOpen] = useState(false)
+  const [conversionLoading, setConversionLoading] = useState(false)
+  const [projectModalOpen, setProjectModalOpen] = useState(false)
   const [selectedQuotationId, setSelectedQuotationId] = useState<string | null>(null)
   const [selectedQuotation, setSelectedQuotation] = useState<Quotation | null>(null)
   const [deleteQuotationNumber, setDeleteQuotationNumber] = useState('')
@@ -97,6 +110,11 @@ export function QuotationsClient({
   const [statusQuotationId, setStatusQuotationId] = useState<string | null>(null)
   const [statusQuotationNumber, setStatusQuotationNumber] = useState('')
   const [statusCurrent, setStatusCurrent] = useState<QuotationStatus | null>(null)
+  const [conversionQuotationId, setConversionQuotationId] = useState<string | null>(null)
+  const [conversionQuotationNumber, setConversionQuotationNumber] = useState('')
+  const [conversionSourceType, setConversionSourceType] = useState<QuotationSourceType | null>(null)
+  const [projectInitialData, setProjectInitialData] = useState<Partial<ProjectFormData> | null>(null)
+  const [conversionClients, setConversionClients] = useState<ClientSelectOption[]>([])
   const safeLeads = Array.isArray(leads) ? leads : []
   const [leadsForForm, setLeadsForForm] = useState<LeadSelectOption[]>(safeLeads)
   const [preselectedLeadOrClient, setPreselectedLeadOrClient] = useState<string | null>(null)
@@ -310,6 +328,71 @@ export function QuotationsClient({
     }
   }
 
+  const handleOpenConvert = (quotationId: string) => {
+    if (!canWrite) {
+      showError('Read-only Access', 'You do not have permission to convert quotations.')
+      return
+    }
+    const q = quotations.find((item) => item.id === quotationId)
+    if (!q) return
+    if (q.status !== 'approved') {
+      showError('Cannot Convert', 'Only an approved quotation can be converted.')
+      return
+    }
+    setConversionQuotationId(quotationId)
+    setConversionQuotationNumber(q.quotation_number)
+    setConversionSourceType(q.source_type)
+    setConvertConfirmOpen(true)
+  }
+
+  const handleConfirmConvert = async () => {
+    if (!conversionQuotationId || !canWrite) return
+    if (conversionLoading) return
+    setConversionLoading(true)
+    const start = await startQuotationConversion(conversionQuotationId)
+    setConversionLoading(false)
+    if (start.error) {
+      showError('Cannot Convert', start.error)
+      return
+    }
+    const { data: latestClients } = await getClientsForSelect()
+    setConversionClients(latestClients ?? [])
+    const defaultDeadline = new Date()
+    defaultDeadline.setDate(defaultDeadline.getDate() + 30)
+    const initialData: Partial<ProjectFormData> = {
+      client_id: start.client_id,
+      project_amount: start.quotation.final_total,
+      technology_tool_ids: start.quotation.technology_tools?.map((t) => t.id) ?? [],
+      name: `Project from ${start.quotation.quotation_number}`,
+      client_deadline_date: defaultDeadline.toISOString().slice(0, 10),
+    }
+    setProjectInitialData(initialData)
+    setProjectModalOpen(true)
+    setConvertConfirmOpen(false)
+  }
+
+  const handleProjectSubmitFromConversion = async (formData: ProjectFormData) => {
+    const result = await createProject(formData)
+    if (result.error || !result.data) return result
+    const projectId = (result.data as { id: string }).id
+    if (conversionQuotationId) {
+      const complete = await completeQuotationConversion(conversionQuotationId, projectId)
+      if (complete.error) {
+        showError('Conversion Incomplete', complete.error)
+        return result
+      }
+      showSuccess('Quotation Converted', 'Project created and requirements transferred.')
+      setProjectModalOpen(false)
+      setConversionQuotationId(null)
+      setProjectInitialData(null)
+      setConversionQuotationNumber('')
+      setConversionSourceType(null)
+      router.refresh()
+      router.push(`/dashboard/projects/${projectId}`)
+    }
+    return result
+  }
+
   const isFiltered =
     statusFilter !== 'all' ||
     sourceFilter !== 'all' ||
@@ -344,16 +427,18 @@ export function QuotationsClient({
             <h1 className="text-2xl font-semibold text-[#1E1B4B]">Quotations</h1>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleRefresh}
-              title="Refresh"
-              className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            </button>
+            <Tooltip content="Refresh quotations">
+              <button
+                type="button"
+                onClick={handleRefresh}
+                className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                aria-label="Refresh quotations"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+            </Tooltip>
             <button
               type="button"
               onClick={() => setCreateModalOpen(true)}
@@ -387,6 +472,7 @@ export function QuotationsClient({
                 onChangeStatus={handleOpenStatusChange}
                 onEdit={handleEdit}
                 onDelete={handleDeleteOpen}
+                onConvert={handleOpenConvert}
                 sortField={sortField}
                 sortDirection={sortDirection}
                 onSort={handleSort}
@@ -529,6 +615,87 @@ export function QuotationsClient({
             </button>
           </div>
         </div>
+      )}
+
+      {convertConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <div className="absolute inset-0 bg-black/50" />
+          <div className="relative z-10 w-full max-w-md rounded-2xl bg-white shadow-xl">
+            <div className="border-b border-gray-200 px-6 py-4">
+              <h2 className="text-xl font-semibold text-[#1E1B4B]">Convert to Project</h2>
+            </div>
+            <div className="px-6 py-6 space-y-3">
+              <p className="text-sm text-gray-700">
+                You are about to convert quotation{' '}
+                <span className="font-semibold">{conversionQuotationNumber}</span> into a project.
+              </p>
+              {conversionSourceType === 'lead' ? (
+                <p className="text-sm text-gray-600">
+                  This quotation is linked to a <span className="font-semibold">Lead</span>. A new client will be created
+                  from the quotation&apos;s client information, then a project will be created and all requirements will be
+                  transferred.
+                </p>
+              ) : (
+                <p className="text-sm text-gray-600">
+                  This quotation is linked to a <span className="font-semibold">Client</span>. A project will be created for
+                  this client and all quotation requirements will be transferred.
+                </p>
+              )}
+              <p className="text-xs text-amber-600">
+                After conversion, this quotation will be marked as <span className="font-semibold">Converted</span> and can
+                no longer be edited.
+              </p>
+            </div>
+            <div className="flex justify-end gap-3 border-t border-gray-200 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => !conversionLoading && setConvertConfirmOpen(false)}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-60"
+                disabled={conversionLoading}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmConvert}
+                className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={conversionLoading}
+              >
+                {conversionLoading && (
+                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                    <path className="opacity-90" fill="currentColor" d="M12 2a10 10 0 0 1 10 10h-3a7 7 0 0 0-7-7V2z" />
+                  </svg>
+                )}
+                <span>Convert to Project</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {projectModalOpen && projectInitialData && (
+        <ProjectModal
+          isOpen={projectModalOpen}
+          onClose={() => {
+            setProjectModalOpen(false)
+            setConversionQuotationId(null)
+            setProjectInitialData(null)
+            setConversionQuotationNumber('')
+            setConversionSourceType(null)
+          }}
+          mode="create"
+          initialData={projectInitialData}
+          onSubmit={handleProjectSubmitFromConversion}
+          clients={conversionClients.length > 0 ? conversionClients : clients}
+          clientsError={null}
+          canViewAmount={canViewAmount}
+          technologyTools={technologyTools}
+          technologyToolsError={technologyToolsError ?? null}
+          teamMembers={teamMembers}
+          teamMembersError={null}
+          selectedClientId={projectInitialData.client_id ?? ''}
+        />
       )}
     </>
   )

@@ -124,6 +124,7 @@ export function QuotationDetailView({
   const [statusModalOpen, setStatusModalOpen] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [projectModalOpen, setProjectModalOpen] = useState(false)
+  const [convertConfirmOpen, setConvertConfirmOpen] = useState(false)
   const [conversionLoading, setConversionLoading] = useState(false)
   const [editLoading, setEditLoading] = useState(false)
   const [pdfDownloading, setPdfDownloading] = useState(false)
@@ -401,14 +402,30 @@ export function QuotationDetailView({
                 </>
               )}
               {showConvert && (
-                <button
-                  type="button"
-                  onClick={handleConvertClick}
-                  disabled={conversionLoading}
-                  className="rounded-lg bg-[#06B6D4] px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#0891b2] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {conversionLoading ? 'Preparing...' : 'Convert'}
-                </button>
+                <Tooltip content="Convert to project">
+                  <button
+                    type="button"
+                    onClick={() => setConvertConfirmOpen(true)}
+                    disabled={conversionLoading}
+                    className="rounded-lg p-2 text-teal-600 transition-colors duration-200 hover:bg-teal-50 hover:text-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-60"
+                    aria-label="Convert quotation to project"
+                  >
+                    {conversionLoading ? (
+                      <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                        <path className="opacity-90" fill="currentColor" d="M12 2a10 10 0 0 1 10 10h-3a7 7 0 0 0-7-7V2z" />
+                      </svg>
+                    ) : (
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M9 5h6a2 2 0 012 2v2M9 19h6a2 2 0 002-2v-2M9 19a2 2 0 01-2-2v-2m0-4V7a2 2 0 012-2m0 0L7 3m2 2l2 2"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                </Tooltip>
               )}
               {isAdmin && !isConverted && (
                 <Tooltip content="Delete quotation">
@@ -737,6 +754,67 @@ export function QuotationDetailView({
                 className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {convertConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <div className="absolute inset-0 bg-black/50" />
+          <div className="relative z-10 w-full max-w-md rounded-2xl bg-white shadow-xl">
+            <div className="border-b border-gray-200 px-6 py-4">
+              <h2 className="text-xl font-semibold text-[#1E1B4B]">Convert to Project</h2>
+            </div>
+            <div className="px-6 py-6 space-y-3">
+              <p className="text-sm text-gray-700">
+                You are about to convert quotation{' '}
+                <span className="font-semibold">{quotation.quotation_number}</span> into a project.
+              </p>
+              {quotation.source_type === 'lead' ? (
+                <p className="text-sm text-gray-600">
+                  This quotation is linked to a <span className="font-semibold">Lead</span>. A new client will be created
+                  from the quotation&apos;s client information, then a project will be created and all requirements will be
+                  transferred.
+                </p>
+              ) : (
+                <p className="text-sm text-gray-600">
+                  This quotation is linked to a <span className="font-semibold">Client</span>. A project will be created for
+                  this client and all quotation requirements will be transferred.
+                </p>
+              )}
+              <p className="text-xs text-amber-600">
+                After conversion, this quotation will be marked as <span className="font-semibold">Converted</span> and can
+                no longer be edited.
+              </p>
+            </div>
+            <div className="flex justify-end gap-3 border-t border-gray-200 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => !conversionLoading && setConvertConfirmOpen(false)}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-60"
+                disabled={conversionLoading}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (conversionLoading) return
+                  await handleConvertClick()
+                  setConvertConfirmOpen(false)
+                }}
+                className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={conversionLoading}
+              >
+                {conversionLoading && (
+                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                    <path className="opacity-90" fill="currentColor" d="M12 2a10 10 0 0 1 10 10h-3a7 7 0 0 0-7-7V2z" />
+                  </svg>
+                )}
+                <span>Convert to Project</span>
               </button>
             </div>
           </div>

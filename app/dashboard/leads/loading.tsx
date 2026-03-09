@@ -18,7 +18,6 @@ export default function LeadsLoading() {
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
                 <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Lead Name</th>
-                <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Company</th>
                 <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Phone</th>
                 <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Status</th>
                 <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Follow-up</th>
@@ -30,7 +29,6 @@ export default function LeadsLoading() {
               {[...Array(10)].map((_, i) => (
                 <tr key={i} className="animate-pulse">
                   <td className="whitespace-nowrap px-3 sm:px-4 py-4"><div className="h-4 w-32 rounded bg-gray-200" /></td>
-                  <td className="whitespace-nowrap px-3 sm:px-4 py-4"><div className="h-4 w-24 rounded bg-gray-200" /></td>
                   <td className="whitespace-nowrap px-3 sm:px-4 py-4"><div className="h-4 w-28 rounded bg-gray-200" /></td>
                   <td className="whitespace-nowrap px-3 sm:px-4 py-4"><div className="h-6 w-20 rounded-full bg-gray-200" /></td>
                   <td className="whitespace-nowrap px-3 sm:px-4 py-4"><div className="h-4 w-24 rounded bg-gray-200" /></td>

@@ -10,6 +10,7 @@ import {
 import { getLeadsForSelect } from '@/lib/leads/actions'
 import { getClientsForSelect } from '@/lib/clients/actions'
 import { getTechnologyTools } from '@/lib/settings/technology-tools-actions'
+import { getStaffForSelect } from '@/lib/users/actions'
 
 const PAGE_SIZE = 20
 
@@ -37,7 +38,7 @@ export default async function QuotationsPage({
   const params = await searchParams
   const page = Math.max(1, parseInt(params.page ?? '1', 10) || 1)
 
-  const [result, leadsRes, clientsRes, toolsRes] = await Promise.all([
+  const [result, leadsRes, clientsRes, toolsRes, staffRes] = await Promise.all([
     getQuotationsPage({
     search: params.search,
     status: (params.status as QuotationStatus | undefined) ?? 'all',
@@ -51,11 +52,14 @@ export default async function QuotationsPage({
     getLeadsForSelect(),
     getClientsForSelect(),
     getTechnologyTools({ includeInactive: false }),
+    getStaffForSelect(),
   ])
 
   const leads = Array.isArray(leadsRes?.data) ? leadsRes.data : []
   const clients = Array.isArray(clientsRes?.data) ? clientsRes.data : []
   const technologyTools = Array.isArray(toolsRes?.data) ? toolsRes.data : []
+  const teamMembers = Array.isArray(staffRes?.data) ? staffRes.data : []
+  const canViewAmount = user.role === 'admin' || user.role === 'manager'
 
   if (result.error) {
     return (
@@ -83,6 +87,8 @@ export default async function QuotationsPage({
       clients={clients}
       technologyTools={technologyTools}
       technologyToolsError={toolsRes.error ?? null}
+      teamMembers={teamMembers}
+      canViewAmount={canViewAmount}
     />
   )
 }
