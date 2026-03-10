@@ -101,7 +101,8 @@ export function AccountingClient(props: AccountingClientProps) {
     (updates: Record<string, string | number | undefined>) => {
       const p = new URLSearchParams()
       p.set('tab', currentTab)
-      const page = updates.page ?? (currentTab === 'entries' ? props.entriesPage : currentTab === 'accounts' ? props.accountsPage : props.categoriesPage) ?? 1
+      const pageRaw = updates.page ?? (currentTab === 'entries' ? props.entriesPage : currentTab === 'accounts' ? props.accountsPage : props.categoriesPage) ?? 1
+      const page = typeof pageRaw === 'number' ? pageRaw : Math.max(1, parseInt(String(pageRaw), 10) || 1)
       if (page > 1) p.set('page', String(page))
       if (currentTab === 'entries') {
         const search = updates.search ?? props.initialEntriesSearch ?? ''
