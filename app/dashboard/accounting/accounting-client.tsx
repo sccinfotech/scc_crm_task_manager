@@ -111,22 +111,22 @@ export function AccountingClient(props: AccountingClientProps) {
         const type = updates.type ?? props.initialEntriesType ?? 'all'
         const account = updates.account ?? props.initialEntriesAccountId ?? ''
         const category = updates.category ?? props.initialEntriesCategoryId ?? ''
-        if (search) p.set('search', search)
-        if (from) p.set('from', from)
-        if (to) p.set('to', to)
+        if (search) p.set('search', String(search))
+        if (from) p.set('from', String(from))
+        if (to) p.set('to', String(to))
         if (type && type !== 'all') p.set('type', String(type))
-        if (account) p.set('account', account)
-        if (category) p.set('category', category)
+        if (account) p.set('account', String(account))
+        if (category) p.set('category', String(category))
       } else if (currentTab === 'accounts') {
         const search = updates.search ?? props.initialAccountsSearch ?? ''
         const status = updates.status ?? props.initialAccountsStatus ?? 'all'
-        if (search) p.set('search', search)
+        if (search) p.set('search', String(search))
         if (status && status !== 'all') p.set('status', String(status))
       } else {
         const search = updates.search ?? props.initialCategoriesSearch ?? ''
         const type = updates.type ?? props.initialCategoriesType ?? 'all'
         const status = updates.status ?? props.initialCategoriesStatus ?? 'all'
-        if (search) p.set('search', search)
+        if (search) p.set('search', String(search))
         if (type && type !== 'all') p.set('type', String(type))
         if (status && status !== 'all') p.set('status', String(status))
       }
