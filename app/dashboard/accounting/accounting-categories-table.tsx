@@ -13,10 +13,12 @@ interface AccountingCategoriesTableProps {
 export function AccountingCategoriesTable({ categories, canWrite, onEdit, onDelete }: AccountingCategoriesTableProps) {
   if (categories.length === 0) {
     return (
-      <EmptyState
-        title="No categories"
-        description="Add an income or expense category to organize entries."
-      />
+      <div className="flex min-h-[320px] flex-col items-center justify-center pt-16 pb-8">
+        <EmptyState
+          title="No categories"
+          description="Add an income or expense category to organize entries."
+        />
+      </div>
     )
   }
 
@@ -67,14 +69,14 @@ export function AccountingCategoriesTable({ categories, canWrite, onEdit, onDele
                     <button
                       type="button"
                       onClick={() => onEdit(row.id)}
-                      className="rounded-lg px-2 py-1.5 text-sm font-medium text-[#06B6D4] hover:bg-cyan-50"
+                      className="rounded-lg px-2 py-1.5 text-sm font-medium text-[#06B6D4] transition-colors hover:bg-cyan-50"
                     >
                       Edit
                     </button>
                     <button
                       type="button"
                       onClick={() => onDelete(row.id)}
-                      className="rounded-lg px-2 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
+                      className="rounded-lg px-2 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
                     >
                       Delete
                     </button>

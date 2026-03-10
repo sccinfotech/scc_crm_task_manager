@@ -25,8 +25,8 @@ const menuItems = [
   { name: 'Leads', href: '/dashboard/leads', icon: LeadsIcon, moduleId: MODULE_PERMISSION_IDS.leads },
   { name: 'Clients', href: '/dashboard/clients', icon: ClientsIcon, moduleId: MODULE_PERMISSION_IDS.clients },
   { name: 'Quotations', href: '/dashboard/quotations', icon: QuotationsIcon, moduleId: MODULE_PERMISSION_IDS.quotations },
-  { name: 'Projects', href: '/dashboard/projects', icon: ProjectsIcon, moduleId: MODULE_PERMISSION_IDS.projects },
   { name: 'Accounting', href: '/dashboard/accounting', icon: AccountingIcon, moduleId: MODULE_PERMISSION_IDS.accounting },
+  { name: 'Projects', href: '/dashboard/projects', icon: ProjectsIcon, moduleId: MODULE_PERMISSION_IDS.projects },
   { name: 'Users', href: '/dashboard/users', icon: UsersIcon, moduleId: MODULE_PERMISSION_IDS.users },
   { name: 'Logs', href: '/dashboard/logs', icon: LogsIcon, moduleId: MODULE_PERMISSION_IDS.logs },
   {

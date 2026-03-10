@@ -380,22 +380,62 @@ export function AccountingClient(props: AccountingClientProps) {
         </div>
       </div>
 
-      {/* Tab bar */}
-      <div className="flex gap-1 border-b border-gray-200 mb-4">
-        {TAB_VALUES.map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setTab(tab)}
-            className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors ${
-              currentTab === tab
-                ? 'bg-white border border-b-0 border-gray-200 text-[#06B6D4] -mb-px'
-                : 'text-gray-600 hover:text-[#1E1B4B] hover:bg-gray-50'
-            }`}
-          >
-            {tab === 'entries' ? 'Entries' : tab === 'accounts' ? 'Account' : 'Categories'}
-          </button>
-        ))}
+      {/* Tab bar with Add/Create buttons inline */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 mb-4">
+        <div className="flex gap-1">
+          {TAB_VALUES.map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setTab(tab)}
+              className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors ${
+                currentTab === tab
+                  ? 'bg-white border border-b-0 border-gray-200 text-[#06B6D4] -mb-px font-medium'
+                  : 'text-gray-600 hover:text-[#1E1B4B] hover:bg-gray-50 font-medium'
+              }`}
+            >
+              {tab === 'entries' ? 'Entries' : tab === 'accounts' ? 'Account' : 'Categories'}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2 pb-0.5">
+          {currentTab === 'entries' && canWrite && (
+            <>
+              <button
+                type="button"
+                onClick={openAddIncome}
+                className="btn-gradient-smooth rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#06B6D4]/25 transition-all duration-200 hover:shadow-xl hover:shadow-[#06B6D4]/30 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-offset-2 active:translate-y-0 active:shadow-lg"
+              >
+                Add Income
+              </button>
+              <button
+                type="button"
+                onClick={openAddExpense}
+                className="rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2"
+              >
+                Add Expense
+              </button>
+            </>
+          )}
+          {currentTab === 'accounts' && canWrite && (
+            <button
+              type="button"
+              onClick={openAddAccount}
+              className="btn-gradient-smooth rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#06B6D4]/25 transition-all duration-200 hover:shadow-xl hover:shadow-[#06B6D4]/30 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-offset-2 active:translate-y-0 active:shadow-lg"
+            >
+              Add Account
+            </button>
+          )}
+          {currentTab === 'categories' && canWrite && (
+            <button
+              type="button"
+              onClick={openAddCategory}
+              className="btn-gradient-smooth rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#06B6D4]/25 transition-all duration-200 hover:shadow-xl hover:shadow-[#06B6D4]/30 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-offset-2 active:translate-y-0 active:shadow-lg"
+            >
+              Add Category
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Dynamic action & filter bar */}
@@ -511,34 +551,17 @@ export function AccountingClient(props: AccountingClientProps) {
             </>
           )}
           {(currentTab === 'entries' && hasEntriesFilters) || (currentTab === 'accounts' && hasAccountsFilters) || (currentTab === 'categories' && hasCategoriesFilters) ? (
-            <button type="button" onClick={resetFilters} className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">
+            <button type="button" onClick={resetFilters} className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100">
               Reset filters
             </button>
           ) : null}
         </div>
-        {/* Action buttons on the right */}
         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-          {currentTab === 'entries' && canWrite && (
-            <>
-              <button type="button" onClick={openAddIncome} className="rounded-lg bg-[#15803D] px-4 py-2 text-sm font-semibold text-white hover:bg-[#166534]">
-                Add Income
-              </button>
-              <button type="button" onClick={openAddExpense} className="rounded-lg border border-[#B91C1C] bg-white px-4 py-2 text-sm font-semibold text-[#B91C1C] hover:bg-red-50">
-                Add Expense
-              </button>
-            </>
-          )}
-          {currentTab === 'accounts' && canWrite && (
-            <button type="button" onClick={openAddAccount} className="rounded-lg bg-[#06B6D4] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0891b2]">
-              Add Account
-            </button>
-          )}
-          {currentTab === 'categories' && canWrite && (
-            <button type="button" onClick={openAddCategory} className="rounded-lg bg-[#06B6D4] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0891b2]">
-              Add Category
-            </button>
-          )}
-          <button type="button" onClick={exportToCsv} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+          <button
+            type="button"
+            onClick={exportToCsv}
+            className="btn-gradient-smooth rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#06B6D4]/25 transition-all duration-200 hover:shadow-xl hover:shadow-[#06B6D4]/30 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-offset-2 active:translate-y-0 active:shadow-lg"
+          >
             Export
           </button>
         </div>
@@ -695,7 +718,7 @@ export function AccountingClient(props: AccountingClientProps) {
           <div className="relative z-10 w-full max-w-md bg-white shadow-xl flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
               <h2 className="text-lg font-semibold text-[#1E1B4B]">Account: {accountDetailPanel.name}</h2>
-              <button type="button" onClick={() => setAccountDetailPanel(null)} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+              <button type="button" onClick={() => setAccountDetailPanel(null)} className="rounded-xl p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600" aria-label="Close">
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
@@ -706,7 +729,11 @@ export function AccountingClient(props: AccountingClientProps) {
               <div className="flex justify-between text-sm border-t border-gray-100 pt-3"><span className="text-gray-500">Current Balance</span><span className="font-semibold">{accountDetailPanel.current_balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></div>
             </div>
             <div className="px-6 py-4 border-t border-gray-200">
-              <button type="button" onClick={viewAccountEntries} className="w-full rounded-lg bg-[#06B6D4] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0891b2]">
+              <button
+                type="button"
+                onClick={viewAccountEntries}
+                className="btn-gradient-smooth w-full rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#06B6D4]/25 transition-all duration-200 hover:shadow-xl hover:shadow-[#06B6D4]/30 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-offset-2 active:translate-y-0 active:shadow-lg"
+              >
                 View entries for this account
               </button>
             </div>

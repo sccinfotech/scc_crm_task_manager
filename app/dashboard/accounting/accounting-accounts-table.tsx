@@ -18,10 +18,12 @@ interface AccountingAccountsTableProps {
 export function AccountingAccountsTable({ accounts, canWrite, onView, onEdit, onDelete }: AccountingAccountsTableProps) {
   if (accounts.length === 0) {
     return (
-      <EmptyState
-        title="No accounts"
-        description="Add an account to start tracking balances."
-      />
+      <div className="flex min-h-[320px] flex-col items-center justify-center pt-16 pb-8">
+        <EmptyState
+          title="No accounts"
+          description="Add an account to start tracking balances."
+        />
+      </div>
     )
   }
 
@@ -79,14 +81,14 @@ export function AccountingAccountsTable({ accounts, canWrite, onView, onEdit, on
                     <button
                       type="button"
                       onClick={() => onEdit(row.id)}
-                      className="rounded-lg px-2 py-1.5 text-sm font-medium text-[#06B6D4] hover:bg-cyan-50"
+                      className="rounded-lg px-2 py-1.5 text-sm font-medium text-[#06B6D4] transition-colors hover:bg-cyan-50"
                     >
                       Edit
                     </button>
                     <button
                       type="button"
                       onClick={() => onDelete(row.id)}
-                      className="rounded-lg px-2 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
+                      className="rounded-lg px-2 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
                     >
                       Delete
                     </button>

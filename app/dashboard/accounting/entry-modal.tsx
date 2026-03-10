@@ -5,11 +5,6 @@ import type { EntryFormData, EntryType } from '@/lib/accounting/actions'
 import type { AccountSelectOption, CategorySelectOption } from '@/lib/accounting/actions'
 import { ListboxDropdown } from '@/app/components/ui/listbox-dropdown'
 
-const ENTRY_TYPE_OPTIONS: { value: EntryType; label: string }[] = [
-  { value: 'income', label: 'Income' },
-  { value: 'expense', label: 'Expense' },
-]
-
 interface EntryModalProps {
   isOpen: boolean
   onClose: () => void
@@ -101,21 +96,12 @@ export function EntryModal({
           <h2 className="text-xl font-semibold text-[#1E1B4B]">
             {mode === 'create' ? (entry_type === 'income' ? 'Add Income' : 'Add Expense') : 'Edit Entry'}
           </h2>
-          <button type="button" onClick={onClose} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+          <button type="button" onClick={onClose} className="rounded-xl p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600" aria-label="Close">
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-6 space-y-4">
           {error && <p className="text-sm text-red-600">{error}</p>}
-          <div>
-            <label className="block text-sm font-medium text-[#1E1B4B] mb-1">Type</label>
-            <ListboxDropdown
-              value={entry_type}
-              options={ENTRY_TYPE_OPTIONS}
-              onChange={(v) => setEntryType(v as EntryType)}
-              ariaLabel="Entry type"
-            />
-          </div>
           <div>
             <label className="block text-sm font-medium text-[#1E1B4B] mb-1">Account *</label>
             <ListboxDropdown
@@ -165,11 +151,11 @@ export function EntryModal({
               placeholder="Optional notes"
             />
           </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={onClose} className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2">
               Cancel
             </button>
-            <button type="submit" disabled={isLoading || submitting} className="rounded-lg bg-[#06B6D4] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0891b2] disabled:opacity-50">
+            <button type="submit" disabled={isLoading || submitting} className="btn-gradient-smooth rounded-xl px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#06B6D4]/25 transition-all duration-200 hover:shadow-xl hover:shadow-[#06B6D4]/30 focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0">
               {mode === 'create' ? 'Create' : 'Update'}
             </button>
           </div>
