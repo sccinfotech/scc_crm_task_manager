@@ -26,6 +26,7 @@ const menuItems = [
   { name: 'Clients', href: '/dashboard/clients', icon: ClientsIcon, moduleId: MODULE_PERMISSION_IDS.clients },
   { name: 'Quotations', href: '/dashboard/quotations', icon: QuotationsIcon, moduleId: MODULE_PERMISSION_IDS.quotations },
   { name: 'Accounting', href: '/dashboard/accounting', icon: AccountingIcon, moduleId: MODULE_PERMISSION_IDS.accounting },
+  { name: 'Payments', href: '/dashboard/payments', icon: PaymentIcon, adminOnly: true },
   { name: 'Projects', href: '/dashboard/projects', icon: ProjectsIcon, moduleId: MODULE_PERMISSION_IDS.projects },
   { name: 'Users', href: '/dashboard/users', icon: UsersIcon, moduleId: MODULE_PERMISSION_IDS.users },
   { name: 'Logs', href: '/dashboard/logs', icon: LogsIcon, moduleId: MODULE_PERMISSION_IDS.logs },
@@ -82,6 +83,14 @@ function AccountingIcon() {
   return (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  )
+}
+
+function PaymentIcon() {
+  return (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
     </svg>
   )
 }
@@ -242,6 +251,7 @@ export function Sidebar({
           <nav className={`flex-1 overflow-y-auto transition-all duration-300 ${isCollapsed ? 'px-2 py-4' : 'px-4 py-6'} scrollbar-hide`}>
             <ul className="space-y-2">
               {menuItems.filter(item => {
+                if ('adminOnly' in item && item.adminOnly) return userRole === 'admin'
                 if (!item.moduleId) return true
                 if (item.moduleId === MODULE_PERMISSION_IDS.projects) {
                   return (

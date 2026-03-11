@@ -19,6 +19,7 @@ export type EntryFormData = {
   amount: number
   entry_date: string
   remarks?: string | null
+  project_id?: string | null
 }
 
 export type EntryListItem = {
@@ -31,6 +32,8 @@ export type EntryListItem = {
   amount: number
   entry_date: string
   remarks: string | null
+  project_id: string | null
+  project_name: string | null
   created_at: string
 }
 
@@ -48,6 +51,7 @@ export type GetEntriesPageOptions = {
   entryType?: EntryType | 'all'
   accountId?: string
   categoryId?: string
+  projectId?: string
   sortField?: 'entry_date' | 'amount' | 'created_at'
   sortDirection?: 'asc' | 'desc'
   page?: number
@@ -66,6 +70,7 @@ export type AccountFormData = {
   name: string
   opening_balance: number
   status: AccountStatus
+  is_default?: boolean
 }
 
 export type AccountListItem = {
@@ -76,6 +81,7 @@ export type AccountListItem = {
   total_out: number
   current_balance: number
   status: AccountStatus
+  is_default: boolean
   created_at: string
 }
 
@@ -126,7 +132,7 @@ export type GetCategoriesPageResult = {
 }
 
 // ----- Select options for dropdowns -----
-export type AccountSelectOption = { id: string; name: string; status: AccountStatus }
+export type AccountSelectOption = { id: string; name: string; status: AccountStatus; is_default?: boolean }
 export type CategorySelectOption = { id: string; name: string; type: CategoryType; status: CategoryStatus }
 
 function toNum(v: unknown): number {
@@ -155,7 +161,7 @@ export async function getEntriesPage(options: GetEntriesPageOptions = {}): Promi
   let q = supabase
     .from('accounting_entries')
     .select(
-      'id, entry_type, account_id, category_id, amount, entry_date, remarks, created_at, financial_accounts(name), accounting_categories(name)',
+      'id, entry_type, account_id, category_id, amount, entry_date, remarks, project_id, created_at, financial_accounts(name), accounting_categories(name), projects(name)',
       { count: 'exact' }
     )
 
@@ -166,6 +172,7 @@ export async function getEntriesPage(options: GetEntriesPageOptions = {}): Promi
   if (options.entryType && options.entryType !== 'all') q = q.eq('entry_type', options.entryType)
   if (options.accountId) q = q.eq('account_id', options.accountId)
   if (options.categoryId) q = q.eq('category_id', options.categoryId)
+  if (options.projectId) q = q.eq('project_id', options.projectId)
 
   q = q.order(sortField, { ascending: sortDirection === 'asc' })
   const { data: pageData, count, error } = await q.range(from, to)
@@ -185,6 +192,7 @@ export async function getEntriesPage(options: GetEntriesPageOptions = {}): Promi
   if (options.entryType && options.entryType !== 'all') sumQ = sumQ.eq('entry_type', options.entryType)
   if (options.accountId) sumQ = sumQ.eq('account_id', options.accountId)
   if (options.categoryId) sumQ = sumQ.eq('category_id', options.categoryId)
+  if (options.projectId) sumQ = sumQ.eq('project_id', options.projectId)
   const { data: allRows } = await sumQ
   let totalIncome = 0
   let totalExpense = 0
@@ -206,6 +214,8 @@ export async function getEntriesPage(options: GetEntriesPageOptions = {}): Promi
     amount: toNum(r.amount),
     entry_date: r.entry_date as string,
     remarks: (r.remarks as string) ?? null,
+    project_id: (r.project_id as string) ?? null,
+    project_name: ((r.projects as { name?: string } | null) ?? {}).name ?? null,
     created_at: r.created_at as string,
   }))
 
@@ -234,7 +244,7 @@ export async function getAccountsPage(options: GetAccountsPageOptions = {}): Pro
   const sortField = options.sortField ?? 'name'
   const sortDirection = options.sortDirection ?? 'asc'
 
-  let q = supabase.from('financial_accounts').select('id, name, opening_balance, status, created_at', { count: 'exact' })
+  let q = supabase.from('financial_accounts').select('id, name, opening_balance, status, is_default, created_at', { count: 'exact' })
   const nameSearch = prepareSearchTerm(options.search)
   if (nameSearch) q = q.ilike('name', `%${nameSearch}%`)
   if (options.status && options.status !== 'all') q = q.eq('status', options.status)
@@ -270,7 +280,7 @@ export async function getAccountsPage(options: GetAccountsPageOptions = {}): Pro
     }
   }
 
-  const list = (accounts ?? []).map((a: Record<string, unknown>) => {
+  const list = (accounts ?? []).map((a: Record<string, unknown> & { is_default?: boolean }) => {
     const id = a.id as string
     const ob = toNum(a.opening_balance)
     const { in: ti, out: to } = byAccount[id] ?? { in: 0, out: 0 }
@@ -282,6 +292,7 @@ export async function getAccountsPage(options: GetAccountsPageOptions = {}): Pro
       total_out: to,
       current_balance: ob + ti - to,
       status: a.status as AccountStatus,
+      is_default: Boolean(a.is_default),
       created_at: a.created_at as string,
     }
   })
@@ -333,18 +344,88 @@ export async function getAccountsForSelect(): Promise<{ data: AccountSelectOptio
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('financial_accounts')
-    .select('id, name, status')
+    .select('id, name, status, is_default')
     .eq('status', 'active')
     .order('name')
   if (error) return { data: [], error: error.message }
   return {
-    data: (data ?? []).map((r: { id: string; name: string; status: string }) => ({
+    data: (data ?? []).map((r: { id: string; name: string; status: string; is_default?: boolean }) => ({
       id: r.id,
       name: r.name,
       status: r.status as AccountStatus,
+      is_default: Boolean(r.is_default),
     })),
     error: null,
   }
+}
+
+export async function getDefaultAccount(): Promise<{ data: AccountSelectOption | null; error: string | null }> {
+  const user = await getCurrentUser()
+  if (!user) return { data: null, error: 'You must be logged in' }
+  const canRead = await hasPermission(user, MODULE_PERMISSION_IDS.accounting, 'read')
+  if (!canRead) return { data: null, error: 'No permission' }
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('financial_accounts')
+    .select('id, name, status')
+    .eq('status', 'active')
+    .eq('is_default', true)
+    .maybeSingle()
+  if (error) return { data: null, error: error.message }
+  if (!data) return { data: null, error: null }
+  return {
+    data: {
+      id: (data as { id: string }).id,
+      name: (data as { name: string }).name,
+      status: (data as { status: string }).status as AccountStatus,
+      is_default: true,
+    },
+    error: null,
+  }
+}
+
+const CLIENT_PAYMENT_CATEGORY_NAME = 'Client Payment'
+
+export async function getOrCreateClientPaymentCategory(): Promise<{ data: string | null; error: string | null }> {
+  const user = await getCurrentUser()
+  if (!user) return { data: null, error: 'You must be logged in' }
+  const canWrite = await hasPermission(user, MODULE_PERMISSION_IDS.accounting, 'write')
+  if (!canWrite) return { data: null, error: 'No permission' }
+  const supabase = await createClient()
+  const { data: existing } = await supabase
+    .from('accounting_categories')
+    .select('id')
+    .eq('type', 'income')
+    .ilike('name', CLIENT_PAYMENT_CATEGORY_NAME)
+    .eq('status', 'active')
+    .maybeSingle()
+  if (existing && (existing as { id?: string }).id) {
+    return { data: (existing as { id: string }).id, error: null }
+  }
+  const { data: inserted, error } = await supabase
+    .from('accounting_categories')
+    .insert({
+      name: CLIENT_PAYMENT_CATEGORY_NAME,
+      type: 'income',
+      status: 'active',
+      created_by: user.id,
+    } as never)
+    .select('id')
+    .single()
+  if (error) {
+    if ((error as { code?: string }).code === '23505') {
+      const { data: retry } = await supabase
+        .from('accounting_categories')
+        .select('id')
+        .eq('type', 'income')
+        .ilike('name', CLIENT_PAYMENT_CATEGORY_NAME)
+        .limit(1)
+        .maybeSingle()
+      if (retry && (retry as { id?: string }).id) return { data: (retry as { id: string }).id, error: null }
+    }
+    return { data: null, error: error.message }
+  }
+  return { data: (inserted as { id: string }).id, error: null }
 }
 
 export async function getCategoriesForSelect(entryType?: EntryType): Promise<{ data: CategorySelectOption[]; error: string | null }> {
@@ -397,9 +478,10 @@ export async function createEntry(form: EntryFormData): Promise<ActionResult<Ent
       amount,
       entry_date: form.entry_date,
       remarks: form.remarks ?? null,
+      project_id: form.project_id ?? null,
       created_by: user.id,
     } as never)
-    .select('id, entry_type, account_id, category_id, amount, entry_date, remarks, created_at, financial_accounts(name), accounting_categories(name)')
+    .select('id, entry_type, account_id, category_id, amount, entry_date, remarks, project_id, created_at, financial_accounts(name), accounting_categories(name), projects(name)')
     .single()
 
   if (error) {
@@ -419,6 +501,8 @@ export async function createEntry(form: EntryFormData): Promise<ActionResult<Ent
       amount: toNum(r.amount),
       entry_date: r.entry_date as string,
       remarks: (r.remarks as string) ?? null,
+      project_id: (r.project_id as string) ?? null,
+      project_name: ((r.projects as { name?: string } | null) ?? {}).name ?? null,
       created_at: r.created_at as string,
     },
     error: null,
@@ -454,9 +538,10 @@ export async function updateEntry(
       amount,
       entry_date: form.entry_date,
       remarks: form.remarks ?? null,
+      project_id: form.project_id ?? null,
     } as never)
     .eq('id', entryId)
-    .select('id, entry_type, account_id, category_id, amount, entry_date, remarks, created_at, financial_accounts(name), accounting_categories(name)')
+    .select('id, entry_type, account_id, category_id, amount, entry_date, remarks, project_id, created_at, financial_accounts(name), accounting_categories(name), projects(name)')
     .single()
 
   if (error) {
@@ -476,6 +561,8 @@ export async function updateEntry(
       amount: toNum(r.amount),
       entry_date: r.entry_date as string,
       remarks: (r.remarks as string) ?? null,
+      project_id: (r.project_id as string) ?? null,
+      project_name: ((r.projects as { name?: string } | null) ?? {}).name ?? null,
       created_at: r.created_at as string,
     },
     error: null,
@@ -509,12 +596,14 @@ export async function createAccount(form: AccountFormData): Promise<ActionResult
   if (!Number.isFinite(opening_balance)) return { data: null, error: 'Opening balance must be a number' }
 
   const supabase = await createClient()
+  const isDefault = Boolean(form.is_default)
   const { data: inserted, error } = await supabase
     .from('financial_accounts')
     .insert({
       name: form.name.trim(),
       opening_balance,
       status: form.status ?? 'active',
+      is_default: isDefault,
       created_by: user.id,
     } as never)
     .select()
@@ -524,6 +613,10 @@ export async function createAccount(form: AccountFormData): Promise<ActionResult
     return { data: null, error: error.message }
   }
   const a = inserted as Record<string, unknown>
+  const newId = a.id as string
+  if (isDefault) {
+    await supabase.from('financial_accounts').update({ is_default: false } as never).neq('id', newId)
+  }
   revalidatePath('/dashboard/accounting')
   return {
     data: {
@@ -534,6 +627,7 @@ export async function createAccount(form: AccountFormData): Promise<ActionResult
       total_out: 0,
       current_balance: toNum(a.opening_balance),
       status: (a.status as AccountStatus) ?? 'active',
+      is_default: Boolean(a.is_default),
       created_at: a.created_at as string,
     },
     error: null,
@@ -553,9 +647,19 @@ export async function updateAccount(accountId: string, form: AccountFormData): P
   const { data: existing } = await supabase.from('financial_accounts').select('id').eq('id', accountId).single()
   if (!existing) return { data: null, error: 'Account not found' }
 
+  const isDefault = Boolean(form.is_default)
+  if (isDefault) {
+    await supabase.from('financial_accounts').update({ is_default: false } as never).neq('id', accountId)
+  }
+
   const { data: updated, error } = await supabase
     .from('financial_accounts')
-    .update({ name: form.name.trim(), opening_balance, status: form.status ?? 'active' } as never)
+    .update({
+      name: form.name.trim(),
+      opening_balance,
+      status: form.status ?? 'active',
+      is_default: isDefault,
+    } as never)
     .eq('id', accountId)
     .select()
     .single()
@@ -584,6 +688,7 @@ export async function updateAccount(accountId: string, form: AccountFormData): P
       total_out: to,
       current_balance: ob + ti - to,
       status: (a.status as AccountStatus) ?? 'active',
+      is_default: Boolean(a.is_default),
       created_at: a.created_at as string,
     },
     error: null,

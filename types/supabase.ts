@@ -672,6 +672,7 @@ export interface Database {
           name: string
           opening_balance: number
           status: 'active' | 'inactive'
+          is_default: boolean
           created_by: string
           created_at: string
           updated_at: string
@@ -681,6 +682,7 @@ export interface Database {
           name: string
           opening_balance?: number
           status?: 'active' | 'inactive'
+          is_default?: boolean
           created_by: string
           created_at?: string
           updated_at?: string
@@ -690,6 +692,7 @@ export interface Database {
           name?: string
           opening_balance?: number
           status?: 'active' | 'inactive'
+          is_default?: boolean
           created_by?: string
           created_at?: string
           updated_at?: string
@@ -733,6 +736,7 @@ export interface Database {
           amount: number
           entry_date: string
           remarks: string | null
+          project_id: string | null
           created_by: string
           created_at: string
           updated_at: string
@@ -745,6 +749,7 @@ export interface Database {
           amount: number
           entry_date: string
           remarks?: string | null
+          project_id?: string | null
           created_by: string
           created_at?: string
           updated_at?: string
@@ -757,6 +762,7 @@ export interface Database {
           amount?: number
           entry_date?: string
           remarks?: string | null
+          project_id?: string | null
           created_by?: string
           created_at?: string
           updated_at?: string

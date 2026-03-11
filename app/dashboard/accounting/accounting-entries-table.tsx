@@ -40,6 +40,7 @@ export function AccountingEntriesTable({ entries, canWrite, onEdit, onDelete }: 
             <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Type</th>
             <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Account</th>
             <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Category</th>
+            <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Project</th>
             <th className="px-3 sm:px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Amount</th>
             <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Remarks</th>
             {canWrite && (
@@ -65,6 +66,9 @@ export function AccountingEntriesTable({ entries, canWrite, onEdit, onDelete }: 
               </td>
               <td className="whitespace-nowrap px-3 sm:px-4 py-3 text-sm text-[#1E1B4B]">{row.account_name}</td>
               <td className="whitespace-nowrap px-3 sm:px-4 py-3 text-sm text-[#1E1B4B]">{row.category_name}</td>
+              <td className="whitespace-nowrap px-3 sm:px-4 py-3 text-sm text-slate-600 max-w-[140px] truncate" title={row.project_name ?? undefined}>
+                {row.project_name ?? '—'}
+              </td>
               <td
                 className={`whitespace-nowrap px-3 sm:px-4 py-3 text-sm font-medium text-right ${
                   row.entry_type === 'income' ? 'text-[#15803D]' : 'text-[#B91C1C]'

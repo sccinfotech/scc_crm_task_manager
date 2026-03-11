@@ -29,6 +29,7 @@ export function AccountModal({
   const [name, setName] = useState(initialData?.name ?? '')
   const [opening_balance, setOpeningBalance] = useState(initialData?.opening_balance != null ? String(initialData.opening_balance) : '0')
   const [status, setStatus] = useState<AccountStatus>(initialData?.status ?? 'active')
+  const [is_default, setIsDefault] = useState(initialData?.is_default ?? false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -37,6 +38,7 @@ export function AccountModal({
     setName(initialData?.name ?? '')
     setOpeningBalance(initialData?.opening_balance != null ? String(initialData.opening_balance) : '0')
     setStatus(initialData?.status ?? 'active')
+    setIsDefault(initialData?.is_default ?? false)
     setError(null)
   }, [isOpen, initialData])
 
@@ -53,7 +55,7 @@ export function AccountModal({
       return
     }
     setSubmitting(true)
-    const result = await onSubmit({ name: name.trim(), opening_balance: ob, status })
+    const result = await onSubmit({ name: name.trim(), opening_balance: ob, status, is_default })
     setSubmitting(false)
     if (result.error) {
       setError(result.error)
@@ -100,6 +102,18 @@ export function AccountModal({
           <div>
             <label className="block text-sm font-medium text-[#1E1B4B] mb-1">Status</label>
             <ListboxDropdown value={status} options={STATUS_OPTIONS} onChange={(v) => setStatus(v as AccountStatus)} ariaLabel="Status" />
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="account-is-default"
+              checked={is_default}
+              onChange={(e) => setIsDefault(e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-[#06B6D4] focus:ring-[#06B6D4]"
+            />
+            <label htmlFor="account-is-default" className="text-sm font-medium text-[#1E1B4B]">
+              Set as default account (for Payment module)
+            </label>
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2">

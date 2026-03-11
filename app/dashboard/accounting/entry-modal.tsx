@@ -74,6 +74,7 @@ export function EntryModal({
       amount: amt,
       entry_date,
       remarks: remarks.trim() || null,
+      project_id: initialData?.project_id ?? null,
     })
     setSubmitting(false)
     if (result.error) {

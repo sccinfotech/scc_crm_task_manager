@@ -33,6 +33,7 @@ export function AccountingAccountsTable({ accounts, canWrite, onView, onEdit, on
         <thead>
           <tr className="border-b border-gray-200 bg-gray-50">
             <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Account Name</th>
+            <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Default</th>
             <th className="px-3 sm:px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Opening Balance</th>
             <th className="px-3 sm:px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Total In</th>
             <th className="px-3 sm:px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Total Out</th>
@@ -57,6 +58,15 @@ export function AccountingAccountsTable({ accounts, canWrite, onView, onEdit, on
                   </button>
                 ) : (
                   <span className="text-sm font-medium text-[#1E1B4B]">{row.name}</span>
+                )}
+              </td>
+              <td className="whitespace-nowrap px-3 sm:px-4 py-3">
+                {row.is_default ? (
+                  <span className="inline-flex items-center rounded-full bg-cyan-50 px-2.5 py-0.5 text-xs font-semibold text-cyan-700 border border-cyan-200">
+                    Default
+                  </span>
+                ) : (
+                  <span className="text-xs text-slate-400">—</span>
                 )}
               </td>
               <td className="whitespace-nowrap px-3 sm:px-4 py-3 text-sm text-right text-[#1E1B4B]">{formatMoney(row.opening_balance)}</td>

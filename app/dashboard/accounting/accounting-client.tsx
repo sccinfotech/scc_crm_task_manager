@@ -664,7 +664,7 @@ export function AccountingClient(props: AccountingClientProps) {
         onClose={() => { setEntryModalOpen(false); setEditingEntry(null) }}
         mode={entryModalMode}
         initialEntryType={entryModalType}
-        initialData={editingEntry ? { entry_type: editingEntry.entry_type, account_id: editingEntry.account_id, category_id: editingEntry.category_id, amount: editingEntry.amount, entry_date: editingEntry.entry_date, remarks: editingEntry.remarks } : undefined}
+        initialData={editingEntry ? { entry_type: editingEntry.entry_type, account_id: editingEntry.account_id, category_id: editingEntry.category_id, amount: editingEntry.amount, entry_date: editingEntry.entry_date, remarks: editingEntry.remarks, project_id: editingEntry.project_id } : undefined}
         accounts={props.accountsForSelect ?? []}
         categories={props.categoriesForSelect ?? []}
         isLoading={entrySubmitting}
@@ -674,7 +674,7 @@ export function AccountingClient(props: AccountingClientProps) {
         isOpen={accountModalOpen}
         onClose={() => { setAccountModalOpen(false); setEditingAccount(null) }}
         mode={accountModalMode}
-        initialData={editingAccount ? { name: editingAccount.name, opening_balance: editingAccount.opening_balance, status: editingAccount.status } : undefined}
+        initialData={editingAccount ? { name: editingAccount.name, opening_balance: editingAccount.opening_balance, status: editingAccount.status, is_default: editingAccount.is_default } : undefined}
         isLoading={accountSubmitting}
         onSubmit={handleAccountSubmit}
       />
