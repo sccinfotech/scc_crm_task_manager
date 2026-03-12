@@ -51,8 +51,10 @@ export function EntryModal({
   }, [isOpen, initialData, initialEntryType])
 
   useEffect(() => {
-    setCategoryId('')
-  }, [entry_type])
+    if (mode === 'create') {
+      setCategoryId('')
+    }
+  }, [entry_type, mode])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

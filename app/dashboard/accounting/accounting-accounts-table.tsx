@@ -1,6 +1,7 @@
 'use client'
 
 import { EmptyState } from '@/app/components/empty-state'
+import { Tooltip } from '@/app/components/ui/tooltip'
 import type { AccountListItem, AccountStatus } from '@/lib/accounting/actions'
 
 function formatMoney(n: number) {
@@ -11,7 +12,7 @@ interface AccountingAccountsTableProps {
   accounts: AccountListItem[]
   canWrite: boolean
   onView?: (id: string) => void
-  onEdit: (id: string) => void
+  onEdit: (account: AccountListItem) => void
   onDelete: (id: string) => void
 }
 
@@ -33,7 +34,6 @@ export function AccountingAccountsTable({ accounts, canWrite, onView, onEdit, on
         <thead>
           <tr className="border-b border-gray-200 bg-gray-50">
             <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Account Name</th>
-            <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Default</th>
             <th className="px-3 sm:px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Opening Balance</th>
             <th className="px-3 sm:px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Total In</th>
             <th className="px-3 sm:px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Total Out</th>
@@ -48,27 +48,26 @@ export function AccountingAccountsTable({ accounts, canWrite, onView, onEdit, on
           {accounts.map((row) => (
             <tr key={row.id} className="hover:bg-gray-50/50">
               <td className="whitespace-nowrap px-3 sm:px-4 py-3">
-                {onView ? (
-                  <button
-                    type="button"
-                    onClick={() => onView(row.id)}
-                    className="text-sm font-medium text-[#06B6D4] hover:underline"
-                  >
-                    {row.name}
-                  </button>
-                ) : (
-                  <span className="text-sm font-medium text-[#1E1B4B]">{row.name}</span>
-                )}
+                <div className="flex items-center gap-2">
+                  {onView ? (
+                    <button
+                      type="button"
+                      onClick={() => onView(row.id)}
+                      className="text-sm font-medium text-[#06B6D4] hover:underline"
+                    >
+                      {row.name}
+                    </button>
+                  ) : (
+                    <span className="text-sm font-medium text-[#1E1B4B]">{row.name}</span>
+                  )}
+                  {row.is_default && (
+                    <span className="inline-flex items-center rounded-full bg-cyan-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-700 border border-cyan-200">
+                      Default
+                    </span>
+                  )}
+                </div>
               </td>
-              <td className="whitespace-nowrap px-3 sm:px-4 py-3">
-                {row.is_default ? (
-                  <span className="inline-flex items-center rounded-full bg-cyan-50 px-2.5 py-0.5 text-xs font-semibold text-cyan-700 border border-cyan-200">
-                    Default
-                  </span>
-                ) : (
-                  <span className="text-xs text-slate-400">—</span>
-                )}
-              </td>
+              {/* Default indicator moved into Account Name cell */}
               <td className="whitespace-nowrap px-3 sm:px-4 py-3 text-sm text-right text-[#1E1B4B]">{formatMoney(row.opening_balance)}</td>
               <td className="whitespace-nowrap px-3 sm:px-4 py-3 text-sm text-right text-[#15803D]">{formatMoney(row.total_in)}</td>
               <td className="whitespace-nowrap px-3 sm:px-4 py-3 text-sm text-right text-[#B91C1C]">{formatMoney(row.total_out)}</td>
@@ -88,20 +87,38 @@ export function AccountingAccountsTable({ accounts, canWrite, onView, onEdit, on
               {canWrite && (
                 <td className="whitespace-nowrap px-3 sm:px-4 py-3 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <button
-                      type="button"
-                      onClick={() => onEdit(row.id)}
-                      className="rounded-lg px-2 py-1.5 text-sm font-medium text-[#06B6D4] transition-colors hover:bg-cyan-50"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onDelete(row.id)}
-                      className="rounded-lg px-2 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
-                    >
-                      Delete
-                    </button>
+                    <Tooltip content="Edit account" position="left">
+                      <button
+                        type="button"
+                        onClick={() => onEdit(row)}
+                        className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+                        aria-label="Edit account"
+                      >
+                        <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                          />
+                        </svg>
+                      </button>
+                    </Tooltip>
+                    <Tooltip content="Delete account" position="left">
+                      <button
+                        type="button"
+                        onClick={() => onDelete(row.id)}
+                        className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                        aria-label="Delete account"
+                      >
+                        <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                      </button>
+                    </Tooltip>
                   </div>
                 </td>
               )}

@@ -88,17 +88,19 @@ export function AccountModal({
               placeholder="e.g. Cash, Bank"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-[#1E1B4B] mb-1">Opening Balance</label>
-            <input
-              type="number"
-              step="0.01"
-              value={opening_balance}
-              onChange={(e) => setOpeningBalance(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#06B6D4] focus:ring-2 focus:ring-[#06B6D4]/20"
-              placeholder="0"
-            />
-          </div>
+          {mode === 'create' && (
+            <div>
+              <label className="block text-sm font-medium text-[#1E1B4B] mb-1">Opening Balance</label>
+              <input
+                type="number"
+                step="0.01"
+                value={opening_balance}
+                onChange={(e) => setOpeningBalance(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#06B6D4] focus:ring-2 focus:ring-[#06B6D4]/20"
+                placeholder="0"
+              />
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-[#1E1B4B] mb-1">Status</label>
             <ListboxDropdown value={status} options={STATUS_OPTIONS} onChange={(v) => setStatus(v as AccountStatus)} ariaLabel="Status" />

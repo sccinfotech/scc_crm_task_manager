@@ -156,7 +156,7 @@ export function PaymentsClient({ projects, initialSearch, initialStatus }: Payme
                   {formatCurrency(row.received_amount)}
                 </td>
                 <td className="whitespace-nowrap px-3 sm:px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                  <Tooltip content="Pay now">
+                  <Tooltip content="Add Payment">
                     <button
                       type="button"
                       onClick={(e) => handlePayNow(e, row)}
