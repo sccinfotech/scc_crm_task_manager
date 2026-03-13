@@ -666,6 +666,108 @@ export interface Database {
           created_at?: string
         }
       }
+      financial_accounts: {
+        Row: {
+          id: string
+          name: string
+          opening_balance: number
+          status: 'active' | 'inactive'
+          is_default: boolean
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          opening_balance?: number
+          status?: 'active' | 'inactive'
+          is_default?: boolean
+          created_by: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          opening_balance?: number
+          status?: 'active' | 'inactive'
+          is_default?: boolean
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      accounting_categories: {
+        Row: {
+          id: string
+          name: string
+          type: 'income' | 'expense'
+          status: 'active' | 'inactive'
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          type: 'income' | 'expense'
+          status?: 'active' | 'inactive'
+          created_by: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          type?: 'income' | 'expense'
+          status?: 'active' | 'inactive'
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      accounting_entries: {
+        Row: {
+          id: string
+          entry_type: 'income' | 'expense'
+          account_id: string
+          category_id: string
+          amount: number
+          entry_date: string
+          remarks: string | null
+          project_id: string | null
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          entry_type: 'income' | 'expense'
+          account_id: string
+          category_id: string
+          amount: number
+          entry_date: string
+          remarks?: string | null
+          project_id?: string | null
+          created_by: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          entry_type?: 'income' | 'expense'
+          account_id?: string
+          category_id?: string
+          amount?: number
+          entry_date?: string
+          remarks?: string | null
+          project_id?: string | null
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never

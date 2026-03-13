@@ -9,6 +9,7 @@ export const MODULE_PERMISSION_IDS = {
   logs: 'logs',
   settings: 'settings',
   users: 'users',
+  accounting: 'accounting',
 } as const
 
 type PermissionContext = {
