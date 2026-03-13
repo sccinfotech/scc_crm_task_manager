@@ -437,9 +437,13 @@ export function AccountingClient(props: AccountingClientProps) {
         </div>
       </div>
 
-      {/* Dynamic action & filter bar */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-gray-200 bg-white px-4 py-4 rounded-t-lg">
-        {/* Filters on the left */}
+      {/* Summary cards removed per requirements */}
+
+      {/* Filter + Table: one connected card */}
+      <div className="flex flex-1 flex-col overflow-hidden rounded-lg bg-white shadow-sm min-h-0">
+        {/* Filter bar – top of card */}
+        <div className="flex flex-shrink-0 flex-col gap-4 border-b border-gray-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+          {/* Filters on the left */}
         <div className="flex flex-1 flex-wrap items-center gap-2 sm:justify-start">
           {currentTab === 'entries' && (
             <>
@@ -564,38 +568,12 @@ export function AccountingClient(props: AccountingClientProps) {
             Export
           </button>
         </div>
-      </div>
+        </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-hidden rounded-b-lg bg-white shadow-sm flex flex-col min-h-0">
+        {/* Table area – connected below filter */}
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {currentTab === 'entries' && (
           <>
-            {entriesSummary && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-gray-100 bg-gray-50/50">
-                <div>
-                  <p className="text-xs text-gray-500">Total Income</p>
-                  <p className="text-sm font-semibold text-[#15803D]">
-                    {entriesSummary.totalIncome.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Total Expense</p>
-                  <p className="text-sm font-semibold text-[#B91C1C]">
-                    {entriesSummary.totalExpense.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Net</p>
-                  <p className={`text-sm font-semibold ${entriesSummary.net >= 0 ? 'text-[#15803D]' : 'text-[#B91C1C]'}`}>
-                    {entriesSummary.net.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Transactions</p>
-                  <p className="text-sm font-semibold text-[#1E1B4B]">{entriesSummary.transactionsCount}</p>
-                </div>
-              </div>
-            )}
             <div className="flex-1 overflow-auto min-h-0">
               <AccountingEntriesTable
                 entries={entriesData}
@@ -655,6 +633,7 @@ export function AccountingClient(props: AccountingClientProps) {
             )}
           </>
         )}
+        </div>
       </div>
 
       {/* Modals */}
