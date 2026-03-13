@@ -11,7 +11,7 @@ function formatMoney(n: number) {
 interface AccountingAccountsTableProps {
   accounts: AccountListItem[]
   canWrite: boolean
-  onView?: (id: string) => void
+  onView?: (account: AccountListItem) => void
   onEdit: (account: AccountListItem) => void
   onDelete: (id: string) => void
 }
@@ -52,7 +52,7 @@ export function AccountingAccountsTable({ accounts, canWrite, onView, onEdit, on
                   {onView ? (
                     <button
                       type="button"
-                      onClick={() => onView(row.id)}
+                      onClick={() => onView(row)}
                       className="text-sm font-medium text-[#06B6D4] hover:underline"
                     >
                       {row.name}
