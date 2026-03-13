@@ -160,7 +160,8 @@ export async function getProductsPage(options: GetProductsPageOptions = {}): Pro
   const from = (page - 1) * pageSize
   const to = from + pageSize - 1
 
-  const { data, error, count } = await supabase.rpc('get_products_with_client_counts', {
+  // Cast to any because Supabase RPC TypeScript typings for params are not generated in this project.
+  const { data, error, count } = await (supabase as any).rpc('get_products_with_client_counts', {
     p_search: options.search?.trim() || null,
     p_limit: pageSize,
     p_offset: from,
