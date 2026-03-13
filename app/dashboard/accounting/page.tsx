@@ -12,7 +12,7 @@ import {
   type CategoryType,
   type CategoryStatus,
 } from '@/lib/accounting/actions'
-import { AccountingClient } from './accounting-client'
+import { AccountingClient, type AccountingTab } from './accounting-client'
 
 const PAGE_SIZE = 20
 

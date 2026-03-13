@@ -2,7 +2,6 @@
 
 import { useRouter, usePathname } from 'next/navigation'
 import { useState, useCallback } from 'react'
-import Link from 'next/link'
 import { SidebarToggleButton } from '@/app/components/dashboard/sidebar-context'
 import { SearchInput } from '@/app/components/ui/search-input'
 import { ListboxDropdown } from '@/app/components/ui/listbox-dropdown'

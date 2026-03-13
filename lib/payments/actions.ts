@@ -199,6 +199,15 @@ export async function getProjectPaymentDetail(projectId: string): Promise<{
     return { data: null, error: projErr?.message ?? 'Project not found' }
   }
 
+  type ProjectRow = {
+    id: string
+    name: string
+    logo_url?: string | null
+    client_id?: string | null
+    clients?: { id?: string; name?: string; company_name?: string } | null
+  }
+  const row = projectRow as ProjectRow
+
   const reqResult = await getProjectRequirements(projectId)
   if (reqResult.error) return { data: null, error: reqResult.error }
   const requirements = reqResult.data ?? []
@@ -229,7 +238,7 @@ export async function getProjectPaymentDetail(projectId: string): Promise<{
     entry_date: r.entry_date as string,
     remarks: (r.remarks as string) ?? null,
     project_id: projectId,
-    project_name: (projectRow as { name?: string }).name ?? null,
+    project_name: row.name ?? null,
     created_at: r.created_at as string,
   }))
 
@@ -239,14 +248,14 @@ export async function getProjectPaymentDetail(projectId: string): Promise<{
   const pendingAmount = roundCurrency(totalAmount - receivedAmount)
   const paymentsCount = paymentHistory.length
 
-  const client = (projectRow as { clients?: { name?: string; company_name?: string } }).clients
+  const client = row.clients
 
   return {
     data: {
       project: {
-        id: projectRow.id,
-        name: (projectRow as { name: string }).name,
-        logo_url: (projectRow as { logo_url?: string }).logo_url ?? null,
+        id: row.id,
+        name: row.name,
+        logo_url: row.logo_url ?? null,
         client_name: client?.name ?? null,
         client_company_name: client?.company_name ?? null,
       },
