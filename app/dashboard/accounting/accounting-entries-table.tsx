@@ -37,15 +37,15 @@ export function AccountingEntriesTable({ entries, canWrite, onEdit, onDelete }: 
       <table className="w-full">
         <thead>
           <tr className="border-b border-gray-200 bg-gray-50">
-            <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Date</th>
-            <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Type</th>
-            <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Account</th>
-            <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Category</th>
-            <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Project</th>
-            <th className="px-3 sm:px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Amount</th>
-            <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Remarks</th>
+            <th className="px-3 sm:px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Date</th>
+            <th className="px-3 sm:px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Type</th>
+            <th className="px-3 sm:px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Account</th>
+            <th className="px-3 sm:px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Category</th>
+            <th className="px-3 sm:px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Project</th>
+            <th className="px-3 sm:px-4 py-2 text-right text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Amount</th>
+            <th className="px-3 sm:px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Remarks</th>
             {canWrite && (
-              <th className="px-3 sm:px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Actions</th>
+              <th className="px-3 sm:px-4 py-2 text-right text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Actions</th>
             )}
           </tr>
         </thead>
@@ -54,8 +54,8 @@ export function AccountingEntriesTable({ entries, canWrite, onEdit, onDelete }: 
             const isClientPayment = row.category_name === 'Client Payment'
             return (
             <tr key={row.id} className="hover:bg-gray-50/50">
-              <td className="whitespace-nowrap px-3 sm:px-4 py-3 text-sm text-[#1E1B4B]">{formatDate(row.entry_date)}</td>
-              <td className="whitespace-nowrap px-3 sm:px-4 py-3">
+              <td className="whitespace-nowrap px-3 sm:px-4 py-2 text-sm text-[#1E1B4B]">{formatDate(row.entry_date)}</td>
+              <td className="whitespace-nowrap px-3 sm:px-4 py-2">
                 <span
                   className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
                     row.entry_type === 'income'
@@ -67,23 +67,23 @@ export function AccountingEntriesTable({ entries, canWrite, onEdit, onDelete }: 
                   {row.entry_type === 'income' ? 'Income' : 'Expense'}
                 </span>
               </td>
-              <td className="whitespace-nowrap px-3 sm:px-4 py-3 text-sm text-[#1E1B4B]">{row.account_name}</td>
-              <td className="whitespace-nowrap px-3 sm:px-4 py-3 text-sm font-medium text-black">{row.category_name}</td>
-              <td className="whitespace-nowrap px-3 sm:px-4 py-3 text-sm text-slate-600 max-w-[140px] truncate" title={row.project_name ?? undefined}>
+              <td className="whitespace-nowrap px-3 sm:px-4 py-2 text-sm text-[#1E1B4B]">{row.account_name}</td>
+              <td className="whitespace-nowrap px-3 sm:px-4 py-2 text-sm font-medium text-black">{row.category_name}</td>
+              <td className="whitespace-nowrap px-3 sm:px-4 py-2 text-sm text-slate-600 max-w-[140px] truncate" title={row.project_name ?? undefined}>
                 {row.project_name ?? '—'}
               </td>
               <td
-                className={`whitespace-nowrap px-3 sm:px-4 py-3 text-sm font-medium text-right ${
+                className={`whitespace-nowrap px-3 sm:px-4 py-2 text-sm font-medium text-right ${
                   row.entry_type === 'income' ? 'text-[#15803D]' : 'text-[#B91C1C]'
                 }`}
               >
                 {formatAmount(row.amount, row.entry_type)}
               </td>
-              <td className="px-3 sm:px-4 py-3 text-sm text-gray-600 max-w-[200px] truncate" title={row.remarks ?? undefined}>
+              <td className="px-3 sm:px-4 py-2 text-sm text-gray-600 max-w-[200px] truncate" title={row.remarks ?? undefined}>
                 {row.remarks ?? '—'}
               </td>
               {canWrite && (
-                <td className="whitespace-nowrap px-3 sm:px-4 py-3 text-right">
+                <td className="whitespace-nowrap px-3 sm:px-4 py-2 text-right">
                   {isClientPayment ? (
                     <span className="text-[11px] italic text-slate-400">Linked</span>
                   ) : (

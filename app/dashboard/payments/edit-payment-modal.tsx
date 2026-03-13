@@ -6,14 +6,17 @@ import { useToast } from '@/app/components/ui/toast-context'
 import { ListboxDropdown } from '@/app/components/ui/listbox-dropdown'
 import {
   getPaymentModuleAccounts,
-  createProjectPayment,
+  updateProjectPayment,
   type PaymentProjectListItem,
 } from '@/lib/payments/actions'
+import type { EntryListItem } from '@/lib/accounting/actions'
 
-interface AddPaymentModalProps {
+interface EditPaymentModalProps {
   isOpen: boolean
   onClose: () => void
-  project: Pick<PaymentProjectListItem, 'id' | 'name' | 'pending_amount'>
+  project: Pick<PaymentProjectListItem, 'id' | 'name'>
+  entry: EntryListItem
+  pendingAmount: number
   onSuccess: () => void
 }
 
@@ -25,15 +28,21 @@ function formatCurrency(amount: number) {
   }).format(amount)
 }
 
-export function AddPaymentModal({ isOpen, onClose, project, onSuccess }: AddPaymentModalProps) {
+export function EditPaymentModal({
+  isOpen,
+  onClose,
+  project,
+  entry,
+  pendingAmount,
+  onSuccess,
+}: EditPaymentModalProps) {
   const router = useRouter()
   const { success: showSuccess, error: showError } = useToast()
-  const [accountId, setAccountId] = useState('')
-  const [amount, setAmount] = useState(String(project.pending_amount ?? ''))
-  const [entryDate, setEntryDate] = useState(() => new Date().toISOString().slice(0, 10))
-  const [remarks, setRemarks] = useState('')
+  const [accountId, setAccountId] = useState(entry.account_id)
+  const [amount, setAmount] = useState(String(entry.amount))
+  const [entryDate, setEntryDate] = useState(entry.entry_date.slice(0, 10))
+  const [remarks, setRemarks] = useState(entry.remarks ?? '')
   const [accounts, setAccounts] = useState<{ id: string; name: string }[]>([])
-  const [defaultAccountId, setDefaultAccountId] = useState<string | null>(null)
   const [loadingAccounts, setLoadingAccounts] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -41,25 +50,22 @@ export function AddPaymentModal({ isOpen, onClose, project, onSuccess }: AddPaym
   useEffect(() => {
     if (!isOpen) return
     setError(null)
-    setAmount(String(project.pending_amount ?? ''))
-    setRemarks('')
-    setEntryDate(new Date().toISOString().slice(0, 10))
+    setAccountId(entry.account_id)
+    setAmount(String(entry.amount))
+    setEntryDate(entry.entry_date.slice(0, 10))
+    setRemarks(entry.remarks ?? '')
     setLoadingAccounts(true)
     getPaymentModuleAccounts()
       .then((res) => {
         if (res.error) {
           setError(res.error)
           setAccounts([])
-          setDefaultAccountId(null)
-          setAccountId('')
           return
         }
         setAccounts((res.data ?? []).map((a) => ({ id: a.id, name: a.name })))
-        setDefaultAccountId(res.defaultAccountId)
-        setAccountId(res.defaultAccountId ?? '')
       })
       .finally(() => setLoadingAccounts(false))
-  }, [isOpen, project.id])
+  }, [isOpen, entry.id, entry.account_id, entry.amount, entry.entry_date])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -73,12 +79,8 @@ export function AddPaymentModal({ isOpen, onClose, project, onSuccess }: AddPaym
       setError('Amount must be a positive number.')
       return
     }
-    if (amt > project.pending_amount) {
-      setError(`Amount cannot exceed pending balance (${formatCurrency(project.pending_amount)}).`)
-      return
-    }
     setSubmitting(true)
-    const result = await createProjectPayment(project.id, {
+    const result = await updateProjectPayment(project.id, entry.id, {
       account_id: accountId,
       amount: amt,
       entry_date: entryDate,
@@ -89,7 +91,7 @@ export function AddPaymentModal({ isOpen, onClose, project, onSuccess }: AddPaym
       setError(result.error)
       return
     }
-    showSuccess('Payment recorded', 'The payment has been added and will appear in Accounting.')
+    showSuccess('Payment updated', 'The payment has been updated. Amounts and status will refresh.')
     onClose()
     onSuccess()
     router.refresh()
@@ -104,14 +106,13 @@ export function AddPaymentModal({ isOpen, onClose, project, onSuccess }: AddPaym
       <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
       <div className="relative z-10 w-full max-w-lg rounded-2xl bg-white shadow-2xl ring-1 ring-black/5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <h2 className="text-xl font-semibold text-[#1E1B4B]">Add Payment — {project.name}</h2>
+          <h2 className="text-xl font-semibold text-[#1E1B4B]">Edit Payment — {project.name}</h2>
           <button type="button" onClick={onClose} className="rounded-xl p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600" aria-label="Close">
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-6 space-y-4">
           {error && <p className="text-sm text-red-600">{error}</p>}
-          <p className="text-xs text-slate-500">Pending balance: {formatCurrency(project.pending_amount)}</p>
           <div>
             <label className="block text-sm font-medium text-[#1E1B4B] mb-1">Account *</label>
             {loadingAccounts ? (
@@ -161,7 +162,7 @@ export function AddPaymentModal({ isOpen, onClose, project, onSuccess }: AddPaym
               Cancel
             </button>
             <button type="submit" disabled={submitting || loadingAccounts} className="rounded-xl bg-[#06B6D4] px-6 py-2.5 text-sm font-semibold text-white shadow-lg hover:bg-[#0891b2] disabled:opacity-50">
-              {submitting ? 'Saving…' : 'Add Payment'}
+              {submitting ? 'Saving…' : 'Update Payment'}
             </button>
           </div>
         </form>

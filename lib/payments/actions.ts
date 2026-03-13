@@ -8,6 +8,8 @@ import { getProjectRequirements } from '@/lib/projects/requirements-actions'
 import type { ProjectRequirement, RequirementSummary } from '@/lib/projects/requirements-actions'
 import {
   createEntry,
+  updateEntry,
+  deleteEntry,
   getDefaultAccount,
   getOrCreateClientPaymentCategory,
   getAccountsForSelect,
@@ -47,6 +49,7 @@ export type CreateProjectPaymentInput = {
   account_id: string
   amount: number
   entry_date: string
+  remarks?: string | null
 }
 
 function roundCurrency(value: number) {
@@ -303,7 +306,7 @@ export async function createProjectPayment(
     category_id: catResult.data,
     amount,
     entry_date: input.entry_date,
-    remarks: null,
+    remarks: input.remarks?.trim() || null,
     project_id: projectId,
   })
 
@@ -313,6 +316,69 @@ export async function createProjectPayment(
   revalidatePath(`/dashboard/payments/${projectId}`)
   revalidatePath('/dashboard/accounting')
   return { data: result.data, error: null }
+}
+
+export async function updateProjectPayment(
+  projectId: string,
+  entryId: string,
+  input: CreateProjectPaymentInput
+): Promise<{ data: EntryListItem | null; error: string | null }> {
+  const user = await getCurrentUser()
+  if (!user) return { data: null, error: 'You must be logged in' }
+  if (!isAdmin(user)) return { data: null, error: 'Only admins can update payments' }
+
+  const amount = Number(input.amount)
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return { data: null, error: 'Amount must be a positive number' }
+  }
+
+  const { data: detail, error: detailErr } = await getProjectPaymentDetail(projectId)
+  if (detailErr || !detail) return { data: null, error: detailErr ?? 'Project not found' }
+  const currentEntry = detail.paymentHistory.find((e) => e.id === entryId)
+  const receivedWithoutThis = roundCurrency(detail.receivedAmount - (currentEntry?.amount ?? 0))
+  const newReceived = roundCurrency(receivedWithoutThis + amount)
+  if (newReceived > detail.totalAmount) {
+    return { data: null, error: `Total received cannot exceed total amount (₹${detail.totalAmount.toFixed(2)})` }
+  }
+
+  const catResult = await getOrCreateClientPaymentCategory()
+  if (catResult.error || !catResult.data) {
+    return { data: null, error: catResult.error ?? 'Could not resolve Client Payment category' }
+  }
+
+  const result = await updateEntry(entryId, {
+    entry_type: 'income',
+    account_id: input.account_id,
+    category_id: catResult.data,
+    amount,
+    entry_date: input.entry_date,
+    remarks: input.remarks?.trim() || null,
+    project_id: projectId,
+  })
+
+  if (result.error) return { data: null, error: result.error }
+
+  revalidatePath('/dashboard/payments')
+  revalidatePath(`/dashboard/payments/${projectId}`)
+  revalidatePath('/dashboard/accounting')
+  return { data: result.data, error: null }
+}
+
+export async function deleteProjectPayment(
+  projectId: string,
+  entryId: string
+): Promise<{ error: string | null }> {
+  const user = await getCurrentUser()
+  if (!user) return { error: 'You must be logged in' }
+  if (!isAdmin(user)) return { error: 'Only admins can delete payments' }
+
+  const result = await deleteEntry(entryId)
+  if (result.error) return { error: result.error }
+
+  revalidatePath('/dashboard/payments')
+  revalidatePath(`/dashboard/payments/${projectId}`)
+  revalidatePath('/dashboard/accounting')
+  return { error: null }
 }
 
 export async function getPaymentModuleAccounts(): Promise<{
