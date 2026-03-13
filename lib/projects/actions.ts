@@ -378,9 +378,28 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
 
   const searchTerm = prepareSearchTerm(options.search)
   if (searchTerm) {
-    // Single query using OR with subquery for client names/companies
-    // This is more efficient than the previous 2-step manual filtering
-    query = query.or(`name.ilike.%${searchTerm}%,clients.name.ilike.%${searchTerm}%,clients.company_name.ilike.%${searchTerm}%`)
+    const projectNameFilter = `name.ilike.%${searchTerm}%`
+
+    // Find matching clients by name/company and then OR on project name OR client_id.in(...)
+    const { data: clientRows, error: clientSearchError } = await supabase
+      .from('clients')
+      .select('id')
+      .or(`name.ilike.%${searchTerm}%,company_name.ilike.%${searchTerm}%`)
+
+    if (clientSearchError) {
+      console.error('Error searching clients for project list:', clientSearchError)
+      query = query.or(projectNameFilter)
+    } else {
+      const clientIds = (clientRows || []).map((row: { id: string }) => row.id)
+      if (clientIds.length > 0) {
+        const clientIdList = clientIds.map((id) => `"${id}"`).join(',')
+        query = query.or(
+          `${projectNameFilter},client_id.in.(${clientIdList})`
+        )
+      } else {
+        query = query.or(projectNameFilter)
+      }
+    }
   }
 
   if (options.status && options.status !== 'all') {
