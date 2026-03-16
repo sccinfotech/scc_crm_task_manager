@@ -1,5 +1,5 @@
 export const TEAM_TALK_MAX_ATTACHMENTS = 5
-export const TEAM_TALK_MAX_ATTACHMENT_SIZE_BYTES = 5 * 1024 * 1024
+export const TEAM_TALK_MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024
 
 export const TEAM_TALK_ALLOWED_MIME_TYPES = [
   'image/png',

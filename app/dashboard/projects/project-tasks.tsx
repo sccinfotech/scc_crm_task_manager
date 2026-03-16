@@ -382,6 +382,8 @@ interface ProjectTasksProps {
   currentUserId: string | undefined
   teamMembers: StaffSelectOption[]
   className?: string
+  /** When provided, called instead of router.refresh() so tab selection is preserved. */
+  onRefresh?: () => void
 }
 
 export function ProjectTasks({
@@ -391,8 +393,10 @@ export function ProjectTasks({
   currentUserId,
   teamMembers,
   className = '',
+  onRefresh,
 }: ProjectTasksProps) {
   const router = useRouter()
+  const doRefresh = () => (onRefresh ? onRefresh() : router.refresh())
   const { success: showSuccess, error: showError } = useToast()
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list')
   const [isMobile, setIsMobile] = useState(false)
@@ -566,7 +570,7 @@ export function ProjectTasks({
         setTaskDetail((prev) => (prev ? { ...prev, ...result.data } : null))
       }
     }
-    router.refresh()
+    doRefresh()
   }
 
   const handleBoardDragStart = useCallback(
@@ -643,7 +647,7 @@ export function ProjectTasks({
           setTaskDetail((prev) => (prev ? { ...prev, ...result.data! } : null))
         }
       }
-      router.refresh()
+      doRefresh()
     },
     [boardDragState, canUpdateStatus, resetBoardDragState, router, showError, taskDetail?.id, tasks]
   )
@@ -748,7 +752,7 @@ export function ProjectTasks({
         setTaskDetail((prev) => (prev ? { ...prev, ...result.data } : null))
       }
     }
-    router.refresh()
+    doRefresh()
     return result
   }
 
@@ -762,7 +766,7 @@ export function ProjectTasks({
     setSelectedTaskId((id) => (id === taskId ? null : id))
     setTasks((prev) => prev.filter((t) => t.id !== taskId))
     showSuccess('Task deleted', 'Task has been removed.')
-    router.refresh()
+    doRefresh()
   }
 
   const handleAssigneesChange = async (taskId: string, assigneeIds: string[]) => {
@@ -778,7 +782,7 @@ export function ProjectTasks({
         setTaskDetail((prev) => (prev ? { ...prev, assignees: result.data!.assignees } : null))
       }
     }
-    router.refresh()
+    doRefresh()
   }
 
   const handleDueDateChange = async (taskId: string, dueDate: string | null) => {
@@ -794,7 +798,7 @@ export function ProjectTasks({
         setTaskDetail((prev) => (prev ? { ...prev, due_date: result.data!.due_date } : null))
       }
     }
-    router.refresh()
+    doRefresh()
   }
 
   const handlePriorityChange = async (taskId: string, priority: TaskPriority | null) => {
@@ -810,7 +814,7 @@ export function ProjectTasks({
         setTaskDetail((prev) => (prev ? { ...prev, priority: result.data!.priority } : null))
       }
     }
-    router.refresh()
+    doRefresh()
   }
 
   const handleAddComment = async (
@@ -859,7 +863,7 @@ export function ProjectTasks({
           : null
       )
     }
-    router.refresh()
+    doRefresh()
     return true
   }
 
@@ -882,7 +886,7 @@ export function ProjectTasks({
           : null
       )
     }
-    router.refresh()
+    doRefresh()
   }
 
   const handleDeleteComment = async (taskId: string, commentId: string) => {
@@ -903,7 +907,7 @@ export function ProjectTasks({
           : null
       )
     }
-    router.refresh()
+    doRefresh()
   }
 
   const handleDeleteCommentAttachment = async (
@@ -942,7 +946,7 @@ export function ProjectTasks({
     }
 
     showSuccess('Attachment removed', '')
-    router.refresh()
+    doRefresh()
   }
 
   const handleUploadAttachments = async (
@@ -979,7 +983,7 @@ export function ProjectTasks({
       )
     }
     loadTasks()
-    router.refresh()
+    doRefresh()
     return true
   }
 
@@ -1000,7 +1004,7 @@ export function ProjectTasks({
           : null
       )
     }
-    router.refresh()
+    doRefresh()
   }
 
   const tasksByStatus = TASK_STATUSES.reduce(

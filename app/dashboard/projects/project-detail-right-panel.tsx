@@ -31,6 +31,8 @@ interface ProjectDetailRightPanelProps {
   hideTabs?: boolean
   activeTabOverride?: RightPanelTab | null
   onTabChange?: (tab: RightPanelTab) => void
+  /** When provided, tab components call this instead of router.refresh() so tab selection is preserved. */
+  onRefresh?: () => void
 }
 
 const ADMIN_MANAGER_TABS: { id: RightPanelTab; label: string }[] = [
@@ -65,6 +67,7 @@ export function ProjectDetailRightPanel({
   hideTabs = false,
   activeTabOverride = null,
   onTabChange,
+  onRefresh,
 }: ProjectDetailRightPanelProps) {
   const isStaff = userRole === 'staff'
   const isAdminOrManager = userRole === 'admin' || userRole === 'manager'
@@ -166,6 +169,7 @@ export function ProjectDetailRightPanel({
               isActiveTab={tab === 'follow-ups'}
               hideHeader={true}
               className="!rounded-none !border-t-0 h-full"
+              onRefresh={onRefresh}
             />
           </div>
         )}
@@ -220,6 +224,7 @@ export function ProjectDetailRightPanel({
               isActiveTab={tab === 'my-notes'}
               hideHeader={true}
               className="!rounded-none !border-t-0 h-full"
+              onRefresh={onRefresh}
             />
           </div>
         )}
@@ -239,6 +244,7 @@ export function ProjectDetailRightPanel({
               isActiveTab={tab === 'team-talk'}
               hideHeader={true}
               className="!rounded-none !border-t-0 h-full"
+              onRefresh={onRefresh}
             />
           </div>
         )}

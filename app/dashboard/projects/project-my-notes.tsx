@@ -31,6 +31,8 @@ interface ProjectMyNotesProps {
   className?: string
   hideHeader?: boolean
   isActiveTab?: boolean
+  /** When provided, called instead of router.refresh() so tab selection is preserved. */
+  onRefresh?: () => void
 }
 
 function formatDateTime(dateString: string) {
@@ -249,8 +251,10 @@ export function ProjectMyNotes({
   className = '',
   hideHeader = false,
   isActiveTab = true,
+  onRefresh,
 }: ProjectMyNotesProps) {
   const router = useRouter()
+  const doRefresh = () => (onRefresh ? onRefresh() : router.refresh())
   const { success: showSuccess, error: showError } = useToast()
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
@@ -507,7 +511,7 @@ export function ProjectMyNotes({
       setUploadProgress({ total: 0, done: 0 })
       showSuccess('Note Added', 'Your private note has been saved.')
       await fetchNotes({ silent: true })
-      router.refresh()
+      doRefresh()
     } else {
       showError('Failed to add note', result.error || 'Unable to save note.')
     }
@@ -558,7 +562,7 @@ export function ProjectMyNotes({
       setEditingNoteText('')
       showSuccess('Note Updated', 'Changes have been saved.')
       await fetchNotes({ silent: true })
-      router.refresh()
+      doRefresh()
     } else {
       showError('Update Failed', result.error || 'Unable to update note.')
     }
@@ -609,7 +613,7 @@ export function ProjectMyNotes({
       setNoteToDelete(null)
       showSuccess('Note Deleted', 'The note has been removed.')
       await fetchNotes({ silent: true })
-      router.refresh()
+      doRefresh()
     } else {
       showError('Delete Failed', result.error || 'Unable to delete note.')
     }
