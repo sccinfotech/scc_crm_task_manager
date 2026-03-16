@@ -24,6 +24,8 @@ interface ProjectFollowUpsProps {
   className?: string
   hideHeader?: boolean
   isActiveTab?: boolean
+  /** When provided, called instead of router.refresh() so tab selection is preserved. */
+  onRefresh?: () => void
 }
 
 function formatDate(dateString: string) {
@@ -96,8 +98,10 @@ export function ProjectFollowUps({
   className = '',
   hideHeader = false,
   isActiveTab = true,
+  onRefresh,
 }: ProjectFollowUpsProps) {
   const router = useRouter()
+  const doRefresh = () => (onRefresh ? onRefresh() : router.refresh())
   const { success: showSuccess, error: showError } = useToast()
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const [followUps, setFollowUps] = useState<ProjectFollowUp[]>(initialFollowUps)
@@ -199,7 +203,7 @@ export function ProjectFollowUps({
         setFollowUps((prev) => [...prev, optimisticFollowUp])
       }
       await fetchFollowUps({ silent: true })
-      router.refresh()
+      doRefresh()
       const form = document.getElementById('add-followup-form') as HTMLFormElement
       if (form) {
         form.reset()
@@ -231,7 +235,7 @@ export function ProjectFollowUps({
       setEditModalOpen(false)
       setSelectedFollowUp(null)
       await fetchFollowUps({ silent: true })
-      router.refresh()
+      doRefresh()
     } else {
       showError('Update Failed', result.error)
     }
@@ -262,7 +266,7 @@ export function ProjectFollowUps({
       showSuccess('Follow-up Deleted', 'The record has been removed.')
       setFollowUps((prev) => prev.filter((item) => item.id !== selectedFollowUp.id))
       await fetchFollowUps({ silent: true })
-      router.refresh()
+      doRefresh()
       setDeleteModalOpen(false)
       setSelectedFollowUp(null)
     } else {

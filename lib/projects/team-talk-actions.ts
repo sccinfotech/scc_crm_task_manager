@@ -324,7 +324,7 @@ export async function createProjectTeamTalkMessage(
       if (attachment.size_bytes > TEAM_TALK_MAX_ATTACHMENT_SIZE_BYTES) {
         return {
           data: null,
-          error: 'One or more attachments exceed the 5 MB limit.',
+          error: 'One or more attachments exceed the 10 MB limit.',
         }
       }
     }

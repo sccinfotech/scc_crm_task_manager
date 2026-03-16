@@ -33,6 +33,8 @@ interface ProjectTeamTalkProps {
   className?: string
   hideHeader?: boolean
   isActiveTab?: boolean
+  /** When provided, called instead of router.refresh() so tab selection is preserved. */
+  onRefresh?: () => void
 }
 
 function formatDateTime(dateString: string) {
@@ -262,8 +264,10 @@ export function ProjectTeamTalk({
   className = '',
   hideHeader = false,
   isActiveTab = true,
+  onRefresh,
 }: ProjectTeamTalkProps) {
   const router = useRouter()
+  const doRefresh = () => (onRefresh ? onRefresh() : router.refresh())
   const { success: showSuccess, error: showError } = useToast()
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -504,7 +508,7 @@ export function ProjectTeamTalk({
       setUploadProgress({ total: 0, done: 0 })
       showSuccess('Message Sent', 'Your update has been posted to the team.')
       await fetchMessages({ silent: true })
-      router.refresh()
+      doRefresh()
     } else {
       showError('Send Failed', result.error || 'Unable to send message.')
     }
@@ -558,7 +562,7 @@ export function ProjectTeamTalk({
       setEditingCardWidth(null)
       showSuccess('Message Updated', 'Changes have been saved.')
       await fetchMessages({ silent: true })
-      router.refresh()
+      doRefresh()
     } else {
       showError('Update Failed', result.error || 'Unable to update message.')
     }
@@ -581,7 +585,7 @@ export function ProjectTeamTalk({
       setMessageToDelete(null)
       showSuccess('Message Deleted', 'The message has been removed.')
       await fetchMessages({ silent: true })
-      router.refresh()
+      doRefresh()
     } else {
       showError('Delete Failed', result.error || 'Unable to delete message.')
     }
@@ -633,7 +637,7 @@ export function ProjectTeamTalk({
     setDeleteAttachmentModal({ isOpen: false, attachmentId: null, messageId: null, fileName: '' })
     showSuccess('Attachment Deleted', 'The attachment was removed.')
     await fetchMessages({ silent: true })
-    router.refresh()
+    doRefresh()
   }
 
   const handleDeleteAttachmentCancel = () => {

@@ -1208,6 +1208,7 @@ export function ProjectDetailView({
                 teamMembers={project.team_members ?? null}
                 activeTabOverride={activeDetailsPanelTab}
                   onTabChange={handleDetailsPanelTabChange}
+                  onRefresh={refreshPreservingTab}
                 />
               </div>
             </div>
@@ -1220,6 +1221,7 @@ export function ProjectDetailView({
               canViewAmount={canViewAmount}
               isActiveTab={activeTab === 'requirements'}
               className="h-full"
+              onRefresh={refreshPreservingTab}
             />
           )}
 
@@ -1240,6 +1242,7 @@ export function ProjectDetailView({
               currentUserId={currentUserId}
               teamMembers={taskAssigneeOptions}
               className="h-full"
+              onRefresh={refreshPreservingTab}
             />
           )}
         </div>
@@ -1307,6 +1310,7 @@ export function ProjectDetailView({
                 className="!rounded-none border-0 h-full"
                 activeTabOverride={activeDetailsPanelTab}
                 onTabChange={handleDetailsPanelTabChange}
+                onRefresh={refreshPreservingTab}
               />
             </div>
           </div>

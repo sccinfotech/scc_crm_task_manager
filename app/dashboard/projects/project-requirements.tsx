@@ -30,6 +30,8 @@ interface ProjectRequirementsProps {
   canViewAmount: boolean
   className?: string
   isActiveTab?: boolean
+  /** When provided, called instead of router.refresh() so tab selection is preserved. */
+  onRefresh?: () => void
 }
 
 type MilestoneFormItem = {
@@ -1068,8 +1070,10 @@ export function ProjectRequirements({
   canViewAmount,
   className = "",
   isActiveTab = true,
+  onRefresh,
 }: ProjectRequirementsProps) {
   const router = useRouter()
+  const doRefresh = () => (onRefresh ? onRefresh() : router.refresh())
   const { error: showError, success: showSuccess } = useToast()
   const [requirements, setRequirements] = useState<ProjectRequirement[]>([])
   const [summary, setSummary] = useState<RequirementSummary>({
@@ -1172,7 +1176,7 @@ export function ProjectRequirements({
     setDeleteModalOpen(false)
     setSelectedRequirement(null)
     await fetchRequirements({ silent: true })
-    router.refresh()
+    doRefresh()
   }
 
   const listContent = (() => {
@@ -1423,7 +1427,7 @@ export function ProjectRequirements({
           setModalOpen(false)
           setSelectedRequirement(null)
           await fetchRequirements({ silent: true })
-          router.refresh()
+          doRefresh()
         }}
       />
 
