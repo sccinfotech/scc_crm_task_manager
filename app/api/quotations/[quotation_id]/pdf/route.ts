@@ -47,7 +47,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
   return new NextResponse(pdfBytes, {
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${getQuotationPdfFilename(quotationResult.data.quotation_number)}"`,
+      'Content-Disposition': `attachment; filename="${getQuotationPdfFilename(quotationResult.data)}"`,
       'Cache-Control': 'private, no-store, max-age=0',
     },
   })
