@@ -29,6 +29,10 @@ export type QuotationFormData = {
   client_id?: string
   valid_till?: string
   technology_tool_ids?: string[]
+  /** Short title for the quotation (UI only for now) */
+  title?: string
+  /** Internal notes for this quotation (UI only for now) */
+  notes?: string
   reference?: string
   terms?: string
   support?: string
@@ -48,6 +52,8 @@ export type Quotation = {
   discount: number
   final_total: number
   status: QuotationStatus
+  title: string | null
+  notes: string | null
   reference: string | null
   terms: string | null
   support: string | null
@@ -71,6 +77,8 @@ export type QuotationListItem = {
   lead_id: string | null
   client_id: string | null
   source_name: string
+  title: string | null
+  notes: string | null
   technology_tools_display: string
   final_total: number
   status: QuotationStatus
@@ -267,7 +275,7 @@ export async function getQuotationsPage(
   let query = supabase
     .from('quotations')
     .select(
-      'id, quotation_number, source_type, lead_id, client_id, final_total, status, valid_till, created_at, leads(id,name,company_name,phone), clients(id,name,company_name,phone)',
+      'id, quotation_number, source_type, lead_id, client_id, title, notes, final_total, status, valid_till, created_at, leads(id,name,company_name,phone), clients(id,name,company_name,phone)',
       { count: 'exact' }
     )
 
@@ -314,6 +322,8 @@ export async function getQuotationsPage(
     source_type: string
     lead_id: string | null
     client_id: string | null
+    title: string | null
+    notes: string | null
     final_total: number
     status: string
     valid_till: string | null
@@ -350,6 +360,8 @@ export async function getQuotationsPage(
       lead_id: r.lead_id,
       client_id: r.client_id,
       source_name: sourceName,
+      title: r.title,
+      notes: r.notes,
       technology_tools_display: (toolsByQuotation.get(r.id) || []).join(', ') || '—',
       final_total: r.final_total,
       status: r.status as QuotationStatus,
@@ -570,6 +582,8 @@ export async function createQuotation(formData: QuotationFormData): Promise<Quot
       discount,
       final_total: 0,
       status,
+      title: formData.title?.trim() || null,
+      notes: formData.notes?.trim() || null,
       reference: formData.reference?.trim() || null,
       created_by: currentUser.id,
       client_snapshot_name,
@@ -747,6 +761,8 @@ export async function updateQuotation(
       subtotal,
       final_total,
       status: formData.status || row.status,
+      title: formData.title?.trim() || null,
+      notes: formData.notes?.trim() || null,
       reference: formData.reference?.trim() || null,
       client_snapshot_name,
       client_snapshot_company_name,

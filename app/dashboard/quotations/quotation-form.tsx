@@ -357,6 +357,8 @@ export function QuotationForm({
         lead_id: (formData.get('lead_id') as string) || undefined,
         client_id: (formData.get('client_id') as string) || undefined,
         valid_till: (formData.get('valid_till') as string) || undefined,
+        title: (formData.get('title') as string) || undefined,
+        notes: (formData.get('notes') as string) || undefined,
         reference: (formData.get('reference') as string) || undefined,
         status: formData.get('status') as QuotationStatus,
         discount: Number.parseFloat((formData.get('discount') as string) || '0') || 0,
@@ -544,6 +546,19 @@ export function QuotationForm({
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Basic Information</h3>
         <div className="grid gap-5 md:grid-cols-2">
           <div className="md:col-span-2">
+            <label htmlFor="title" className={labelClasses}>
+              Title
+            </label>
+            <input
+              type="text"
+              id="title"
+              name="title"
+              defaultValue={initialData?.title ?? ''}
+              className={inputClasses}
+              placeholder="Enter quotation title"
+            />
+          </div>
+          <div className="md:col-span-2">
             <div className="flex items-center justify-between gap-2 mb-1.5">
               <label htmlFor="lead-or-client" className={labelClasses}>
                 Lead or Client <span className="text-rose-500">*</span>
@@ -599,6 +614,19 @@ export function QuotationForm({
               defaultValue={initialData?.reference ?? ''}
               className={inputClasses}
               placeholder="Optional reference"
+            />
+          </div>
+          <div className="md:col-span-2">
+            <label htmlFor="notes" className={labelClasses}>
+              Notes
+            </label>
+            <textarea
+              id="notes"
+              name="notes"
+              defaultValue={initialData?.notes ?? ''}
+              rows={3}
+              className={inputClasses}
+              placeholder="Internal notes about this quotation"
             />
           </div>
           <div>
