@@ -49,7 +49,7 @@ export function ClientsFilters({
     statusFilter !== 'all' ||
     searchQuery.trim() !== '' ||
     clientTypeFilter !== 'all' ||
-    (clientTypeFilter === 'product' && !!productFilter)
+    !!productFilter
 
   return (
     <div className="border-b border-gray-200 bg-white px-6 py-4">
