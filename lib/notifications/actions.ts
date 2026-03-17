@@ -7,6 +7,8 @@ export type NotificationItem = {
   id: string
   user_id: string
   project_id: string | null
+  /** Optional project title when notification is related to a project */
+  project_title: string | null
   task_id: string | null
   type: string
   title: string
@@ -39,7 +41,34 @@ export async function getNotifications(limit = 30): Promise<ActionResult<Notific
     return { data: null, error: error.message || 'Failed to fetch notifications.' }
   }
 
-  return { data: (data as NotificationItem[]) || [], error: null }
+  const rows = (data as Array<NotificationItem> | null) || []
+
+  // If there are related projects, fetch their titles in a separate query
+  const projectIds = Array.from(
+    new Set(rows.map((row) => row.project_id).filter((id): id is string => Boolean(id)))
+  )
+
+  let projectTitleMap = new Map<string, string | null>()
+
+  if (projectIds.length > 0) {
+    const { data: projects, error: projectsError } = await (supabase as any)
+      .from('projects')
+      .select('id, title')
+      .in('id', projectIds)
+
+    if (!projectsError && projects) {
+      projectTitleMap = new Map(
+        (projects as Array<{ id: string; title: string | null }>).map((p) => [p.id, p.title])
+      )
+    }
+  }
+
+  const mapped: NotificationItem[] = rows.map((row) => ({
+    ...row,
+    project_title: row.project_id ? projectTitleMap.get(row.project_id) ?? null : null,
+  }))
+
+  return { data: mapped, error: null }
 }
 
 export async function markNotificationRead(notificationId: string): Promise<ActionResult<{ id: string }>> {
