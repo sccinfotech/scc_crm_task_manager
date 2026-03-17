@@ -157,6 +157,18 @@ export const ClientsCardList = memo(function ClientsCardList({
                 )}
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <StatusPill status={client.status} />
+                  {client.products && client.products.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {client.products.map((product) => (
+                        <span
+                          key={product.id}
+                          className="inline-flex items-center rounded-full bg-cyan-50 px-2 py-0.5 text-[11px] font-medium text-cyan-700 ring-1 ring-cyan-500/15"
+                        >
+                          {product.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

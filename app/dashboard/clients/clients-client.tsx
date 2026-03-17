@@ -10,7 +10,7 @@ import { ClientsFilters } from './clients-filters'
 import { InternalNotesPanel } from './internal-notes-panel'
 import { SidebarToggleButton } from '@/app/components/dashboard/sidebar-context'
 import { Pagination } from '@/app/components/ui/pagination'
-import { createClient, updateClient, getClient, deleteClient, getClientsPage, ClientFormData, Client, ClientStatus, type ClientListItem, type ClientSortField } from '@/lib/clients/actions'
+import { createClient, updateClient, getClient, deleteClient, getClientsPage, ClientFormData, Client, ClientStatus, type ClientListItem, type ClientSortField, type ClientTypeFilter } from '@/lib/clients/actions'
 import { useToast } from '@/app/components/ui/toast-context'
 
 interface ClientsClientProps {
@@ -20,10 +20,13 @@ interface ClientsClientProps {
   pageSize: number
   initialSearch: string
   initialStatus: ClientStatus | 'all'
+  initialClientType?: ClientTypeFilter
+  initialProductId?: string
   initialSortField: ClientSortField | null
   initialSortDirection: 'asc' | 'desc'
   canWrite: boolean
   canManageInternalNotes: boolean
+  productOptions: { id: string; name: string }[]
 }
 
 export function ClientsClient({
@@ -33,10 +36,13 @@ export function ClientsClient({
   pageSize,
   initialSearch,
   initialStatus,
+  initialClientType,
   initialSortField,
   initialSortDirection,
   canWrite,
   canManageInternalNotes,
+  initialProductId,
+  productOptions,
 }: ClientsClientProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -58,6 +64,9 @@ export function ClientsClient({
   const [mobilePage, setMobilePage] = useState(page)
   const [loadingMore, setLoadingMore] = useState(false)
 
+  const [clientType, setClientType] = useState<ClientTypeFilter>(initialClientType ?? 'all')
+  const [productId, setProductId] = useState<string>(initialProductId ?? '')
+
   useEffect(() => {
     setMobileClients(clients)
     setMobilePage(page)
@@ -67,6 +76,8 @@ export function ClientsClient({
     (updates: {
       search?: string
       status?: string
+      clientType?: ClientTypeFilter
+      productId?: string
       sort?: string | null
       sortDir?: string
       page?: number
@@ -74,11 +85,14 @@ export function ClientsClient({
       const params = new URLSearchParams()
       const search = updates.search !== undefined ? updates.search : initialSearch
       const status = updates.status !== undefined ? updates.status : initialStatus
+      const type = updates.clientType !== undefined ? updates.clientType : clientType
       const sort = updates.sort !== undefined ? updates.sort : initialSortField
       const sortDir = updates.sortDir !== undefined ? updates.sortDir : initialSortDirection
       const pageNum = updates.page !== undefined ? updates.page : page
       if (search) params.set('search', search)
       if (status && status !== 'all') params.set('status', status)
+      if (type && type !== 'all') params.set('type', type)
+      if (updates.productId && type === 'product') params.set('productId', updates.productId)
       if (sort) {
         params.set('sort', sort)
         params.set('sortDir', sortDir)
@@ -86,7 +100,7 @@ export function ClientsClient({
       if (pageNum > 1) params.set('page', String(pageNum))
       return params.toString()
     },
-    [initialSearch, initialStatus, initialSortField, initialSortDirection, page]
+    [initialSearch, initialStatus, initialSortField, initialSortDirection, page, clientType]
   )
 
   const handleSort = (field: ClientSortField | null) => {
@@ -219,12 +233,14 @@ export function ClientsClient({
     }
   }
 
-  const handleFilterChange = (updates: { search?: string; status?: ClientStatus | 'all' }) => {
+  const handleFilterChange = (updates: { search?: string; status?: ClientStatus | 'all'; clientType?: ClientTypeFilter; productId?: string }) => {
     const q = buildSearchParams({ ...updates, page: 1 })
     router.push(`${pathname}${q ? `?${q}` : ''}`)
   }
 
   const handleClearFilters = () => {
+    setClientType('all')
+    setProductId('')
     router.push(pathname)
   }
 
@@ -243,6 +259,8 @@ export function ClientsClient({
     const result = await getClientsPage({
       search: initialSearch || undefined,
       status: initialStatus !== 'all' ? initialStatus : undefined,
+      clientType: clientType !== 'all' ? clientType : undefined,
+      productId: clientType === 'product' && productId ? productId : undefined,
       sortField: initialSortField ?? undefined,
       sortDirection: initialSortDirection,
       page: mobilePage + 1,
@@ -299,6 +317,26 @@ export function ClientsClient({
           <ClientsFilters
             statusFilter={initialStatus}
             onStatusChange={(s) => handleFilterChange({ status: s })}
+            clientTypeFilter={clientType}
+            onClientTypeChange={(t) => {
+              setClientType(t)
+              // Reset product filter when switching away from product view
+              if (t !== 'product') {
+                setProductId('')
+                handleFilterChange({ clientType: t })
+              } else {
+                handleFilterChange({ clientType: t, productId })
+              }
+            }}
+            productFilter={clientType === 'product' ? productId : ''}
+            productOptions={productOptions}
+            onProductChange={(id) => {
+              const nextId = id ?? ''
+              setProductId(nextId)
+              if (clientType === 'product') {
+                handleFilterChange({ clientType, productId: nextId || undefined })
+              }
+            }}
             searchQuery={initialSearch}
             onSearchChange={(q) => handleFilterChange({ search: q })}
             onClearFilters={handleClearFilters}
@@ -340,6 +378,7 @@ export function ClientsClient({
                 sortDirection={initialSortField ? initialSortDirection : undefined}
                 onSort={handleSort}
                 isFiltered={initialStatus !== 'all' || initialSearch.trim() !== ''}
+                showProductsColumn={clientType === 'product'}
               />
             </div>
           </div>

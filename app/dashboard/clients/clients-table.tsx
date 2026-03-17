@@ -12,6 +12,7 @@ type Client = {
   remark: string | null
   created_at: string
   created_by?: string
+  products?: { id: string; name: string }[]
 }
 
 type SortField = 'name' | 'company_name' | 'phone' | 'status' | 'created_at' | null
@@ -29,6 +30,7 @@ interface ClientsTableProps {
   sortDirection?: SortDirection
   onSort?: (field: SortField) => void
   isFiltered?: boolean
+  showProductsColumn?: boolean
 }
 
 function StatusPill({ status }: { status: Client['status'] }) {
@@ -101,6 +103,7 @@ export function ClientsTable({
   sortDirection = null,
   onSort,
   isFiltered = false,
+  showProductsColumn = false,
 }: ClientsTableProps) {
   const handleSort = (field: SortField) => {
     if (!onSort) return
@@ -175,6 +178,11 @@ export function ClientsTable({
                 <SortIcon direction={sortField === 'status' ? sortDirection : null} />
               </div>
             </th>
+            {showProductsColumn && (
+              <th className="hidden lg:table-cell lg:w-[20%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 transition-colors">
+                Products
+              </th>
+            )}
             <th className="w-[15%] sm:w-[12%] px-3 sm:px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 transition-all duration-200">
               {canWrite || canManageInternalNotes ? 'Actions' : 'View'}
             </th>
@@ -256,6 +264,25 @@ export function ClientsTable({
                     <StatusPill status={client.status} />
                   </Link>
                 </td>
+                {showProductsColumn && (
+                  <td className="hidden px-4 py-3 lg:table-cell align-top">
+                    {client.products && client.products.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {client.products.map((product) => (
+                          <span
+                            key={product.id}
+                            className="inline-flex items-center rounded-full bg-cyan-50 px-2 py-0.5 text-[11px] font-medium text-cyan-700 ring-1 ring-cyan-500/15"
+                            title={product.name}
+                          >
+                            {product.name}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-400">—</span>
+                    )}
+                  </td>
+                )}
                 <td className="px-3 sm:px-4 py-3 text-right text-sm">
                   <div className="flex items-center justify-end gap-1">
                     {canManageInternalNotes && onOpenInternalNotes && (
