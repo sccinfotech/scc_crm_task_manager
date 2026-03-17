@@ -681,9 +681,11 @@ export function QuotationPdfDocument({
   const recipientName = hasText(source.name) ? source.name! : 'Sir/Madam'
 
   // Subject: reference or auto-generated
-  const subjectText = hasText(quotation.reference)
-    ? quotation.reference!
-    : 'Quotation for IT Services'
+  const subjectText = hasText(quotation.title)
+    ? quotation.title!
+    : hasText(quotation.reference)
+      ? quotation.reference!
+      : 'Quotation for IT Services'
 
   return (
     <Document

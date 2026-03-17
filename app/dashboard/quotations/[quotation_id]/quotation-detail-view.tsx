@@ -286,6 +286,8 @@ export function QuotationDetailView({
     lead_id: quotation.lead_id ?? undefined,
     client_id: quotation.client_id ?? undefined,
     valid_till: quotation.valid_till ?? undefined,
+    title: quotation.title ?? undefined,
+    notes: quotation.notes ?? undefined,
     reference: quotation.reference ?? undefined,
     status: quotation.status,
     discount: quotation.discount,
@@ -512,6 +514,12 @@ export function QuotationDetailView({
                 <h2 className="text-sm font-bold text-slate-900">Quotation Information</h2>
               </div>
               <div className="grid gap-3 px-3 py-3 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Title</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm font-semibold text-slate-900">
+                    {quotation.title || '—'}
+                  </p>
+                </div>
                 <div>
                   <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Quotation Date</p>
                   <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(quotation.created_at)}</p>
@@ -527,6 +535,12 @@ export function QuotationDetailView({
                 <div>
                   <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Reference</p>
                   <p className="mt-1 break-words text-sm font-semibold text-slate-900">{quotation.reference || '—'}</p>
+                </div>
+                <div className="sm:col-span-2">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Notes</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm font-semibold text-slate-900">
+                    {quotation.notes || '—'}
+                  </p>
                 </div>
                 <div className="sm:col-span-2 border-t border-slate-100 pt-3">
                   <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Technology & Tools</p>

@@ -133,22 +133,28 @@ export function QuotationsTable({
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+            <th scope="col" className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
               <SortHeader field="quotation_number" label="Quotation #" />
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+            <th scope="col" className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              Title
+            </th>
+            <th scope="col" className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
               Lead / Client
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+            <th scope="col" className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              Notes
+            </th>
+            <th scope="col" className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
               <SortHeader field="status" label="Status" />
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+            <th scope="col" className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
               <SortHeader field="valid_till" label="Valid Till" />
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+            <th scope="col" className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
               <SortHeader field="created_at" label="Created" />
             </th>
-            <th scope="col" className="relative px-6 py-3">
+            <th scope="col" className="relative px-3 py-2.5">
               <span className="sr-only">Actions</span>
             </th>
           </tr>
@@ -162,22 +168,32 @@ export function QuotationsTable({
               onClick={() => onView(q.id)}
               className="cursor-pointer hover:bg-gray-50 transition-colors"
             >
-              <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-[#06B6D4]">
+              <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-[#06B6D4]">
                 <span className="hover:underline">{q.quotation_number}</span>
               </td>
-              <td className="px-6 py-4 text-sm text-gray-900 max-w-[180px] truncate" title={q.source_name}>
+              <td className="px-4 py-3 text-sm text-gray-900">
+                <div className="max-w-xs line-clamp-2 break-words" title={q.title || undefined}>
+                  {q.title || '—'}
+                </div>
+              </td>
+              <td className="px-4 py-3 text-sm text-gray-900 max-w-[160px] truncate" title={q.source_name}>
                 {q.source_name}
               </td>
-              <td className="whitespace-nowrap px-6 py-4">
+              <td className="px-4 py-3 text-sm text-slate-600">
+                <div className="max-w-xs line-clamp-2 break-words" title={q.notes || undefined}>
+                  {q.notes || '—'}
+                </div>
+              </td>
+              <td className="whitespace-nowrap px-4 py-3">
                 <StatusPill status={q.status} />
               </td>
-              <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
+              <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
                 {q.valid_till ? formatDate(q.valid_till) : '—'}
               </td>
-              <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
+              <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
                 {formatDate(q.created_at)}
               </td>
-              <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
+              <td className="whitespace-nowrap px-3 py-3 text-right text-sm">
                 <div className="flex items-center justify-end gap-1">
                   <Tooltip content="Download quotation PDF">
                     <button
