@@ -20,124 +20,114 @@ const COMPANY = {
   website: 'www.sccinfotech.com',
 }
 
-const SCC_LOGO_PATH = `${process.cwd()}/public/scc_logo.png`
+const SCC_HEADER_PATH = `${process.cwd()}/public/scc_header.png`
+const SCC_FOOTER_PATH = `${process.cwd()}/public/scc_footer.png`
+
+// Header banner constants
+const HEADER_WIDTH = 595
+const HEADER_HEIGHT = 90
+const HEADER_TOP_PADDING = 95
 
 // ─── Styles — Black & White Document Format ───────────────────────────────────
 const S = StyleSheet.create({
   page: {
-    paddingTop: 40,
+    paddingTop: HEADER_TOP_PADDING,
     paddingBottom: 60,
     paddingHorizontal: 50,
     backgroundColor: '#FFFFFF',
-    color: '#000000',
+    color: '#111827',
     fontSize: 10,
     fontFamily: 'Helvetica',
     lineHeight: 1.5,
   },
 
-  // ── Letterhead ────────────────────────────────────────────────────────────
-  letterhead: {
+  // ── Fixed header image (repeats on every page) ─────────────────────────────
+  headerFixed: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: HEADER_HEIGHT,
+    zIndex: 1,
+  },
+  headerImage: {
+    width: '100%',
+    height: HEADER_HEIGHT,
+  },
+
+  // ── Top details row: Prepared For + Quotation meta ─────────────────────────
+  detailsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 14,
-    gap: 24,
+    gap: 20,
+    marginTop: 8,
+    marginBottom: 10,
   },
-  letterheadLeft: {
+  docTitleRow: {
     flexDirection: 'row',
+    justifyContent: 'flex-end',
     alignItems: 'flex-start',
-    flex: 1,
-    minWidth: 0,
-    maxWidth: 320,
-  },
-  logo: {
-    width: 72,
-    height: 72,
-    minWidth: 72,
-    minHeight: 72,
-    marginRight: 16,
-    flexShrink: 0,
-  },
-  companyInfoBlock: {
-    flex: 1,
-    minWidth: 0,
-  },
-  companyName: {
-    fontSize: 16,
-    fontFamily: 'Helvetica-Bold',
-    color: '#000000',
     marginBottom: 4,
   },
-  companyDetail: {
-    fontSize: 8.5,
-    color: '#333333',
-    marginBottom: 2,
-    lineHeight: 1.4,
-  },
-  letterheadRight: {
-    width: 220,
-    minWidth: 220,
-    flexShrink: 0,
+  docTitleBlock: {
+    minWidth: 170,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 0.8,
+    borderColor: '#D0D0D0',
+    borderRadius: 3,
     alignItems: 'flex-end',
+    backgroundColor: '#F9FAFB',
   },
   docLabel: {
-    fontSize: 22,
+    fontSize: 19,
     fontFamily: 'Helvetica-Bold',
     color: '#000000',
-    marginBottom: 15,
+    marginBottom: 10,
   },
   docRefLine: {
-    fontSize: 9,
-    color: '#333333',
-    marginBottom: 2.5,
-    textAlign: 'right',
-  },
-
-  // ── Thick rule under letterhead ───────────────────────────────────────────
-  ruleThick: {
-    height: 2,
-    backgroundColor: '#000000',
-    marginTop: 12,
+    fontSize: 8.5,
+    color: '#4B5563',
     marginBottom: 2,
-  },
-  ruleThin: {
-    height: 0.5,
-    backgroundColor: '#000000',
-    marginBottom: 12,
+    textAlign: 'right',
   },
 
   // ── From / To Address Block ───────────────────────────────────────────────
   addressRow: {
     flexDirection: 'row',
-    marginBottom: 20,
-    marginTop: 10,
+    marginBottom: 12,
+    marginTop: 2,
   },
   preparedForWrap: {
-    backgroundColor: '#FAFAFA',
-    borderLeftWidth: 2,
-    borderLeftColor: '#000000',
-    padding: 12,
-    flex: 1,
+    backgroundColor: '#F7F7F7',
+    borderWidth: 0.8,
+    borderColor: '#D0D0D0',
+    borderLeftWidth: 3,
+    borderLeftColor: '#0F172A',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flex: 1.4,
   },
   addressSectionLabel: {
-    fontSize: 7.5,
+    fontSize: 8,
     fontFamily: 'Helvetica-Bold',
     color: '#666666',
     textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 6,
+    letterSpacing: 0.8,
+    marginBottom: 4,
   },
   addressName: {
-    fontSize: 12,
+    fontSize: 12.5,
     fontFamily: 'Helvetica-Bold',
     color: '#000000',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   addressCompany: {
     fontSize: 10,
     fontFamily: 'Helvetica-Bold',
     color: '#444444',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   addressContactRow: {
     flexDirection: 'row',
@@ -163,7 +153,7 @@ const S = StyleSheet.create({
   // ── Subject line ──────────────────────────────────────────────────────────
   subjectRow: {
     flexDirection: 'row',
-    marginBottom: 14,
+    marginBottom: 10,
   },
   subjectLabel: {
     fontSize: 10,
@@ -182,7 +172,7 @@ const S = StyleSheet.create({
   greeting: {
     fontSize: 12,
     color: '#000000',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   greetingName: {
     fontFamily: 'Helvetica-Bold',
@@ -191,7 +181,7 @@ const S = StyleSheet.create({
     fontSize: 10,
     color: '#333333',
     lineHeight: 1.6,
-    marginBottom: 14,
+    marginBottom: 10,
   },
 
   // ── Section Title ─────────────────────────────────────────────────────────
@@ -200,7 +190,7 @@ const S = StyleSheet.create({
     fontFamily: 'Helvetica-Bold',
     color: '#000000',
     marginBottom: 6,
-    marginTop: 14,
+    marginTop: 10,
     borderBottomWidth: 0.5,
     borderBottomColor: '#000000',
     paddingBottom: 3,
@@ -548,32 +538,14 @@ const S = StyleSheet.create({
   // ── Footer ────────────────────────────────────────────────────────────────
   footer: {
     position: 'absolute',
-    bottom: 20,
-    left: 50,
-    right: 50,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 50,
   },
-  footerRule: {
-    height: 0.5,
-    backgroundColor: '#000000',
-    marginBottom: 6,
-  },
-  footerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  footerLeft: {
-    fontSize: 8,
-    color: '#333333',
-  },
-  footerCenter: {
-    fontSize: 8,
-    color: '#333333',
-    textAlign: 'center',
-  },
-  footerRight: {
-    fontSize: 8,
-    color: '#333333',
-    textAlign: 'right',
+  footerImage: {
+    width: '100%',
+    height: '100%',
   },
 })
 
@@ -665,8 +637,22 @@ function getRequirementAmount(req: QuotationRequirement): number | null {
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
 // Note: Ensure Next.js dev server uses port 3001 if requested.
-export function getQuotationPdfFilename(quotationNumber: string): string {
-  return `${quotationNumber.replace(/[^A-Za-z0-9_-]+/g, '_')}.pdf`
+export function getQuotationPdfFilename(quotation: Quotation): string {
+  const source = getSourceDetails(quotation)
+
+  const safe = (value: string | null): string =>
+    (value ?? '')
+      .trim()
+      .replace(/\s+/g, ' ')
+      .replace(/[^A-Za-z0-9()\-\ ]+/g, '_')
+
+  const baseName = safe(source.name) || 'Client'
+  const company = safe(source.company)
+
+  const label = company ? `${baseName}(${company})` : baseName
+  const quotationPart = quotation.quotation_number.replace(/[^A-Za-z0-9_-]+/g, '_')
+
+  return `${label}_${quotationPart}.pdf`
 }
 
 type Props = {
@@ -709,40 +695,14 @@ export function QuotationPdfDocument({
     >
       <Page size="A4" style={S.page}>
 
-        {/* ── LETTERHEAD ─────────────────────────────────────────────────── */}
-        <View style={S.letterhead}>
-
-          {/* Left: Logo + Company */}
-          <View style={S.letterheadLeft}>
-            <Image src={SCC_LOGO_PATH} style={S.logo} />
-            <View style={S.companyInfoBlock}>
-              <Text style={S.companyName}>{COMPANY.name}</Text>
-              <Text style={S.companyDetail}>{COMPANY.addressLine1}</Text>
-              <Text style={S.companyDetail}>{COMPANY.addressLine2}</Text>
-              <Text style={S.companyDetail}>Tel: {COMPANY.phone}  |  {COMPANY.email}</Text>
-              <Text style={S.companyDetail}>{COMPANY.website}</Text>
-            </View>
-          </View>
-
-          {/* Right: Document type */}
-          <View style={S.letterheadRight}>
-            <Text style={S.docLabel}>QUOTATION</Text>
-            <Text style={S.docRefLine}>Ref No: {quotation.quotation_number}</Text>
-            <Text style={S.docRefLine}>Date: {formatDate(quotation.created_at)}</Text>
-            {quotation.valid_till && (
-              <Text style={S.docRefLine}>Valid Till: {formatDate(quotation.valid_till)}</Text>
-            )}
-          </View>
-
+        {/* ── FIXED HEADER IMAGE (same on every page) ─────────────────────── */}
+        <View style={S.headerFixed} fixed>
+          <Image src={SCC_HEADER_PATH} style={S.headerImage} />
         </View>
 
-        {/* ── DOUBLE RULE ────────────────────────────────────────────────── */}
-        <View style={S.ruleThick} />
-        <View style={S.ruleThin} />
-
-        {/* ── FROM / TO ──────────────────────────────────────────────────── */}
-        <View style={S.addressRow}>
-          {/* To - Prepared For */}
+        {/* ── TOP DETAILS ROW: PREPARED FOR + QUOTATION META ──────────────── */}
+        <View style={S.detailsRow}>
+          {/* Left: Prepared For */}
           <View style={S.preparedForWrap}>
             <Text style={S.addressSectionLabel}>PREPARED FOR</Text>
             {hasText(source.name) && (
@@ -753,7 +713,7 @@ export function QuotationPdfDocument({
             )}
 
             {(hasText(source.phone) || hasText(source.email)) && (
-              <View style={{ marginTop: 4 }}>
+              <View style={{ marginTop: 2 }}>
                 {hasText(source.phone) && (
                   <View style={S.addressContactRow}>
                     <Text style={S.addressContactLabel}>Tel:</Text>
@@ -767,6 +727,16 @@ export function QuotationPdfDocument({
                   </View>
                 )}
               </View>
+            )}
+          </View>
+
+          {/* Right: Quotation meta */}
+          <View style={S.docTitleBlock}>
+            <Text style={S.docLabel}>Quotation</Text>
+            <Text style={S.docRefLine}>Ref No: {quotation.quotation_number}</Text>
+            <Text style={S.docRefLine}>Date: {formatDate(quotation.created_at)}</Text>
+            {quotation.valid_till && (
+              <Text style={S.docRefLine}>Valid Till: {formatDate(quotation.valid_till)}</Text>
             )}
           </View>
         </View>
@@ -1041,19 +1011,9 @@ export function QuotationPdfDocument({
 
         </View>
 
-        {/* ── FOOTER ─────────────────────────────────────────────────────── */}
+        {/* ── FOOTER IMAGE (same on every page) ───────────────────────────── */}
         <View style={S.footer} fixed>
-          <View style={S.footerRule} />
-          <View style={S.footerContent}>
-            <Text style={S.footerLeft}>{COMPANY.name}  |  {COMPANY.email}</Text>
-            <Text
-              style={S.footerCenter}
-              render={({ pageNumber, totalPages }) =>
-                `Page ${pageNumber} of ${totalPages}`
-              }
-            />
-            <Text style={S.footerRight}>{quotation.quotation_number}  |  Confidential</Text>
-          </View>
+          <Image src={SCC_FOOTER_PATH} style={S.footerImage} />
         </View>
 
       </Page>
