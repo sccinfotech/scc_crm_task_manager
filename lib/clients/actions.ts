@@ -10,6 +10,8 @@ import { prepareSearchTerm } from '@/lib/supabase/utils'
 
 export type ClientStatus = 'active' | 'inactive'
 
+export type ClientTypeFilter = 'all' | 'product'
+
 export type ClientFormData = {
   name: string
   company_name?: string
@@ -39,6 +41,8 @@ export type ClientSortField = 'name' | 'company_name' | 'phone' | 'status' | 'cr
 export type GetClientsPageOptions = {
   search?: string
   status?: ClientStatus | 'all'
+  clientType?: ClientTypeFilter
+  productId?: string
   sortField?: ClientSortField
   sortDirection?: 'asc' | 'desc'
   page?: number
@@ -55,6 +59,7 @@ export type ClientListItem = {
   remark: string | null
   created_at: string
   created_by?: string
+  products?: { id: string; name: string }[]
 }
 
 export type ClientSelectOption = {
@@ -73,17 +78,186 @@ export async function getClientsPage(options: GetClientsPageOptions = {}) {
     return { data: [], totalCount: 0, error: 'You do not have permission to view clients' }
   }
 
-  const page = Math.max(1, options.page ?? 1)
-  const pageSize = Math.min(100, Math.max(1, options.pageSize ?? 20))
   const supabase = await createSupabaseClient()
 
+  const page = Math.max(1, options.page ?? 1)
+  const pageSize = Math.min(100, Math.max(1, options.pageSize ?? 20))
+  const sortField = options.sortField ?? 'created_at'
+  const sortDirection = options.sortDirection ?? 'desc'
+  const searchTerm = prepareSearchTerm(options.search)
+
+  // When filtering to "Product Clients", fetch from product_client_subscriptions and
+  // aggregate by client so we can attach connected products.
+  if (options.clientType === 'product') {
+    const { data, error } = await supabase
+      .from('product_client_subscriptions')
+      .select(
+        `
+        client_id,
+        clients (
+          id,
+          name,
+          company_name,
+          phone,
+          email,
+          status,
+          remark,
+          created_at,
+          created_by
+        ),
+        products (
+          id,
+          name
+        )
+      `
+      )
+
+    if (error) {
+      console.error('Error fetching product clients:', error)
+      return { data: [], totalCount: 0, error: error.message || 'Failed to fetch clients' }
+    }
+
+    type Row = {
+      client_id: string
+      clients:
+        | {
+            id: string
+            name: string
+            company_name: string | null
+            phone: string
+            email: string | null
+            status: ClientStatus
+            remark: string | null
+            created_at: string
+            created_by?: string
+          }
+        | {
+            id: string
+            name: string
+            company_name: string | null
+            phone: string
+            email: string | null
+            status: ClientStatus
+            remark: string | null
+            created_at: string
+            created_by?: string
+          }[]
+        | null
+      products:
+        | {
+            id: string
+            name: string
+          }
+        | {
+            id: string
+            name: string
+          }[]
+        | null
+    }
+
+    const clientMap = new Map<
+      string,
+      {
+        client: ClientListItem
+        products: { id: string; name: string }[]
+      }
+    >()
+
+    ;(data || []).forEach((rowRaw) => {
+      const row = rowRaw as unknown as Row
+      const clientRaw = Array.isArray(row.clients) ? row.clients[0] : row.clients
+      if (!clientRaw) return
+
+      const productRaw = Array.isArray(row.products) ? row.products[0] : row.products
+
+      // If a specific product filter is set, skip rows that don't match
+      if (options.productId && (!productRaw || productRaw.id !== options.productId)) {
+        return
+      }
+
+      const existing = clientMap.get(clientRaw.id)
+      if (!existing) {
+        const products: { id: string; name: string }[] = []
+        if (productRaw) {
+          products.push({ id: productRaw.id, name: productRaw.name })
+        }
+        clientMap.set(clientRaw.id, {
+          client: {
+            id: clientRaw.id,
+            name: clientRaw.name,
+            company_name: clientRaw.company_name,
+            phone: clientRaw.phone,
+            email: clientRaw.email,
+            status: clientRaw.status,
+            remark: clientRaw.remark,
+            created_at: clientRaw.created_at,
+            created_by: clientRaw.created_by,
+            products,
+          },
+          products,
+        })
+      } else if (productRaw) {
+        const exists = existing.products.some((p) => p.id === productRaw.id)
+        if (!exists) {
+          existing.products.push({ id: productRaw.id, name: productRaw.name })
+        }
+      }
+    })
+
+    let clients = Array.from(clientMap.values()).map(({ client }) => client)
+
+    if (searchTerm) {
+      const lowered = searchTerm.toLowerCase()
+      clients = clients.filter((c) => {
+        const name = c.name?.toLowerCase() ?? ''
+        const company = c.company_name?.toLowerCase() ?? ''
+        return name.includes(lowered) || company.includes(lowered)
+      })
+    }
+
+    if (options.status && options.status !== 'all') {
+      clients = clients.filter((c) => c.status === options.status)
+    }
+
+    clients.sort((a, b) => {
+      const dir = sortDirection === 'asc' ? 1 : -1
+      switch (sortField) {
+        case 'name':
+          return dir * a.name.localeCompare(b.name)
+        case 'company_name':
+          return dir * (a.company_name || '').localeCompare(b.company_name || '')
+        case 'phone':
+          return dir * (a.phone || '').localeCompare(b.phone || '')
+        case 'status':
+          return dir * a.status.localeCompare(b.status)
+        case 'created_at':
+        default: {
+          const aDate = new Date(a.created_at).getTime()
+          const bDate = new Date(b.created_at).getTime()
+          return dir * (aDate - bDate)
+        }
+      }
+    })
+
+    const totalCount = clients.length
+    const from = (page - 1) * pageSize
+    const to = from + pageSize
+    const paged = clients.slice(from, to)
+
+    return {
+      data: paged,
+      totalCount,
+      error: null,
+    }
+  }
+
+  // Default: All clients (no product-specific filtering)
   let query = supabase
     .from('clients')
     .select('id, name, company_name, phone, email, status, remark, created_at, created_by', {
       count: 'exact',
     })
 
-  const searchTerm = prepareSearchTerm(options.search)
   if (searchTerm) {
     query = query.or(`name.ilike.%${searchTerm}%,company_name.ilike.%${searchTerm}%`)
   }
@@ -92,8 +266,6 @@ export async function getClientsPage(options: GetClientsPageOptions = {}) {
     query = query.eq('status', options.status)
   }
 
-  const sortField = options.sortField ?? 'created_at'
-  const sortDirection = options.sortDirection ?? 'desc'
   query = query.order(sortField, { ascending: sortDirection === 'asc' })
 
   const from = (page - 1) * pageSize

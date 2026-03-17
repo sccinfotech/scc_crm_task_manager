@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ClientStatus } from '@/lib/clients/actions'
+import { ClientStatus, type ClientTypeFilter } from '@/lib/clients/actions'
 import { ListboxDropdown } from '@/app/components/ui/listbox-dropdown'
 import { SearchInput } from '@/app/components/ui/search-input'
 
@@ -10,6 +10,11 @@ const SEARCH_DEBOUNCE_MS = 350
 interface ClientsFiltersProps {
   statusFilter: ClientStatus | 'all'
   onStatusChange: (status: ClientStatus | 'all') => void
+  clientTypeFilter: ClientTypeFilter
+  onClientTypeChange: (type: ClientTypeFilter) => void
+  productFilter: string
+  productOptions: { id: string; name: string }[]
+  onProductChange: (productId: string | undefined) => void
   searchQuery: string
   onSearchChange: (query: string) => void
   onClearFilters: () => void
@@ -21,9 +26,19 @@ const STATUS_OPTIONS: { value: ClientStatus | 'all'; label: string }[] = [
   { value: 'inactive', label: 'Inactive' },
 ]
 
+const CLIENT_TYPE_OPTIONS: { value: ClientTypeFilter; label: string }[] = [
+  { value: 'all', label: 'All Clients' },
+  { value: 'product', label: 'Product Clients' },
+]
+
 export function ClientsFilters({
   statusFilter,
   onStatusChange,
+  clientTypeFilter,
+  onClientTypeChange,
+  productFilter,
+  productOptions,
+  onProductChange,
   searchQuery,
   onSearchChange,
   onClearFilters,
@@ -31,7 +46,10 @@ export function ClientsFilters({
   // Debounced search logic removed as handled by SearchInput component
 
   const hasActiveFilters =
-    statusFilter !== 'all' || searchQuery.trim() !== ''
+    statusFilter !== 'all' ||
+    searchQuery.trim() !== '' ||
+    clientTypeFilter !== 'all' ||
+    !!productFilter
 
   return (
     <div className="border-b border-gray-200 bg-white px-6 py-4">
@@ -49,7 +67,7 @@ export function ClientsFilters({
           </div>
 
           {/* Status Filter */}
-          <div className="sm:w-48">
+          <div className="sm:w-40">
             <ListboxDropdown
               value={statusFilter}
               options={STATUS_OPTIONS}
@@ -57,6 +75,31 @@ export function ClientsFilters({
               ariaLabel="Filter by status"
             />
           </div>
+
+          {/* Client Type Filter */}
+          <div className="sm:w-44">
+            <ListboxDropdown
+              value={clientTypeFilter}
+              options={CLIENT_TYPE_OPTIONS}
+              onChange={(v) => onClientTypeChange(v as ClientTypeFilter)}
+              ariaLabel="Filter by client type"
+            />
+          </div>
+
+          {/* Product Filter - only when Product Clients is selected */}
+          {clientTypeFilter === 'product' && productOptions.length > 0 && (
+            <div className="sm:w-56">
+              <ListboxDropdown
+                value={productFilter}
+                options={[
+                  { value: '' as string, label: 'All Products' },
+                  ...productOptions.map((p) => ({ value: p.id, label: p.name })),
+                ]}
+                onChange={(v) => onProductChange(v || undefined)}
+                ariaLabel="Filter by product"
+              />
+            </div>
+          )}
         </div>
 
         {/* Clear Filters Button */}
