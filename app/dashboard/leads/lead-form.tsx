@@ -113,14 +113,13 @@ export function LeadForm({
           {/* Phone */}
           <div>
             <label htmlFor="phone" className={labelClasses}>
-              Phone Number <span className="text-rose-500">*</span>
+              Phone Number
             </label>
             <div className="relative">
               <input
                 type="tel"
                 id="phone"
                 name="phone"
-                required
                 defaultValue={initialData?.phone || ''}
                 className={inputClasses}
                 placeholder="+1 (555) 000-0000"
