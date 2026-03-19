@@ -566,6 +566,135 @@ body {
   margin: 0.75rem 0 0.5rem;
 }
 
+/* Tables in rich editor */
+.rich-editor-root table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5rem 0;
+  font-size: 0.875rem;
+}
+
+.rich-editor-root th,
+.rich-editor-root td {
+  border: 1px solid #e2e8f0;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.rich-editor-root th {
+  background: #f1f5f9;
+  font-weight: 600;
+  color: #334155;
+}
+
+.rich-editor-root tr:hover td {
+  background: #f8fafc;
+}
+
+/* Task list (checklist) in rich editor */
+.rich-editor-root .rich-editor-content ul[data-type="taskList"],
+.rich-editor-root ul[data-type="taskList"],
+.rich-editor-render ul[data-type="taskList"] {
+  list-style: none !important;
+  padding-left: 0 !important;
+  margin: 0.5rem 0;
+}
+
+.rich-editor-root .rich-editor-content li[data-type="taskItem"],
+.rich-editor-root li[data-type="taskItem"],
+.rich-editor-render li[data-type="taskItem"] {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 0.625rem !important;
+  list-style: none !important;
+  padding-left: 0 !important;
+  margin: 0.25rem 0;
+}
+
+.rich-editor-root .rich-editor-content li[data-type="taskItem"] > label,
+.rich-editor-root li[data-type="taskItem"] > label,
+.rich-editor-render li[data-type="taskItem"] > label {
+  position: static !important;
+  display: flex !important;
+  align-items: center !important;
+  margin: 0 !important;
+  cursor: pointer;
+  user-select: none;
+  line-height: 1;
+  flex: 0 0 auto;
+  padding-top: 0.15rem;
+}
+
+.rich-editor-root .rich-editor-content li[data-type="taskItem"] > label > span,
+.rich-editor-root li[data-type="taskItem"] > label > span,
+.rich-editor-render li[data-type="taskItem"] > label > span {
+  display: none !important;
+}
+
+.rich-editor-root .rich-editor-content li[data-type="taskItem"] > label input,
+.rich-editor-root li[data-type="taskItem"] > label input,
+.rich-editor-render li[data-type="taskItem"] > label input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0 !important;
+  accent-color: #06B6D4;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.rich-editor-root .rich-editor-content li[data-type="taskItem"] > div,
+.rich-editor-root li[data-type="taskItem"] > div,
+.rich-editor-render li[data-type="taskItem"] > div {
+  display: block !important;
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  margin: 0 !important;
+}
+
+/* Override default block margins inside task items so content aligns with the checkbox. */
+.rich-editor-root .rich-editor-content li[data-type="taskItem"] > div > *,
+.rich-editor-render li[data-type="taskItem"] > div > * {
+  margin: 0 !important;
+}
+
+.rich-editor-root .rich-editor-content li[data-type="taskItem"] > div > *:first-child,
+.rich-editor-render li[data-type="taskItem"] > div > *:first-child {
+  margin-top: 0 !important;
+}
+
+.rich-editor-root .rich-editor-content li[data-type="taskItem"] > div > *:last-child,
+.rich-editor-render li[data-type="taskItem"] > div > *:last-child {
+  margin-bottom: 0 !important;
+}
+
+.rich-editor-root .rich-editor-content li[data-type="taskItem"] ul[data-type="taskList"],
+.rich-editor-render li[data-type="taskItem"] ul[data-type="taskList"] {
+  margin-top: 0.375rem;
+}
+
+.rich-editor-root li[data-type="taskItem"][data-checked="true"] > div,
+.rich-editor-render li[data-type="taskItem"][data-checked="true"] > div {
+  text-decoration: line-through;
+  color: #64748b;
+}
+
+.rich-editor-render li[data-type="taskItem"] > label {
+  cursor: default;
+}
+
+.rich-editor-render li[data-type="taskItem"] > label input {
+  pointer-events: none;
+}
+
+/* Highlight mark */
+.rich-editor-root mark {
+  background: #fef08a;
+  padding: 0 0.125em;
+  border-radius: 0.125rem;
+}
+
 /* Base Styles Modification */
 @media (max-width: 640px) {
   .fixed.top-6.right-6 {

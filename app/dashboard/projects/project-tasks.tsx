@@ -9,6 +9,7 @@ import { Tooltip } from '@/app/components/ui/tooltip'
 import { StaffAvatar } from '@/app/components/ui/staff-avatar'
 import { EmptyState } from '@/app/components/empty-state'
 import dynamic from 'next/dynamic'
+import { normalizeChecklistHtml } from './checklist-html'
 
 /** Lazy load TipTap rich editor - only loads when task detail/comment editor is shown */
 const ProjectTasksRichEditor = dynamic(
@@ -3098,7 +3099,7 @@ function TaskDetailPanel({
               <ProjectTasksRichEditor
                 value={createDescriptionHtml}
                 onChange={(html) => { setCreateDescriptionHtml(html); if (createDescriptionError) setCreateDescriptionError(null) }}
-                minHeight="120px"
+                minHeight="180px"
                 editable={true}
                 placeholder="Describe the task…"
               />
@@ -3110,14 +3111,14 @@ function TaskDetailPanel({
             <ProjectTasksRichEditor
               value={pendingDescriptionHtml ?? taskDetail!.description_html ?? ''}
               onChange={(html) => setPendingDescriptionHtml(html)}
-              minHeight="120px"
+              minHeight="180px"
               editable={true}
             />
           ) : (
             <div
-              className="prose prose-sm max-w-none text-slate-700 rounded-xl border border-slate-200 bg-slate-50/30 p-4 min-h-[80px]"
+              className="prose prose-sm max-w-none text-slate-700 rounded-xl border border-slate-200 bg-slate-50/30 p-4 min-h-[80px] rich-editor-render"
               dangerouslySetInnerHTML={{
-                __html: taskDetail!.description_html || '<p class="text-slate-400">No description</p>',
+                __html: normalizeChecklistHtml(taskDetail!.description_html || '') || '<p class="text-slate-400">No description</p>',
               }}
             />
           )}
