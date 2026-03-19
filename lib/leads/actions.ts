@@ -57,9 +57,9 @@ export async function createLead(formData: LeadFormData): Promise<LeadActionResu
   const supabase = await createClient()
 
   // Validate required fields
-  if (!formData.name || !formData.phone || !formData.status) {
+  if (!formData.name || !formData.status) {
     return {
-      error: 'Name, phone, and status are required',
+      error: 'Name and status are required',
       data: null,
     }
   }
@@ -69,7 +69,7 @@ export async function createLead(formData: LeadFormData): Promise<LeadActionResu
     .insert({
       name: formData.name,
       company_name: formData.company_name || null,
-      phone: formData.phone,
+      phone: formData.phone?.trim() || '',
       source: formData.source || null,
       status: formData.status,
       follow_up_date: formData.follow_up_date || null,
@@ -142,9 +142,9 @@ export async function updateLead(leadId: string, formData: LeadFormData): Promis
   }
 
   // Validate required fields
-  if (!formData.name || !formData.phone || !formData.status) {
+  if (!formData.name || !formData.status) {
     return {
-      error: 'Name, phone, and status are required',
+      error: 'Name and status are required',
       data: null,
     }
   }
@@ -162,7 +162,7 @@ export async function updateLead(leadId: string, formData: LeadFormData): Promis
     .update({
       name: formData.name,
       company_name: formData.company_name || null,
-      phone: formData.phone,
+      phone: formData.phone?.trim() || '',
       source: formData.source || null,
       status: formData.status,
       follow_up_date: resolvedFollowUpDate, // Preserve existing date if omitted from edit payload
