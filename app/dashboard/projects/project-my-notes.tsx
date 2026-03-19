@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Tooltip } from '@/app/components/ui/tooltip'
 import { useToast } from '@/app/components/ui/toast-context'
 import { EmptyState } from '@/app/components/empty-state'
+import { useFileDropzone } from '@/app/components/ui/use-file-dropzone'
 import {
   PROJECT_NOTE_ALLOWED_EXTENSIONS,
   PROJECT_NOTE_EXTENSION_MIME_MAP,
@@ -49,6 +50,7 @@ function formatDateTime(dateString: string) {
 }
 
 const maxSizeMB = PROJECT_NOTE_MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024)
+const acceptedExtensions = PROJECT_NOTE_ALLOWED_EXTENSIONS.map((ext) => `.${ext}`).join(',') + ',image/*'
 
 function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
@@ -256,7 +258,6 @@ export function ProjectMyNotes({
   const router = useRouter()
   const doRefresh = () => (onRefresh ? onRefresh() : router.refresh())
   const { success: showSuccess, error: showError } = useToast()
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const [notes, setNotes] = useState<ProjectMyNote[]>([])
   const canAccess = (userRole === 'staff' || userRole === 'admin' || userRole === 'manager') && Boolean(currentUserId)
@@ -413,12 +414,12 @@ export function ProjectMyNotes({
     setSelectedFiles(combinedFiles)
   }
 
-  const handleFileInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || [])
-    if (!files.length) return
-    handleFilesSelected(files)
-    event.target.value = ''
-  }
+  const attachmentDropzone = useFileDropzone({
+    accept: acceptedExtensions,
+    multiple: true,
+    disabled: submitting,
+    onFilesSelected: handleFilesSelected,
+  })
 
   const handleRemoveFile = (index: number) => {
     setSelectedFiles((prev) => {
@@ -914,7 +915,12 @@ export function ProjectMyNotes({
           )}
         </div>
 
-        <div className="border-t border-slate-100 bg-white/60 px-2.5 py-2 flex flex-col min-h-0 flex-shrink-0">
+        <div
+          {...attachmentDropzone.rootProps}
+          className={`border-t border-slate-100 px-2.5 py-2 flex flex-col min-h-0 flex-shrink-0 transition-colors duration-200 ${
+            attachmentDropzone.isDragging ? 'bg-cyan-50/80' : 'bg-white/60'
+          }`}
+        >
           <div className="flex flex-wrap items-center justify-between gap-1.5 mb-1.5">
             <label
               htmlFor="project-my-note"
@@ -922,12 +928,16 @@ export function ProjectMyNotes({
             >
               Add a private note
             </label>
-            <div className="flex items-center gap-1 text-[9px] text-slate-500">
+            <div className={`flex items-center gap-1 text-[9px] transition-colors ${
+              attachmentDropzone.isDragging ? 'text-cyan-600' : 'text-slate-500'
+            }`}>
               <span>Max {PROJECT_NOTE_MAX_ATTACHMENTS}</span>
               <span>|</span>
               <span>{maxSizeMB}MB</span>
               <span>|</span>
               <span>Same category</span>
+              <span>|</span>
+              <span>{attachmentDropzone.isDragging ? 'Drop now' : 'Drag & drop'}</span>
             </div>
           </div>
 
@@ -997,7 +1007,7 @@ export function ProjectMyNotes({
             <div className="flex flex-row gap-1 sm:flex-col flex-shrink-0">
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={attachmentDropzone.openFilePicker}
                 disabled={submitting}
                 className="flex flex-1 flex-col items-center justify-center gap-0.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-medium text-slate-700 transition-colors hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-700 disabled:opacity-50 min-w-[64px] cursor-pointer"
               >
@@ -1032,14 +1042,7 @@ export function ProjectMyNotes({
             </div>
           </div>
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept={PROJECT_NOTE_ALLOWED_EXTENSIONS.map((ext) => `.${ext}`).join(',') + ',image/*'}
-            onChange={handleFileInputChange}
-            className="hidden"
-          />
+          <input {...attachmentDropzone.inputProps} className="hidden" />
 
           {submitting && uploadProgress.total > 0 && (
             <div className="mt-1 text-center">

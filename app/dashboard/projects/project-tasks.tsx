@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { useToast } from '@/app/components/ui/toast-context'
 import { Tooltip } from '@/app/components/ui/tooltip'
 import { StaffAvatar } from '@/app/components/ui/staff-avatar'
+import { useFileDropzone } from '@/app/components/ui/use-file-dropzone'
 import { EmptyState } from '@/app/components/empty-state'
 import dynamic from 'next/dynamic'
 import { normalizeChecklistHtml } from './checklist-html'
@@ -2884,14 +2885,12 @@ function TaskDetailPanel({
   const [commentFiles, setCommentFiles] = useState<File[]>([])
   const [commentFilePreviews, setCommentFilePreviews] = useState<Array<{ isImage: boolean; previewUrl: string | null }>>([])
   const [commentSubmitting, setCommentSubmitting] = useState(false)
-  const [fileInputKey, setFileInputKey] = useState(0)
   const [attachmentMenuOpenId, setAttachmentMenuOpenId] = useState<string | null>(null)
   const [activityPanelOpen, setActivityPanelOpen] = useState(false)
   const [detailDropdownOpen, setDetailDropdownOpen] = useState<'status' | 'assignee' | 'priority' | 'type' | null>(null)
   const [detailDropdownRect, setDetailDropdownRect] = useState<{ top: number; left: number } | null>(null)
   const [isMobileViewport, setIsMobileViewport] = useState(false)
   const [mobileDetailTab, setMobileDetailTab] = useState<'details' | 'comments'>('details')
-  const commentAttachmentInputRef = useRef<HTMLInputElement>(null)
   const commentTextareaRef = useRef<HTMLTextAreaElement>(null)
   const commentPreviewRef = useRef<HTMLDivElement>(null)
   const commentPreviewUrlsRef = useRef<Set<string>>(new Set())
@@ -2900,6 +2899,7 @@ function TaskDetailPanel({
   const detailPriorityRef = useRef<HTMLButtonElement>(null)
   const detailTypeRef = useRef<HTMLButtonElement>(null)
   const detailDueInputRef = useRef<HTMLInputElement>(null)
+  const isCreateFlow = isCreateMode && !taskDetail && !detailLoading
 
   const getDetailTriggerRect = () => {
     const ref =
@@ -3101,6 +3101,18 @@ function TaskDetailPanel({
     }
   }, [])
 
+  const handleCreateInitialFilesSelect = (files: File[]) => {
+    if (files.length === 0) return
+    if (!validateSelectedAttachmentFiles(files)) return
+    setCreateInitialFiles((prev) => [...prev, ...files])
+  }
+
+  const handleTaskAttachmentSelect = async (files: File[]) => {
+    if (files.length === 0 || isCreateFlow || !canManageAttachments) return
+    if (!validateSelectedAttachmentFiles(files)) return
+    await onUploadAttachments(taskId, files)
+  }
+
   const handleCommentAttachmentSelect = (files: File[]) => {
     if (commentSubmitting || files.length === 0) return
     if (!validateSelectedAttachmentFiles(files)) return
@@ -3114,6 +3126,27 @@ function TaskDetailPanel({
     setCommentFiles((prev) => [...prev, ...files])
     setCommentFilePreviews((prev) => [...prev, ...previews])
   }
+
+  const createAttachmentDropzone = useFileDropzone({
+    accept: ACCEPTED_FILE_TYPES,
+    multiple: true,
+    disabled: !isCreateFlow || createSaving,
+    onFilesSelected: handleCreateInitialFilesSelect,
+  })
+
+  const taskAttachmentDropzone = useFileDropzone({
+    accept: ACCEPTED_FILE_TYPES,
+    multiple: true,
+    disabled: isCreateFlow || !canManageAttachments,
+    onFilesSelected: handleTaskAttachmentSelect,
+  })
+
+  const commentAttachmentDropzone = useFileDropzone({
+    accept: ACCEPTED_FILE_TYPES,
+    multiple: true,
+    disabled: userRole === 'client' || commentSubmitting,
+    onFilesSelected: handleCommentAttachmentSelect,
+  })
 
   const handleCommentAttachmentRemove = (index: number) => {
     setCommentFiles((prev) => prev.filter((_, fileIndex) => fileIndex !== index))
@@ -3183,7 +3216,6 @@ function TaskDetailPanel({
     clearSelectedCommentFiles()
   }
 
-  const isCreateFlow = isCreateMode && !taskDetail && !detailLoading
   const metaStatus = isCreateFlow ? createStatus : (taskDetail?.status ?? 'todo')
   const metaAssigneeIds = isCreateFlow ? createAssigneeIds : (taskDetail?.assignees.map((a) => a.id) ?? [])
   const metaDueDate = isCreateFlow ? createDueDate : (taskDetail?.due_date ?? '')
@@ -3646,27 +3678,20 @@ function TaskDetailPanel({
 
           {isCreateFlow ? (
             <>
-              <label className="flex items-center justify-center gap-2 h-[54px] min-h-[54px] rounded-xl border-2 border-dashed border-slate-300 bg-slate-50/50 px-3 cursor-pointer transition-colors hover:border-[#06B6D4]/50 hover:bg-slate-50 focus-within:ring-2 focus-within:ring-[#06B6D4]/30 focus-within:border-[#06B6D4]">
-                <input
-                  type="file"
-                  accept={ACCEPTED_FILE_TYPES}
-                  multiple
-                  className="sr-only"
-                  onChange={(e) => {
-                    const list = Array.from(e.target.files ?? [])
-                    if (list.length > 0 && !validateSelectedAttachmentFiles(list)) {
-                      e.target.value = ''
-                      return
-                    }
-                    setCreateInitialFiles((prev) => [...prev, ...list])
-                    e.target.value = ''
-                  }}
-                />
+              <label
+                {...createAttachmentDropzone.rootProps}
+                className={`flex items-center justify-center gap-2 h-[54px] min-h-[54px] rounded-xl border-2 border-dashed px-3 cursor-pointer transition-colors hover:border-[#06B6D4]/50 hover:bg-slate-50 focus-within:ring-2 focus-within:ring-[#06B6D4]/30 focus-within:border-[#06B6D4] ${
+                  createAttachmentDropzone.isDragging
+                    ? 'border-[#06B6D4] bg-cyan-50/70'
+                    : 'border-slate-300 bg-slate-50/50'
+                }`}
+              >
+                <input {...createAttachmentDropzone.inputProps} className="sr-only" />
                 <svg className="h-5 w-5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                 </svg>
                 <span className="text-xs text-slate-600 leading-tight">
-                  Add files (max {MAX_FILE_MB} MB). Attachments are uploaded when you save the task.
+                  Drag & drop files here or browse (max {MAX_FILE_MB} MB). Attachments are uploaded when you save the task.
                 </span>
               </label>
               {createInitialFiles.length > 0 && (
@@ -3682,26 +3707,14 @@ function TaskDetailPanel({
             </>
           ) : canManageAttachments && (
             <label
-              className="flex items-center justify-center gap-2 h-[54px] min-h-[54px] rounded-xl border-2 border-dashed border-slate-300 bg-slate-50/50 px-3 cursor-pointer transition-colors hover:border-[#06B6D4]/50 hover:bg-slate-50 focus-within:ring-2 focus-within:ring-[#06B6D4]/30 focus-within:border-[#06B6D4]"
+              {...taskAttachmentDropzone.rootProps}
+              className={`flex items-center justify-center gap-2 h-[54px] min-h-[54px] rounded-xl border-2 border-dashed px-3 cursor-pointer transition-colors hover:border-[#06B6D4]/50 hover:bg-slate-50 focus-within:ring-2 focus-within:ring-[#06B6D4]/30 focus-within:border-[#06B6D4] ${
+                taskAttachmentDropzone.isDragging
+                  ? 'border-[#06B6D4] bg-cyan-50/70'
+                  : 'border-slate-300 bg-slate-50/50'
+              }`}
             >
-              <input
-                key={fileInputKey}
-                type="file"
-                accept={ACCEPTED_FILE_TYPES}
-                multiple
-                className="sr-only"
-                onChange={async (e) => {
-                  const files = Array.from(e.target.files ?? [])
-                  if (files.length === 0) return
-                  if (!validateSelectedAttachmentFiles(files)) {
-                    e.target.value = ''
-                    return
-                  }
-                  const ok = await onUploadAttachments(taskId, files)
-                  if (ok) setFileInputKey((k) => k + 1)
-                  e.target.value = ''
-                }}
-              />
+              <input {...taskAttachmentDropzone.inputProps} className="sr-only" />
               <svg className="h-5 w-5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
               </svg>
@@ -3876,7 +3889,14 @@ function TaskDetailPanel({
       {userRole !== 'client' && (
             <div className="relative mt-auto flex-shrink-0 pt-1.5">
               {/* Single comment container: typing area + toolbar (attachment + send) inside */}
-              <div className="rounded-xl border border-slate-200 focus-within:ring-2 focus-within:ring-[#06B6D4]/30 focus-within:border-[#06B6D4] bg-white flex flex-col min-h-[88px] max-h-[248px]">
+              <div
+                {...commentAttachmentDropzone.rootProps}
+                className={`rounded-xl border focus-within:ring-2 focus-within:ring-[#06B6D4]/30 focus-within:border-[#06B6D4] flex flex-col min-h-[88px] max-h-[248px] transition-colors ${
+                  commentAttachmentDropzone.isDragging
+                    ? 'border-[#06B6D4] bg-cyan-50/40'
+                    : 'border-slate-200 bg-white'
+                }`}
+              >
                   {/* Typing area */}
                   <div className="relative flex-1 min-h-[72px] overflow-hidden rounded-t-xl">
                     <div
@@ -3920,19 +3940,7 @@ function TaskDetailPanel({
                       rows={3}
                     />
                   </div>
-                  <input
-                    ref={commentAttachmentInputRef}
-                    type="file"
-                    accept={ACCEPTED_FILE_TYPES}
-                    multiple
-                    className="sr-only"
-                    onChange={(e) => {
-                      const files = Array.from(e.target.files ?? [])
-                      e.target.value = ''
-                      if (files.length === 0) return
-                      handleCommentAttachmentSelect(files)
-                    }}
-                  />
+                  <input {...commentAttachmentDropzone.inputProps} className="sr-only" />
                   {commentFiles.length > 0 && (
                     <div className="border-t border-slate-200 px-2 py-1.5">
                       <div className="flex flex-wrap gap-1.5 overflow-x-auto">
@@ -4006,7 +4014,7 @@ function TaskDetailPanel({
                       <Tooltip content="Attach file">
                         <button
                           type="button"
-                          onClick={() => commentAttachmentInputRef.current?.click()}
+                          onClick={commentAttachmentDropzone.openFilePicker}
                           disabled={commentSubmitting}
                           className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-200/60 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30 disabled:opacity-50 disabled:hover:bg-transparent"
                           aria-label="Attach file"
@@ -4017,6 +4025,11 @@ function TaskDetailPanel({
                           </svg>
                         </button>
                       </Tooltip>
+                      <span className={`hidden text-xs transition-colors sm:inline ${
+                        commentAttachmentDropzone.isDragging ? 'text-cyan-600' : 'text-slate-500'
+                      }`}>
+                        {commentAttachmentDropzone.isDragging ? 'Drop files to attach' : 'Drag files here or use the paperclip'}
+                      </span>
                     </div>
                     <Tooltip
                       content={
@@ -5250,6 +5263,17 @@ function TaskFormModal({
     return true
   }
 
+  const attachmentDropzone = useFileDropzone({
+    accept: ACCEPTED_FILE_TYPES,
+    multiple: true,
+    disabled: submitting,
+    onFilesSelected: (files) => {
+      if (files.length === 0) return
+      if (!validateSelectedAttachmentFiles(files)) return
+      setInitialFiles((prev) => [...prev, ...files])
+    },
+  })
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setDescriptionError(null)
@@ -5453,26 +5477,17 @@ function TaskFormModal({
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-1">Attachments</label>
             <p className="text-xs text-slate-500 mb-2">Optional. Add files when creating the task (max {MAX_FILE_MB} MB per file).</p>
-            <label className="inline-flex items-center gap-2 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 cursor-pointer">
-              <input
-                type="file"
-                accept={ACCEPTED_FILE_TYPES}
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  const list = Array.from(e.target.files ?? [])
-                  if (list.length > 0 && !validateSelectedAttachmentFiles(list)) {
-                    e.target.value = ''
-                    return
-                  }
-                  setInitialFiles((prev) => [...prev, ...list])
-                  e.target.value = ''
-                }}
-              />
+            <label
+              {...attachmentDropzone.rootProps}
+              className={`inline-flex items-center gap-2 rounded-lg border border-dashed px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 cursor-pointer transition-colors ${
+                attachmentDropzone.isDragging ? 'border-[#06B6D4] bg-cyan-50/70' : 'border-slate-300'
+              }`}
+            >
+              <input {...attachmentDropzone.inputProps} className="hidden" />
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8v8M4 12v8" />
               </svg>
-              Add files
+              {attachmentDropzone.isDragging ? 'Drop files now' : 'Drag & drop files or browse'}
             </label>
             {initialFiles.length > 0 && (
               <ul className="mt-2 space-y-1">
