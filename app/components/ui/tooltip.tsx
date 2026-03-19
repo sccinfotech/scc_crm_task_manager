@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 
 interface TooltipProps {
-    content: string
+    content: React.ReactNode
     children: React.ReactNode
     position?: 'top' | 'bottom' | 'left' | 'right'
     wrapperClassName?: string
@@ -81,9 +81,8 @@ export function Tooltip({ children, content, position = 'top', wrapperClassName 
                         top: coords.top,
                         left: coords.left,
                     }}
-                >
-                    {/* Tooltip Box */}
-                    <div className="bg-[#0F172A] text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-xl whitespace-nowrap border border-slate-700/50 flex items-center gap-2 animate-in fade-in zoom-in-95 duration-200">
+                    >
+                    <div className="max-w-[18rem] rounded-lg border border-slate-700/50 bg-[#0F172A] px-3 py-1.5 text-[10px] font-bold text-white shadow-xl whitespace-pre-line break-words animate-in fade-in zoom-in-95 duration-200">
                         {content}
                     </div>
 

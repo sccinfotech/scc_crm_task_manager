@@ -11,6 +11,7 @@ import {
   TASK_STATUSES,
   TASK_ALLOWED_MIME_TYPES,
   TASK_CLOUDINARY_FOLDER,
+  TASK_COMMENT_REACTION_EMOJIS,
   TASK_MAX_ATTACHMENT_SIZE_BYTES,
   TASK_DETAIL_COMMENTS_LIMIT,
   TASK_DETAIL_ACTIVITY_LIMIT,
@@ -84,6 +85,20 @@ export type TaskCommentAttachmentInput = {
   resource_type: string
 }
 
+export type TaskCommentReactionUser = {
+  id: string
+  full_name: string | null
+  email: string | null
+  role: string | null
+}
+
+export type TaskCommentReaction = {
+  emoji: string
+  count: number
+  reacted_by_current_user: boolean
+  users: TaskCommentReactionUser[]
+}
+
 export type TaskComment = {
   id: string
   task_id: string
@@ -97,6 +112,7 @@ export type TaskComment = {
   updated_at: string
   mentioned_users: TaskAssignee[]
   attachments: TaskCommentAttachment[]
+  reactions: TaskCommentReaction[]
 }
 
 export type TaskActivityLogEntry = {
@@ -190,6 +206,14 @@ function sanitizeDescription(html?: string | null) {
 
 function uniqueIds(ids: string[] = []) {
   return Array.from(new Set(ids.filter(Boolean)))
+}
+
+function normalizeTaskCommentReactionEmoji(emoji: string) {
+  return emoji.trim()
+}
+
+function isTaskCommentReactionEmojiSupported(emoji: string) {
+  return TASK_COMMENT_REACTION_EMOJIS.includes(emoji as (typeof TASK_COMMENT_REACTION_EMOJIS)[number])
 }
 
 function getEnvVar(name: string, isPublic = false): string {
@@ -327,6 +351,87 @@ function buildTaskUserMaps(
   return { userNameMap, userEmailMap, userRoleMap }
 }
 
+type TaskCommentReactionRow = {
+  comment_id: string
+  emoji: string
+  created_by: string
+  created_at: string
+}
+
+const TASK_COMMENT_REACTION_ORDER = new Map<string, number>(
+  TASK_COMMENT_REACTION_EMOJIS.map((emoji, index) => [emoji, index])
+)
+
+async function getTaskCommentReactionRows(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  commentIds: string[]
+): Promise<TaskCommentReactionRow[]> {
+  if (commentIds.length === 0) return []
+
+  const { data } = await (supabase as any)
+    .from('project_task_comment_reactions')
+    .select('comment_id, emoji, created_by, created_at')
+    .in('comment_id', commentIds)
+    .order('created_at', { ascending: true })
+
+  return (data as TaskCommentReactionRow[] | null) || []
+}
+
+function buildTaskCommentReactionMap(
+  reactions: TaskCommentReactionRow[],
+  maps: {
+    userNameMap: Map<string, string>
+    userEmailMap: Map<string, string | null>
+    userRoleMap: Map<string, string | null>
+  },
+  currentUserId: string
+) {
+  const reactionsByComment = new Map<string, Map<string, TaskCommentReaction>>()
+
+  reactions.forEach((reaction) => {
+    let groupedReactions = reactionsByComment.get(reaction.comment_id)
+    if (!groupedReactions) {
+      groupedReactions = new Map<string, TaskCommentReaction>()
+      reactionsByComment.set(reaction.comment_id, groupedReactions)
+    }
+
+    const existing = groupedReactions.get(reaction.emoji)
+    const reactionUser: TaskCommentReactionUser = {
+      id: reaction.created_by,
+      full_name: maps.userNameMap.get(reaction.created_by) ?? 'Unknown User',
+      email: maps.userEmailMap.get(reaction.created_by) ?? null,
+      role: maps.userRoleMap.get(reaction.created_by) ?? null,
+    }
+
+    if (existing) {
+      existing.count += 1
+      existing.users.push(reactionUser)
+      existing.reacted_by_current_user = existing.reacted_by_current_user || reaction.created_by === currentUserId
+      return
+    }
+
+    groupedReactions.set(reaction.emoji, {
+      emoji: reaction.emoji,
+      count: 1,
+      reacted_by_current_user: reaction.created_by === currentUserId,
+      users: [reactionUser],
+    })
+  })
+
+  const mapped = new Map<string, TaskCommentReaction[]>()
+  reactionsByComment.forEach((groupedReactions, commentId) => {
+    const sorted = Array.from(groupedReactions.values()).sort((a, b) => {
+      const aIndex = TASK_COMMENT_REACTION_ORDER.get(a.emoji) ?? Number.MAX_SAFE_INTEGER
+      const bIndex = TASK_COMMENT_REACTION_ORDER.get(b.emoji) ?? Number.MAX_SAFE_INTEGER
+      if (aIndex !== bIndex) return aIndex - bIndex
+      return a.emoji.localeCompare(b.emoji)
+    })
+    mapped.set(commentId, sorted)
+  })
+
+  return mapped
+}
+
 function mapTaskComment(
   comment: {
     id: string
@@ -342,7 +447,8 @@ function mapTaskComment(
     userEmailMap: Map<string, string | null>
     userRoleMap: Map<string, string | null>
   },
-  attachmentsByComment: Map<string, TaskCommentAttachment[]>
+  attachmentsByComment: Map<string, TaskCommentAttachment[]>,
+  reactionsByComment: Map<string, TaskCommentReaction[]>
 ): TaskComment {
   const mentionList = comment.mentioned_user_ids || []
   const mentionedUsers = mentionList.map((id) => ({
@@ -365,6 +471,7 @@ function mapTaskComment(
     updated_at: comment.updated_at,
     mentioned_users: mentionedUsers,
     attachments: attachmentsByComment.get(comment.id) || [],
+    reactions: reactionsByComment.get(comment.id) || [],
   }
 }
 
@@ -577,14 +684,8 @@ export const getProjectTaskDetail = cache(async (taskId: string): Promise<Action
 
   const commentIds = commentList.map((c: any) => c.id)
   const mentionIds = commentList.flatMap((comment) => comment.mentioned_user_ids || [])
-  const userIds = uniqueIds([
-    ...commentList.map((comment) => comment.created_by),
-    ...activityList.map((entry) => entry.created_by),
-    ...mentionIds,
-  ])
-
-  // Batch 2: commentAttachments and users in parallel
-  const [commentAttachmentsRes, usersRes] = await Promise.all([
+  // Batch 2: comment attachments and reactions in parallel
+  const [commentAttachmentsRes, commentReactions] = await Promise.all([
     commentIds.length > 0
       ? (supabase as any)
           .from('project_task_comment_attachments')
@@ -592,10 +693,20 @@ export const getProjectTaskDetail = cache(async (taskId: string): Promise<Action
           .in('comment_id', commentIds)
           .order('created_at', { ascending: true })
       : Promise.resolve({ data: [] }),
-    userIds.length > 0
-      ? supabase.from('users').select('id, full_name, email, role, photo_url').in('id', userIds)
-      : Promise.resolve({ data: [] }),
+    getTaskCommentReactionRows(supabase, commentIds),
   ])
+
+  const userIds = uniqueIds([
+    ...commentList.map((comment) => comment.created_by),
+    ...activityList.map((entry) => entry.created_by),
+    ...mentionIds,
+    ...commentReactions.map((reaction) => reaction.created_by),
+  ])
+
+  const usersRes =
+    userIds.length > 0
+      ? await supabase.from('users').select('id, full_name, email, role, photo_url').in('id', userIds)
+      : { data: [] }
 
   const commentAttachmentsList = ((commentAttachmentsRes as any).data as TaskCommentAttachment[] | null) || []
   const users = (usersRes as any).data
@@ -611,8 +722,14 @@ export const getProjectTaskDetail = cache(async (taskId: string): Promise<Action
     attachmentsByComment.set(attachment.comment_id, existing)
   })
 
+  const reactionsByComment = buildTaskCommentReactionMap(
+    commentReactions,
+    { userNameMap, userEmailMap, userRoleMap },
+    currentUser.id
+  )
+
   const mappedComments: TaskComment[] = commentList.map((comment) =>
-    mapTaskComment(comment, { userNameMap, userEmailMap, userRoleMap }, attachmentsByComment)
+    mapTaskComment(comment, { userNameMap, userEmailMap, userRoleMap }, attachmentsByComment, reactionsByComment)
   )
 
   const mappedActivity: TaskActivityLogEntry[] = activityList.map((entry) => ({
@@ -678,21 +795,31 @@ export async function getTaskCommentsPage(
   const commentList = (comments as any[]) || []
   const commentIds = commentList.map((c: any) => c.id)
 
-  const { data: commentAttachments } =
+  const [{ data: commentAttachments }, commentReactions] = await Promise.all([
     commentIds.length > 0
-      ? await (supabase as any)
+      ? (supabase as any)
           .from('project_task_comment_attachments')
           .select('id, comment_id, task_id, project_id, file_name, mime_type, size_bytes, cloudinary_url, cloudinary_public_id, resource_type, created_by, created_at')
           .in('comment_id', commentIds)
           .order('created_at', { ascending: true })
-      : { data: [] }
+      : Promise.resolve({ data: [] }),
+    getTaskCommentReactionRows(supabase, commentIds),
+  ])
 
   const mentionIds = commentList.flatMap((c: any) => c.mentioned_user_ids || [])
-  const userIds = uniqueIds([...commentList.map((c: any) => c.created_by), ...mentionIds])
-  const { data: users } = await supabase
-    .from('users')
-    .select('id, full_name, email, role, photo_url')
-    .in('id', userIds)
+  const userIds = uniqueIds([
+    ...commentList.map((c: any) => c.created_by),
+    ...mentionIds,
+    ...commentReactions.map((reaction) => reaction.created_by),
+  ])
+  const usersResult =
+    userIds.length > 0
+      ? await supabase
+          .from('users')
+          .select('id, full_name, email, role, photo_url')
+          .in('id', userIds)
+      : { data: [] }
+  const users = (usersResult as any).data
 
   const { userNameMap, userEmailMap, userRoleMap } = buildTaskUserMaps(
     (users as Array<{ id: string; full_name: string | null; email: string | null; role: string | null }> | null) || null
@@ -704,8 +831,14 @@ export async function getTaskCommentsPage(
     attachmentsByComment.set(att.comment_id, existing)
   })
 
+  const reactionsByComment = buildTaskCommentReactionMap(
+    commentReactions,
+    { userNameMap, userEmailMap, userRoleMap },
+    currentUser.id
+  )
+
   const mappedComments = commentList.map((c: any) =>
-    mapTaskComment(c, { userNameMap, userEmailMap, userRoleMap }, attachmentsByComment)
+    mapTaskComment(c, { userNameMap, userEmailMap, userRoleMap }, attachmentsByComment, reactionsByComment)
   )
   const totalCount = count ?? 0
   const hasMore = to + 1 < totalCount
@@ -1023,7 +1156,9 @@ export async function updateProjectTask(
     .select('user_id, users!project_task_assignees_user_id_fkey(full_name, email, role, photo_url)')
     .eq('task_id', task.id)
 
-  revalidatePath(`/dashboard/projects/${task.project_id}`)
+  after(() => {
+    revalidatePath(`/dashboard/projects/${task.project_id}`)
+  })
 
   return {
     data: {
@@ -1475,9 +1610,10 @@ export async function createTaskComment(
   )
   const attachmentsByComment = new Map<string, TaskCommentAttachment[]>()
   attachmentsByComment.set(comment.id, createdAttachments)
+  const reactionsByComment = new Map<string, TaskCommentReaction[]>()
 
   return {
-    data: mapTaskComment(comment, { userNameMap, userEmailMap, userRoleMap }, attachmentsByComment),
+    data: mapTaskComment(comment, { userNameMap, userEmailMap, userRoleMap }, attachmentsByComment, reactionsByComment),
     error: null,
   }
 }
@@ -1533,25 +1669,143 @@ export async function updateTaskComment(
     return { data: null, error: error?.message || 'Failed to update comment.' }
   }
 
+  const [attachmentsRes, reactions] = await Promise.all([
+    (supabase as any)
+      .from('project_task_comment_attachments')
+      .select('id, comment_id, task_id, project_id, file_name, mime_type, size_bytes, cloudinary_url, cloudinary_public_id, resource_type, created_by, created_at')
+      .eq('comment_id', comment.id)
+      .order('created_at', { ascending: true }),
+    getTaskCommentReactionRows(supabase, [comment.id]),
+  ])
+
   const { data: users } = await supabase
     .from('users')
     .select('id, full_name, email, role, photo_url')
-    .in('id', uniqueIds([comment.created_by, ...mentionList]))
-
-  const { data: attachments } = await (supabase as any)
-    .from('project_task_comment_attachments')
-    .select('id, comment_id, task_id, project_id, file_name, mime_type, size_bytes, cloudinary_url, cloudinary_public_id, resource_type, created_by, created_at')
-    .eq('comment_id', comment.id)
-    .order('created_at', { ascending: true })
+    .in('id', uniqueIds([comment.created_by, ...mentionList, ...reactions.map((reaction) => reaction.created_by)]))
 
   const { userNameMap, userEmailMap, userRoleMap } = buildTaskUserMaps(
     (users as Array<{ id: string; full_name: string | null; email: string | null; role: string | null }> | null) || null
   )
   const attachmentsByComment = new Map<string, TaskCommentAttachment[]>()
-  attachmentsByComment.set(comment.id, (attachments as TaskCommentAttachment[]) || [])
+  attachmentsByComment.set(comment.id, ((attachmentsRes as any).data as TaskCommentAttachment[] | null) || [])
+  const reactionsByComment = buildTaskCommentReactionMap(
+    reactions,
+    { userNameMap, userEmailMap, userRoleMap },
+    currentUser.id
+  )
 
   return {
-    data: mapTaskComment(comment, { userNameMap, userEmailMap, userRoleMap }, attachmentsByComment),
+    data: mapTaskComment(comment, { userNameMap, userEmailMap, userRoleMap }, attachmentsByComment, reactionsByComment),
+    error: null,
+  }
+}
+
+export async function toggleTaskCommentReaction(
+  commentId: string,
+  emoji: string
+): Promise<ActionResult<{ commentId: string; reactions: TaskCommentReaction[] }>> {
+  const currentUser = await getCurrentUser()
+  if (!currentUser) {
+    return { data: null, error: 'You must be logged in to react to comments.' }
+  }
+
+  if (currentUser.role === 'client') {
+    return { data: null, error: 'Clients cannot react to comments.' }
+  }
+
+  const normalizedEmoji = normalizeTaskCommentReactionEmoji(emoji)
+  if (!isTaskCommentReactionEmojiSupported(normalizedEmoji)) {
+    return { data: null, error: 'Unsupported reaction emoji.' }
+  }
+
+  const supabase = await createClient()
+  const { data: comment } = await (supabase as any)
+    .from('project_task_comments')
+    .select('id, task_id')
+    .eq('id', commentId)
+    .single()
+
+  if (!comment) {
+    return { data: null, error: 'Comment not found.' }
+  }
+
+  const { data: task } = await (supabase as any)
+    .from('project_tasks')
+    .select('project_id')
+    .eq('id', comment.task_id)
+    .single()
+
+  if (!task) {
+    return { data: null, error: 'Task not found.' }
+  }
+
+  const permissionFlags = await getTaskPermissionFlags(currentUser)
+  const canManage = canManageTasksWithWriteAccess(currentUser, permissionFlags)
+
+  if (currentUser.role === 'staff' && !canManage) {
+    const assigned = await isUserAssignedToProject(supabase, task.project_id, currentUser.id)
+    if (!assigned) {
+      return { data: null, error: 'You do not have permission to react to this comment.' }
+    }
+  }
+
+  const { data: existingReaction } = await (supabase as any)
+    .from('project_task_comment_reactions')
+    .select('id')
+    .eq('comment_id', commentId)
+    .eq('created_by', currentUser.id)
+    .eq('emoji', normalizedEmoji)
+    .maybeSingle()
+
+  if (existingReaction?.id) {
+    const { error: deleteError } = await (supabase as any)
+      .from('project_task_comment_reactions')
+      .delete()
+      .eq('id', existingReaction.id)
+
+    if (deleteError) {
+      console.error('Error removing task comment reaction:', deleteError)
+      return { data: null, error: deleteError.message || 'Failed to remove reaction.' }
+    }
+  } else {
+    const { error: insertError } = await (supabase as any)
+      .from('project_task_comment_reactions')
+      .insert({
+        comment_id: commentId,
+        task_id: comment.task_id,
+        emoji: normalizedEmoji,
+        created_by: currentUser.id,
+      })
+
+    if (insertError) {
+      console.error('Error creating task comment reaction:', insertError)
+      return { data: null, error: insertError.message || 'Failed to add reaction.' }
+    }
+  }
+
+  const reactions = await getTaskCommentReactionRows(supabase, [commentId])
+  const reactionUserIds = uniqueIds(reactions.map((reaction) => reaction.created_by))
+  const { data: users } =
+    reactionUserIds.length > 0
+      ? await supabase.from('users').select('id, full_name, email, role').in('id', reactionUserIds)
+      : { data: [] }
+
+  const { userNameMap, userEmailMap, userRoleMap } = buildTaskUserMaps(
+    (users as Array<{ id: string; full_name: string | null; email: string | null; role: string | null }> | null) || null
+  )
+  const reactionsByComment = buildTaskCommentReactionMap(
+    reactions,
+    { userNameMap, userEmailMap, userRoleMap },
+    currentUser.id
+  )
+
+  revalidatePath(`/dashboard/projects/${task.project_id}`)
+
+  return {
+    data: {
+      commentId,
+      reactions: reactionsByComment.get(commentId) || [],
+    },
     error: null,
   }
 }

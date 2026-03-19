@@ -32,6 +32,10 @@ import {
   TASK_ALLOWED_MIME_TYPES,
   TASK_ALLOWED_EXTENSIONS,
   TASK_EXTENSION_MIME_MAP,
+  TASK_COMMENT_REACTION_CATEGORIES,
+  TASK_COMMENT_REACTION_EMOJIS,
+  TASK_COMMENT_REACTION_OPTIONS,
+  type TaskCommentReactionCategory,
   type TaskStatus,
   type TaskPriority,
   type TaskType,
@@ -50,6 +54,7 @@ import {
   createTaskComment,
   updateTaskComment,
   deleteTaskComment,
+  toggleTaskCommentReaction,
   deleteTaskCommentAttachment,
   getTaskCommentUploadSignature,
   getTaskUploadSignature,
@@ -78,6 +83,101 @@ const ACCEPTED_FILE_TYPES = Array.from(
 const TASK_ALLOWED_MIME_TYPE_SET = new Set<string>(TASK_ALLOWED_MIME_TYPES)
 const FILTER_DROPDOWN_TRIGGER_CLASSES =
   'h-9 min-w-[7rem] rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-medium text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.05)] transition-all duration-200 hover:border-slate-300 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/20'
+type TaskCommentReactionOption = (typeof TASK_COMMENT_REACTION_OPTIONS)[number]
+
+const TASK_COMMENT_REACTION_OPTION_MAP = new Map<string, TaskCommentReactionOption>(
+  TASK_COMMENT_REACTION_OPTIONS.map((option) => [option.emoji, option])
+)
+const DEFAULT_FREQUENT_REACTION_EMOJIS = ['✅', '👍', '🎉', '👏', '🔥', '❤️', '👀', '😂']
+const REACTION_PICKER_WIDTH_PX = 336
+const REACTION_PICKER_HEIGHT_PX = 330
+const TASK_COMMENT_REACTION_ORDER = new Map(
+  Array.from(TASK_COMMENT_REACTION_EMOJIS).map((emoji, index) => [emoji, index])
+)
+
+function getTaskCommentReactionOption(emoji: string): TaskCommentReactionOption | null {
+  return TASK_COMMENT_REACTION_OPTION_MAP.get(emoji) ?? null
+}
+
+function sortTaskCommentReactions(reactions: TaskComment['reactions']) {
+  return [...reactions].sort((a, b) => {
+    const aIndex = TASK_COMMENT_REACTION_ORDER.get(a.emoji) ?? Number.MAX_SAFE_INTEGER
+    const bIndex = TASK_COMMENT_REACTION_ORDER.get(b.emoji) ?? Number.MAX_SAFE_INTEGER
+    if (aIndex !== bIndex) return aIndex - bIndex
+    return a.emoji.localeCompare(b.emoji)
+  })
+}
+
+function buildOptimisticTaskCommentReactions(
+  reactions: TaskComment['reactions'],
+  emoji: string,
+  currentUserId: string
+) {
+  const nextReactions: TaskComment['reactions'] = []
+  let matchedReaction = false
+
+  reactions.forEach((reaction) => {
+    if (reaction.emoji !== emoji) {
+      nextReactions.push(reaction)
+      return
+    }
+
+    matchedReaction = true
+    const currentUserAlreadyReacted = reaction.users.some((user) => user.id === currentUserId)
+
+    if (currentUserAlreadyReacted) {
+      const nextUsers = reaction.users.filter((user) => user.id !== currentUserId)
+      if (nextUsers.length === 0) return
+
+      nextReactions.push({
+        ...reaction,
+        count: Math.max(0, reaction.count - 1),
+        reacted_by_current_user: false,
+        users: nextUsers,
+      })
+      return
+    }
+
+    nextReactions.push({
+      ...reaction,
+      count: reaction.count + 1,
+      reacted_by_current_user: true,
+      users: [
+        ...reaction.users,
+        { id: currentUserId, full_name: null, email: null, role: null },
+      ],
+    })
+  })
+
+  if (!matchedReaction) {
+    nextReactions.push({
+      emoji,
+      count: 1,
+      reacted_by_current_user: true,
+      users: [{ id: currentUserId, full_name: null, email: null, role: null }],
+    })
+  }
+
+  return sortTaskCommentReactions(nextReactions)
+}
+
+function findTaskCommentReactionOptions(searchTerm: string, category: TaskCommentReactionCategory) {
+  const normalizedSearch = searchTerm.trim().toLowerCase()
+
+  return TASK_COMMENT_REACTION_OPTIONS.filter((option) => {
+    const matchesCategory = option.category === category
+    if (!normalizedSearch) return matchesCategory
+
+    const haystacks = [
+      option.name,
+      option.shortcode,
+      option.emoji,
+      ...option.keywords,
+    ].map((value) => value.toLowerCase())
+
+    return haystacks.some((value) => value.includes(normalizedSearch))
+  })
+}
 
 type TaskAttachmentFileValidation =
   | { ok: true; mimeType: string }
@@ -913,6 +1013,75 @@ export function ProjectTasks({
     doRefresh()
   }
 
+  const handleToggleCommentReaction = async (
+    taskId: string,
+    commentId: string,
+    emoji: string
+  ): Promise<boolean> => {
+    const previousReactions =
+      taskDetail?.id === taskId
+        ? (taskDetail.comments.find((comment) => comment.id === commentId)?.reactions ?? null)
+        : null
+
+    if (previousReactions && currentUserId) {
+      const optimisticReactions = buildOptimisticTaskCommentReactions(
+        previousReactions,
+        emoji,
+        currentUserId
+      )
+
+      setTaskDetail((prev) =>
+        prev
+          ? {
+              ...prev,
+              comments: prev.comments.map((comment) =>
+                comment.id === commentId
+                  ? { ...comment, reactions: optimisticReactions }
+                  : comment
+              ),
+            }
+          : null
+      )
+    }
+
+    const result = await toggleTaskCommentReaction(commentId, emoji)
+    if (result.error || !result.data) {
+      if (previousReactions) {
+        setTaskDetail((prev) =>
+          prev
+            ? {
+                ...prev,
+                comments: prev.comments.map((comment) =>
+                  comment.id === commentId
+                    ? { ...comment, reactions: previousReactions }
+                    : comment
+                ),
+              }
+            : null
+        )
+      }
+      showError('Reaction failed', result.error ?? 'Could not update reaction.')
+      return false
+    }
+
+    if (taskDetail?.id === taskId) {
+      setTaskDetail((prev) =>
+        prev
+          ? {
+              ...prev,
+              comments: prev.comments.map((comment) =>
+                comment.id === commentId
+                  ? { ...comment, reactions: result.data!.reactions }
+                  : comment
+              ),
+            }
+          : null
+      )
+    }
+
+    return true
+  }
+
   const handleDeleteCommentAttachment = async (
     taskId: string,
     commentId: string,
@@ -1491,6 +1660,7 @@ export function ProjectTasks({
             onAddComment={handleAddComment}
             onUpdateComment={handleUpdateComment}
             onDeleteComment={handleDeleteComment}
+            onToggleCommentReaction={handleToggleCommentReaction}
             onDeleteCommentAttachment={handleDeleteCommentAttachment}
             onUploadAttachments={handleUploadAttachments}
             onRemoveAttachment={handleRemoveAttachment}
@@ -2616,6 +2786,7 @@ function TaskDetailPanel({
   onAddComment,
   onUpdateComment,
   onDeleteComment,
+  onToggleCommentReaction,
   onDeleteCommentAttachment,
   onUploadAttachments,
   onRemoveAttachment,
@@ -2673,6 +2844,7 @@ function TaskDetailPanel({
   onAddComment: (taskId: string, text: string, mentionIds: string[], files: File[]) => Promise<boolean>
   onUpdateComment: (taskId: string, commentId: string, text: string, mentionIds: string[]) => void
   onDeleteComment: (taskId: string, commentId: string) => void
+  onToggleCommentReaction: (taskId: string, commentId: string, emoji: string) => Promise<boolean>
   onDeleteCommentAttachment: (taskId: string, commentId: string, attachmentId: string) => Promise<void>
   onUploadAttachments: (taskId: string, files: File[]) => Promise<boolean>
   onRemoveAttachment: (attachmentId: string) => void
@@ -3681,8 +3853,10 @@ function TaskDetailPanel({
               taskId={taskId}
               onUpdateComment={onUpdateComment}
               onDeleteComment={onDeleteComment}
+              onToggleCommentReaction={onToggleCommentReaction}
               onDeleteCommentAttachment={onDeleteCommentAttachment}
               getInitials={getInitials}
+              canReact={userRole !== 'client'}
             />
           ))}
           {!isCreateFlow && taskDetail!.comments.length < (taskDetail!.commentsTotalCount ?? taskDetail!.comments.length) && (
@@ -4148,28 +4322,216 @@ function renderCommentWithMentions(commentText: string, mentionedUsers: TaskAssi
   )
 }
 
+function renderReactionTooltipContent(
+  reaction: {
+    emoji: string
+    count: number
+    users: Array<{ id: string; full_name: string | null; email: string | null }>
+  },
+  currentUserId: string | undefined
+) {
+  const reactionOption = getTaskCommentReactionOption(reaction.emoji)
+  const reactionLabel = reactionOption?.shortcode ?? reaction.emoji
+  const rawNames = reaction.users.map((user) =>
+    currentUserId && user.id === currentUserId ? 'You' : getUserName(user)
+  )
+  const uniqueNames = Array.from(new Set(rawNames))
+
+  const formatNames = (names: string[]) => {
+    if (names.length === 0) return 'Someone'
+    if (names.length === 1) return names[0]
+    if (names.length === 2) return `${names[0]} and ${names[1]}`
+    if (names.length === 3) return `${names[0]}, ${names[1]} and ${names[2]}`
+    return `${names[0]}, ${names[1]} and ${names.length - 2} others`
+  }
+
+  const summary = `${formatNames(uniqueNames)} reacted with ${reactionLabel}`
+
+  return (
+    <div className="flex w-[200px] flex-col items-center gap-2 py-1 text-center">
+      <div className="text-[2.25rem] leading-none">{reaction.emoji}</div>
+      <div className="text-[13px] font-semibold leading-5 text-white">{summary}</div>
+    </div>
+  )
+}
+
+function ReactionPicker({
+  commentId,
+  rect,
+  search,
+  selectedCategory,
+  currentReactionEmojis,
+  pendingReactionEmoji,
+  onSearchChange,
+  onSelectCategory,
+  onToggleReaction,
+}: {
+  commentId: string
+  rect: { top: number; left: number }
+  search: string
+  selectedCategory: TaskCommentReactionCategory
+  currentReactionEmojis: string[]
+  pendingReactionEmoji: string | null
+  onSearchChange: (value: string) => void
+  onSelectCategory: (category: TaskCommentReactionCategory) => void
+  onToggleReaction: (emoji: string) => void
+}) {
+  const filteredCategoryOptions = findTaskCommentReactionOptions(search, selectedCategory)
+  const filteredSearchResults = search.trim()
+    ? TASK_COMMENT_REACTION_OPTIONS.filter((option) =>
+        [option.name, option.shortcode, option.emoji, ...option.keywords]
+          .some((value) => value.toLowerCase().includes(search.trim().toLowerCase()))
+      )
+    : []
+
+  const frequentUsedOptions = DEFAULT_FREQUENT_REACTION_EMOJIS
+    .filter((emoji, index, list) => list.indexOf(emoji) === index)
+    .map((emoji) => getTaskCommentReactionOption(emoji))
+    .filter(Boolean)
+
+  const activeCategoryLabel =
+    TASK_COMMENT_REACTION_CATEGORIES.find((category) => category.id === selectedCategory)?.label ??
+    'Emoji'
+
+  const renderEmojiButton = (emoji: string) => {
+    const reactionOption = getTaskCommentReactionOption(emoji)
+    const reactedByCurrentUser = currentReactionEmojis.includes(emoji)
+
+    return (
+      <button
+        key={emoji}
+        type="button"
+        onClick={() => onToggleReaction(emoji)}
+        disabled={pendingReactionEmoji !== null}
+        className={`inline-flex h-9 w-9 items-center justify-center rounded-xl border text-[1.3rem] transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500/30 disabled:opacity-60 ${
+          reactedByCurrentUser
+            ? 'border-cyan-300 bg-cyan-50 shadow-sm'
+            : 'border-transparent bg-white hover:border-slate-200 hover:bg-slate-50'
+        }`}
+        aria-label={reactionOption?.name ? `React with ${reactionOption.name}` : `React with ${emoji}`}
+        title={reactionOption ? reactionOption.shortcode : emoji}
+      >
+        <span>{emoji}</span>
+      </button>
+    )
+  }
+
+  const resultsToRender = search.trim() ? filteredSearchResults : filteredCategoryOptions
+
+  return createPortal(
+    <div
+      data-comment-reaction-picker-id={commentId}
+      className="fixed z-[10020] w-[336px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.2)] ring-1 ring-slate-200/70"
+      style={{ top: rect.top, left: rect.left }}
+    >
+      <div className="border-b border-slate-200 p-3">
+        <div className="flex items-center gap-2">
+          <label className="relative flex-1">
+            <span className="sr-only">Search emoji</span>
+            <input
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder="Search..."
+              className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 pr-9 text-sm text-slate-700 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
+              autoFocus
+            />
+            <svg className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35m1.85-5.15a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </label>
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-amber-50 text-lg">
+            {TASK_COMMENT_REACTION_CATEGORIES.find((category) => category.id === selectedCategory)?.icon ?? '🙂'}
+          </div>
+        </div>
+      </div>
+      <div className="max-h-[248px] overflow-y-auto px-3 pb-3 pt-2">
+        {!search.trim() ? (
+          <>
+            <div className="mb-3">
+              <div className="mb-2 text-sm font-medium text-slate-500">Frequently Used</div>
+              <div className="flex flex-wrap gap-1">
+                {frequentUsedOptions.map((option) => renderEmojiButton(option!.emoji))}
+              </div>
+            </div>
+            <div>
+              <div className="mb-2 text-sm font-medium text-slate-500">{activeCategoryLabel}</div>
+              <div className="flex flex-wrap gap-1">
+                {resultsToRender.map((option) => renderEmojiButton(option.emoji))}
+              </div>
+            </div>
+          </>
+        ) : (
+          <div>
+            <div className="mb-2 text-sm font-medium text-slate-500">
+              {resultsToRender.length > 0 ? `Results (${resultsToRender.length})` : 'No matches found'}
+            </div>
+            {resultsToRender.length > 0 ? (
+              <div className="flex flex-wrap gap-1">
+                {resultsToRender.map((option) => renderEmojiButton(option.emoji))}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-6 text-center text-sm text-slate-500">
+                Try searching by name like `thumbs`, `party`, or `heart`.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      <div className="flex items-center gap-1 border-t border-slate-200 bg-slate-50 px-2 py-2">
+        {TASK_COMMENT_REACTION_CATEGORIES.map((category) => (
+          <button
+            key={category.id}
+            type="button"
+            onClick={() => onSelectCategory(category.id)}
+            className={`inline-flex h-9 w-9 items-center justify-center rounded-xl border text-lg transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500/30 ${
+              selectedCategory === category.id
+                ? 'border-cyan-200 bg-white text-cyan-600 shadow-sm'
+                : 'border-transparent text-slate-500 hover:border-slate-200 hover:bg-white'
+            }`}
+            aria-label={category.label}
+            title={category.label}
+          >
+            {category.icon}
+          </button>
+        ))}
+      </div>
+    </div>,
+    document.body
+  )
+}
+
 function CommentRow({
   comment,
   currentUserId,
   taskId,
   onUpdateComment,
   onDeleteComment,
+  onToggleCommentReaction,
   onDeleteCommentAttachment,
   getInitials,
+  canReact,
 }: {
   comment: TaskComment
   currentUserId: string | undefined
   taskId: string
   onUpdateComment: (taskId: string, commentId: string, text: string, mentionIds: string[]) => void
   onDeleteComment: (taskId: string, commentId: string) => void
+  onToggleCommentReaction: (taskId: string, commentId: string, emoji: string) => Promise<boolean>
   onDeleteCommentAttachment: (taskId: string, commentId: string, attachmentId: string) => Promise<void>
   getInitials: (name: string | null) => string
+  canReact: boolean
 }) {
   const [editing, setEditing] = useState(false)
   const [editText, setEditText] = useState(comment.comment_text)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null)
   const [attachmentMenuOpenId, setAttachmentMenuOpenId] = useState<string | null>(null)
+  const [reactionPickerOpen, setReactionPickerOpen] = useState(false)
+  const [pendingReactionEmoji, setPendingReactionEmoji] = useState<string | null>(null)
+  const [reactionSearch, setReactionSearch] = useState('')
+  const [reactionCategory, setReactionCategory] = useState<TaskCommentReactionCategory>('smileys')
+  const [reactionPickerRect, setReactionPickerRect] = useState<{ top: number; left: number } | null>(null)
+  const reactionTriggerRef = useRef<HTMLButtonElement>(null)
   const isOwner = currentUserId !== undefined && comment.created_by === currentUserId
   useEffect(() => {
     setEditText(comment.comment_text)
@@ -4192,15 +4554,81 @@ function CommentRow({
   }, [attachmentMenuOpenId])
 
   useEffect(() => {
-    if (!attachmentMenuOpenId) return
+    if (!reactionPickerOpen) return
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target
+      if (!(target instanceof Element)) {
+        setReactionPickerOpen(false)
+        return
+      }
+      if (target.closest(`[data-comment-reaction-picker-id="${comment.id}"]`)) return
+      setReactionPickerOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [comment.id, reactionPickerOpen])
+
+  useEffect(() => {
+    if (!reactionPickerOpen) {
+      setReactionPickerRect(null)
+      return
+    }
+
+    const updateReactionPickerPosition = () => {
+      const rect = reactionTriggerRef.current?.getBoundingClientRect()
+      if (!rect) return
+
+      const pickerWidth = REACTION_PICKER_WIDTH_PX
+      const pickerHeight = REACTION_PICKER_HEIGHT_PX
+      const horizontalPadding = 12
+      const nextLeft = Math.min(
+        Math.max(rect.left, horizontalPadding),
+        window.innerWidth - pickerWidth - horizontalPadding
+      )
+      const spaceBelow = window.innerHeight - rect.bottom
+      const renderAbove = spaceBelow < pickerHeight + 12 && rect.top > pickerHeight + 12
+      const top = renderAbove ? Math.max(12, rect.top - pickerHeight - 8) : rect.bottom + 8
+
+      setReactionPickerRect({
+        top,
+        left: nextLeft,
+      })
+    }
+
+    updateReactionPickerPosition()
+    window.addEventListener('scroll', updateReactionPickerPosition, true)
+    window.addEventListener('resize', updateReactionPickerPosition)
+    return () => {
+      window.removeEventListener('scroll', updateReactionPickerPosition, true)
+      window.removeEventListener('resize', updateReactionPickerPosition)
+    }
+  }, [reactionPickerOpen])
+
+  useEffect(() => {
+    if (!reactionPickerOpen) {
+      setReactionSearch('')
+      return
+    }
+
+    if (comment.reactions.length > 0) {
+      const firstReactionOption = getTaskCommentReactionOption(comment.reactions[0].emoji)
+      if (firstReactionOption) {
+        setReactionCategory(firstReactionOption.category)
+      }
+    }
+  }, [comment.reactions, reactionPickerOpen])
+
+  useEffect(() => {
+    if (!attachmentMenuOpenId && !reactionPickerOpen) return
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setAttachmentMenuOpenId(null)
+        setReactionPickerOpen(false)
       }
     }
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
-  }, [attachmentMenuOpenId])
+  }, [attachmentMenuOpenId, reactionPickerOpen])
 
   const handleSaveEdit = () => {
     const trimmed = editText.trim()
@@ -4209,7 +4637,21 @@ function CommentRow({
     setEditing(false)
   }
 
+  const handleReactionToggle = (emoji: string) => {
+    if (pendingReactionEmoji) return
+
+    setPendingReactionEmoji(emoji)
+    setReactionPickerOpen(false)
+
+    void onToggleCommentReaction(taskId, comment.id, emoji).finally(() => {
+      setPendingReactionEmoji(null)
+    })
+  }
+
   const hasText = Boolean(comment.comment_text?.trim())
+  const currentReactionEmojis = comment.reactions
+    .filter((reaction) => reaction.reacted_by_current_user)
+    .map((reaction) => reaction.emoji)
 
   return (
     <div className="group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow">
@@ -4229,34 +4671,60 @@ function CommentRow({
                 {formatRelative(comment.created_at)}
               </span>
             </div>
-            {isOwner && !editing && (
+            {!editing && (canReact || isOwner) && (
               <div className="flex items-center gap-0.5">
-                <Tooltip content="Edit comment">
-                  <button
-                    type="button"
-                    onClick={() => { setEditText(comment.comment_text); setEditing(true) }}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-600 hover:bg-cyan-50"
-                    aria-label="Edit comment"
-                    title="Edit comment"
-                  >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.5-2.5l-7.586 7.586a2 2 0 01-2.828 0L5 12.828V11m8.586-8.586a2 2 0 012.828 0l2.828 2.828a2 2 0 010 2.828l-7.586 7.586" />
-                    </svg>
-                  </button>
-                </Tooltip>
-                <Tooltip content="Delete comment">
-                  <button
-                    type="button"
-                    onClick={() => setDeleteConfirm(true)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"
-                    aria-label="Delete comment"
-                    title="Delete comment"
-                  >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </Tooltip>
+                {canReact && (
+                  <div className="relative" data-comment-reaction-picker-id={comment.id}>
+                    <Tooltip content={reactionPickerOpen ? 'Choose a reaction' : 'Add reaction'}>
+                      <button
+                        ref={reactionTriggerRef}
+                        type="button"
+                        onClick={() => setReactionPickerOpen((open) => !open)}
+                        disabled={pendingReactionEmoji !== null}
+                        className="p-1.5 rounded-lg text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 disabled:opacity-60"
+                        aria-label="Add reaction"
+                        title="Add reaction"
+                        aria-expanded={reactionPickerOpen}
+                        aria-haspopup="true"
+                      >
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5V9a3 3 0 10-6 0v1.5m7.5 0A2.25 2.25 0 0118.75 12.75v.75A6.75 6.75 0 0112 20.25 6.75 6.75 0 015.25 13.5v-.75A2.25 2.25 0 017.5 10.5h9zm-7.5 4.125h.008v.008H9v-.008zm6 0h.008v.008H15v-.008z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 5.25v3m1.5-1.5h-3" />
+                        </svg>
+                      </button>
+                    </Tooltip>
+                  </div>
+                )}
+                {isOwner && (
+                  <>
+                    <Tooltip content="Edit comment">
+                      <button
+                        type="button"
+                        onClick={() => { setEditText(comment.comment_text); setEditing(true) }}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-600 hover:bg-cyan-50"
+                        aria-label="Edit comment"
+                        title="Edit comment"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.5-2.5l-7.586 7.586a2 2 0 01-2.828 0L5 12.828V11m8.586-8.586a2 2 0 012.828 0l2.828 2.828a2 2 0 010 2.828l-7.586 7.586" />
+                        </svg>
+                      </button>
+                    </Tooltip>
+                    <Tooltip content="Delete comment">
+                      <button
+                        type="button"
+                        onClick={() => setDeleteConfirm(true)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                        aria-label="Delete comment"
+                        title="Delete comment"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </Tooltip>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -4420,10 +4888,54 @@ function CommentRow({
                   })}
                 </div>
               )}
+              {comment.reactions.length > 0 && (
+                <div className={`${comment.attachments.length > 0 || hasText ? 'mt-2' : 'mt-1'} flex flex-wrap items-center gap-1.5`}>
+                  {comment.reactions.map((reaction) => {
+                    const toggledByCurrentUser = reaction.reacted_by_current_user
+                    const reactionOption = getTaskCommentReactionOption(reaction.emoji)
+
+                    return (
+                      <Tooltip
+                        key={reaction.emoji}
+                        content={renderReactionTooltipContent(reaction, currentUserId)}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => handleReactionToggle(reaction.emoji)}
+                          disabled={pendingReactionEmoji !== null}
+                          className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500/30 disabled:opacity-60 ${
+                            toggledByCurrentUser
+                              ? 'border-[#6D5DF6] bg-[#F5F3FF] text-[#5B4AD8] hover:bg-[#EEE9FF]'
+                              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                          }`}
+                          aria-label={reactionOption?.name ? `Toggle ${reactionOption.name} reaction` : `Toggle ${reaction.emoji} reaction`}
+                          title={reactionOption ? reactionOption.shortcode : reaction.emoji}
+                        >
+                          <span className="text-sm leading-none">{reaction.emoji}</span>
+                          <span>{reaction.count}</span>
+                        </button>
+                      </Tooltip>
+                    )
+                  })}
+                </div>
+              )}
             </>
           )}
         </div>
       </div>
+      {reactionPickerOpen && reactionPickerRect && typeof document !== 'undefined' ? (
+        <ReactionPicker
+          commentId={comment.id}
+          rect={reactionPickerRect}
+          search={reactionSearch}
+          selectedCategory={reactionCategory}
+          currentReactionEmojis={currentReactionEmojis}
+          pendingReactionEmoji={pendingReactionEmoji}
+          onSearchChange={setReactionSearch}
+          onSelectCategory={setReactionCategory}
+          onToggleReaction={handleReactionToggle}
+        />
+      ) : null}
       {deleteConfirm && (
         <div className="px-2.5 pb-2.5 pt-0">
           <div className="flex items-center justify-between gap-2 rounded-lg border border-rose-200 bg-rose-50/50 p-2">
