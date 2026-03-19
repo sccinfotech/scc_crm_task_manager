@@ -143,6 +143,29 @@ function isAdminManager(role?: string | null) {
   return role === 'admin' || role === 'manager'
 }
 
+type AuthenticatedUser = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>
+
+async function getTaskPermissionFlags(currentUser: AuthenticatedUser) {
+  const [canWriteProjects, canWriteProjectTasks, canReadProjectTasks] = await Promise.all([
+    hasPermission(currentUser, MODULE_PERMISSION_IDS.projects, 'write'),
+    hasPermission(currentUser, MODULE_PERMISSION_IDS.projectTasks, 'write'),
+    hasPermission(currentUser, MODULE_PERMISSION_IDS.projectTasks, 'read'),
+  ])
+
+  return {
+    canWriteProjects,
+    canWriteProjectTasks,
+    canReadProjectTasks,
+  }
+}
+
+function canManageTasksWithWriteAccess(
+  currentUser: Pick<AuthenticatedUser, 'role'>,
+  flags: Pick<Awaited<ReturnType<typeof getTaskPermissionFlags>>, 'canWriteProjects' | 'canWriteProjectTasks'>
+) {
+  return isAdminManager(currentUser.role) || flags.canWriteProjects || flags.canWriteProjectTasks
+}
+
 async function isUserAssignedToProject(
   supabase: Awaited<ReturnType<typeof createClient>>,
   projectId: string,
@@ -819,8 +842,9 @@ export async function createProjectTask(
     return { data: null, error: 'You must be logged in to create tasks.' }
   }
 
-  if (!isAdminManager(currentUser.role)) {
-    return { data: null, error: 'Only admins and managers can create tasks.' }
+  const permissionFlags = await getTaskPermissionFlags(currentUser)
+  if (!canManageTasksWithWriteAccess(currentUser, permissionFlags)) {
+    return { data: null, error: 'You do not have permission to create tasks.' }
   }
 
   const title = payload.title?.trim()
@@ -943,8 +967,9 @@ export async function updateProjectTask(
     return { data: null, error: 'You must be logged in to update tasks.' }
   }
 
-  if (!isAdminManager(currentUser.role)) {
-    return { data: null, error: 'Only admins and managers can update tasks.' }
+  const permissionFlags = await getTaskPermissionFlags(currentUser)
+  if (!canManageTasksWithWriteAccess(currentUser, permissionFlags)) {
+    return { data: null, error: 'You do not have permission to update tasks.' }
   }
 
   const supabase = await createClient()
@@ -1031,8 +1056,9 @@ export async function updateTaskAssignees(
     return { data: null, error: 'You must be logged in to update assignees.' }
   }
 
-  if (!isAdminManager(currentUser.role)) {
-    return { data: null, error: 'Only admins and managers can update assignees.' }
+  const permissionFlags = await getTaskPermissionFlags(currentUser)
+  if (!canManageTasksWithWriteAccess(currentUser, permissionFlags)) {
+    return { data: null, error: 'You do not have permission to update assignees.' }
   }
 
   const supabase = await createClient()
@@ -1150,8 +1176,8 @@ export async function updateTaskStatus(
     return { data: null, error: error?.message || 'Task not found.' }
   }
 
-  const canWriteProjects = await hasPermission(currentUser, MODULE_PERMISSION_IDS.projects, 'write')
-  const canManage = isAdminManager(currentUser.role) || canWriteProjects
+  const permissionFlags = await getTaskPermissionFlags(currentUser)
+  const canManage = canManageTasksWithWriteAccess(currentUser, permissionFlags)
 
   if (!canManage && currentUser.role === 'staff') {
     const isAssigned = await isUserAssignedToProject(supabase, task.project_id, currentUser.id)
@@ -1276,8 +1302,9 @@ export async function deleteProjectTask(taskId: string): Promise<ActionResult<{ 
     return { data: null, error: 'You must be logged in to delete tasks.' }
   }
 
-  if (!isAdminManager(currentUser.role)) {
-    return { data: null, error: 'Only admins and managers can delete tasks.' }
+  const permissionFlags = await getTaskPermissionFlags(currentUser)
+  if (!canManageTasksWithWriteAccess(currentUser, permissionFlags)) {
+    return { data: null, error: 'You do not have permission to delete tasks.' }
   }
 
   const supabase = await createClient()
@@ -1340,7 +1367,10 @@ export async function createTaskComment(
     return { data: null, error: 'Task not found.' }
   }
 
-  if (currentUser.role === 'staff') {
+  const permissionFlags = await getTaskPermissionFlags(currentUser)
+  const canManage = canManageTasksWithWriteAccess(currentUser, permissionFlags)
+
+  if (currentUser.role === 'staff' && !canManage) {
     const assigned = await isUserAssignedToProject(supabase, task.project_id, currentUser.id)
     if (!assigned) {
       return { data: null, error: 'You do not have permission to comment on this task.' }
@@ -1689,7 +1719,8 @@ export async function getTaskCommentUploadSignature(
     return { data: null, error: 'Task not found.' }
   }
 
-  if (!isAdminManager(currentUser.role)) {
+  const permissionFlags = await getTaskPermissionFlags(currentUser)
+  if (!canManageTasksWithWriteAccess(currentUser, permissionFlags)) {
     if (currentUser.role !== 'staff') {
       return { data: null, error: 'You do not have permission to upload comment attachments.' }
     }
@@ -1720,12 +1751,20 @@ export async function getTaskUploadSignature(
   projectId: string
 ): Promise<ActionResult<CloudinaryUploadSignature>> {
   const currentUser = await getCurrentUser()
-  if (!currentUser || !isAdminManager(currentUser.role)) {
+  if (!currentUser) {
+    return { data: null, error: 'You do not have permission to upload attachments.' }
+  }
+
+  const permissionFlags = await getTaskPermissionFlags(currentUser)
+  if (!canManageTasksWithWriteAccess(currentUser, permissionFlags)) {
     return { data: null, error: 'You do not have permission to upload attachments.' }
   }
 
   const supabase = await createClient()
-  const canAccess = await hasPermission(currentUser, MODULE_PERMISSION_IDS.projects, 'read')
+  const canAccess =
+    permissionFlags.canWriteProjects ||
+    permissionFlags.canReadProjectTasks ||
+    (await hasPermission(currentUser, MODULE_PERMISSION_IDS.projects, 'read'))
   if (!canAccess && !(await isUserAssignedToProject(supabase, projectId, currentUser.id))) {
     return { data: null, error: 'You do not have access to this project.' }
   }
@@ -1759,7 +1798,12 @@ export async function createTaskAttachments(
   }>
 ): Promise<ActionResult<TaskAttachment[]>> {
   const currentUser = await getCurrentUser()
-  if (!currentUser || !isAdminManager(currentUser.role)) {
+  if (!currentUser) {
+    return { data: null, error: 'You do not have permission to upload attachments.' }
+  }
+
+  const permissionFlags = await getTaskPermissionFlags(currentUser)
+  if (!canManageTasksWithWriteAccess(currentUser, permissionFlags)) {
     return { data: null, error: 'You do not have permission to upload attachments.' }
   }
 
@@ -1819,7 +1863,12 @@ export async function createTaskAttachments(
 
 export async function deleteTaskAttachment(attachmentId: string): Promise<ActionResult<{ taskId: string }>> {
   const currentUser = await getCurrentUser()
-  if (!currentUser || !isAdminManager(currentUser.role)) {
+  if (!currentUser) {
+    return { data: null, error: 'You do not have permission to delete attachments.' }
+  }
+
+  const permissionFlags = await getTaskPermissionFlags(currentUser)
+  if (!canManageTasksWithWriteAccess(currentUser, permissionFlags)) {
     return { data: null, error: 'You do not have permission to delete attachments.' }
   }
 

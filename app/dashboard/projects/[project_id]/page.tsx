@@ -11,6 +11,21 @@ type ProjectDetailTab = 'details' | 'payments' | 'requirements' | 'tasks'
 
 const PROJECT_DETAIL_TABS: ProjectDetailTab[] = ['tasks', 'requirements', 'payments', 'details']
 
+function getVisibleProjectDetailTabs(options: {
+  showRequirementsAndPayments: boolean
+  taskTabOnlyAccess: boolean
+}): ProjectDetailTab[] {
+  if (options.taskTabOnlyAccess) {
+    return ['tasks']
+  }
+
+  if (!options.showRequirementsAndPayments) {
+    return PROJECT_DETAIL_TABS.filter((tab) => tab !== 'requirements' && tab !== 'payments')
+  }
+
+  return PROJECT_DETAIL_TABS
+}
+
 function parseProjectDetailTab(value: string | null | undefined): ProjectDetailTab | null {
   if (!value) return null
   const normalized = value.trim().toLowerCase()
@@ -21,13 +36,10 @@ function parseProjectDetailTab(value: string | null | undefined): ProjectDetailT
 
 function resolveProjectDetailTab(
   tab: ProjectDetailTab | null,
-  showRequirementsAndPayments: boolean
+  visibleTabs: ProjectDetailTab[]
 ): ProjectDetailTab {
-  if (!tab) return 'tasks'
-  if (!showRequirementsAndPayments && (tab === 'requirements' || tab === 'payments')) {
-    return 'tasks'
-  }
-  return tab
+  if (!tab) return visibleTabs[0] ?? 'tasks'
+  return visibleTabs.includes(tab) ? tab : (visibleTabs[0] ?? 'tasks')
 }
 
 interface ProjectDetailPageProps {
@@ -63,17 +75,34 @@ export default async function ProjectDetailPage({ params, searchParams }: Projec
   const user = await requireAuth()
   const { project_id } = await params
   const query = await searchParams
-  const canReadModule = await hasPermission(user, MODULE_PERMISSION_IDS.projects, 'read')
-  const canRead = user.role === 'admin' || user.role === 'manager' || user.role === 'staff' || canReadModule
+  const [canReadProjectsModule, canReadProjectTasksModule, canWriteProjectsModule, canWriteProjectTasksModule] =
+    await Promise.all([
+      hasPermission(user, MODULE_PERMISSION_IDS.projects, 'read'),
+      hasPermission(user, MODULE_PERMISSION_IDS.projectTasks, 'read'),
+      hasPermission(user, MODULE_PERMISSION_IDS.projects, 'write'),
+      hasPermission(user, MODULE_PERMISSION_IDS.projectTasks, 'write'),
+    ])
+
+  const canRead =
+    user.role === 'admin' ||
+    user.role === 'manager' ||
+    user.role === 'staff' ||
+    canReadProjectsModule ||
+    canReadProjectTasksModule
 
   if (!canRead) {
     redirect('/dashboard?error=unauthorized')
   }
 
   const showRequirementsAndPayments = user.role !== 'staff' && user.role !== 'client'
+  const taskTabOnlyAccess = !canReadProjectsModule && canReadProjectTasksModule
+  const visibleTabs = getVisibleProjectDetailTabs({
+    showRequirementsAndPayments,
+    taskTabOnlyAccess,
+  })
   const initialResolvedTab = resolveProjectDetailTab(
     parseProjectDetailTab(query.tab),
-    showRequirementsAndPayments
+    visibleTabs
   )
 
   // Always load time events so the header work timer shows accurate elapsed time on first load (no need to open Details tab).
@@ -87,14 +116,18 @@ export default async function ProjectDetailPage({ params, searchParams }: Projec
 
   const project = projectResult.data
   // Load task assignees only when the initial tab needs Tasks.
-  const shouldFetchTaskAssignees = initialResolvedTab === 'tasks'
+  const canManageProject = user.role === 'admin' || user.role === 'manager' || canWriteProjectsModule
+  const canManageTasks =
+    user.role === 'admin' ||
+    user.role === 'manager' ||
+    canWriteProjectsModule ||
+    canWriteProjectTasksModule
+  const shouldFetchTaskAssignees = initialResolvedTab === 'tasks' && canManageTasks
   const staffResult = shouldFetchTaskAssignees
     ? await getStaffForSelect()
     : { data: [], error: null as string | null }
 
   // Follow-ups (and Work history, etc.) load only when user opens that tab
-  const canWriteModule = await hasPermission(user, MODULE_PERMISSION_IDS.projects, 'write')
-  const canManageProject = user.role === 'admin' || user.role === 'manager' || canWriteModule
   const canManageFollowUps = canManageProject || user.role === 'staff'
   const canViewAmount = user.role === 'admin' || user.role === 'manager'
   const breadcrumbLink = resolveBreadcrumbLink(query)
@@ -128,9 +161,11 @@ export default async function ProjectDetailPage({ params, searchParams }: Projec
           initialFollowUps={[]}
           initialTab={initialResolvedTab}
           canManageProject={canManageProject}
+          canManageTasks={canManageTasks}
           canManageFollowUps={canManageFollowUps}
           canViewAmount={canViewAmount}
           userRole={user.role}
+          taskTabOnlyAccess={taskTabOnlyAccess}
           currentUserId={user.id}
           clients={[]}
           clientsError={null}

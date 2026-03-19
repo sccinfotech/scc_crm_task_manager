@@ -15,15 +15,17 @@ const PERMISSION_MODULES = [
   { id: MODULE_PERMISSION_IDS.leads, label: 'Leads' },
   { id: MODULE_PERMISSION_IDS.clients, label: 'Clients' },
   { id: MODULE_PERMISSION_IDS.projects, label: 'Projects' },
+  { id: MODULE_PERMISSION_IDS.projectTasks, label: 'Project Tasks' },
   { id: MODULE_PERMISSION_IDS.logs, label: 'Logs' },
   { id: MODULE_PERMISSION_IDS.settings, label: 'System Settings' },
   { id: MODULE_PERMISSION_IDS.users, label: 'User Management' },
 ] as const
 
-function buildDefaultPermissions(): ModulePermissions {
-  const defaults: ModulePermissions = {}
+function buildDefaultPermissions(existing?: ModulePermissions | null): ModulePermissions {
+  const defaults: ModulePermissions = { ...(existing ?? {}) }
   PERMISSION_MODULES.forEach((module) => {
-    defaults[module.id] = 'none'
+    const value = defaults[module.id]
+    defaults[module.id] = value === 'read' || value === 'write' ? value : 'none'
   })
   return defaults
 }
@@ -39,16 +41,7 @@ export function UserPermissionsModal({
   const [permissions, setPermissions] = useState<ModulePermissions>(buildDefaultPermissions())
 
   const normalizedPermissions = useMemo(() => {
-    const merged = buildDefaultPermissions()
-    if (user?.module_permissions) {
-      PERMISSION_MODULES.forEach((module) => {
-        const value = user.module_permissions[module.id]
-        if (value === 'read' || value === 'write') {
-          merged[module.id] = value
-        }
-      })
-    }
-    return merged
+    return buildDefaultPermissions(user?.module_permissions ?? null)
   }, [user])
 
   useEffect(() => {

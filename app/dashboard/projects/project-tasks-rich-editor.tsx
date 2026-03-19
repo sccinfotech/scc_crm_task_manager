@@ -3,9 +3,16 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useEditor, EditorContent, type Editor } from '@tiptap/react'
+import { Extension } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Link from '@tiptap/extension-link'
+import Underline from '@tiptap/extension-underline'
+import { TaskList } from '@tiptap/extension-list/task-list'
+import { TaskItem } from '@tiptap/extension-list/task-item'
+import Highlight from '@tiptap/extension-highlight'
+import { TextStyle, Color } from '@tiptap/extension-text-style'
+import { normalizeChecklistHtml } from './checklist-html'
 
 interface ProjectTasksRichEditorProps {
   value: string
@@ -28,13 +35,68 @@ function isActive(editor: Editor, name: string, attrs?: Record<string, unknown>)
   return editor.isActive(name, attrs)
 }
 
+const TEXT_COLORS = [
+  { label: 'Default', value: '' },
+  { label: 'Gray', value: '#64748b' },
+  { label: 'Red', value: '#dc2626' },
+  { label: 'Orange', value: '#ea580c' },
+  { label: 'Amber', value: '#d97706' },
+  { label: 'Green', value: '#16a34a' },
+  { label: 'Blue', value: '#2563eb' },
+  { label: 'Cyan', value: '#0891b2' },
+  { label: 'Purple', value: '#7c3aed' },
+]
+
+const TaskItemBackspaceGuard = Extension.create({
+  name: 'taskItemBackspaceGuard',
+  addKeyboardShortcuts() {
+    return {
+      Backspace: () => {
+        const { state } = this.editor
+        const { selection } = state
+        if (!selection.empty) return false
+
+        const { $from } = selection
+        if (!$from.parent.isTextblock) return false
+        if ($from.parentOffset !== 0) return false
+
+        // Find the closest taskItem ancestor.
+        let taskItemDepth: number | null = null
+        for (let d = $from.depth; d > 0; d--) {
+          if ($from.node(d).type.name === 'taskItem') {
+            taskItemDepth = d
+            break
+          }
+        }
+        if (taskItemDepth == null) return false
+
+        const taskItemNode = $from.node(taskItemDepth)
+
+        // If the task item has content, prevent "lifting" out of the task list
+        // which makes it look like the checkbox disappeared.
+        // Allow default behavior when the item is empty.
+        if (taskItemNode.content.size > 2) {
+          return true
+        }
+
+        return false
+      },
+    }
+  },
+})
+
 function MenuBar({ editor }: { editor: Editor | null }) {
   const [linkUrl, setLinkUrl] = useState('')
   const [showLinkPopover, setShowLinkPopover] = useState(false)
   const [headingOpen, setHeadingOpen] = useState(false)
+  const [colorOpen, setColorOpen] = useState(false)
+  const [headingDropdownRect, setHeadingDropdownRect] = useState<{ top: number; left: number } | null>(null)
+  const [colorDropdownRect, setColorDropdownRect] = useState<{ top: number; left: number } | null>(null)
   const linkSelectionRef = useRef<{ from: number; to: number } | null>(null)
   const linkInputRef = useRef<HTMLInputElement>(null)
   const linkButtonRef = useRef<HTMLButtonElement>(null)
+  const headingButtonRef = useRef<HTMLButtonElement>(null)
+  const colorButtonRef = useRef<HTMLButtonElement>(null)
   const [linkPopoverRect, setLinkPopoverRect] = useState<{ top: number; left: number } | null>(null)
 
   const updateLinkPopoverPosition = useCallback(() => {
@@ -47,6 +109,26 @@ function MenuBar({ editor }: { editor: Editor | null }) {
     setLinkPopoverRect({ top: rect.bottom + 4, left })
   }, [])
 
+  const updateHeadingDropdownPosition = useCallback(() => {
+    if (!headingButtonRef.current) return
+    const rect = headingButtonRef.current.getBoundingClientRect()
+    const dropdownW = 120
+    const pad = 12
+    let left = rect.left
+    if (left + dropdownW > window.innerWidth - pad) left = Math.max(pad, window.innerWidth - dropdownW - pad)
+    setHeadingDropdownRect({ top: rect.bottom + 4, left })
+  }, [])
+
+  const updateColorDropdownPosition = useCallback(() => {
+    if (!colorButtonRef.current) return
+    const rect = colorButtonRef.current.getBoundingClientRect()
+    const dropdownW = 140
+    const pad = 12
+    let left = rect.left
+    if (left + dropdownW > window.innerWidth - pad) left = Math.max(pad, window.innerWidth - dropdownW - pad)
+    setColorDropdownRect({ top: rect.bottom + 4, left })
+  }, [])
+
   useEffect(() => {
     if (showLinkPopover) {
       linkInputRef.current?.focus()
@@ -54,7 +136,23 @@ function MenuBar({ editor }: { editor: Editor | null }) {
     } else {
       setLinkPopoverRect(null)
     }
-  }, [showLinkPopover])
+  }, [showLinkPopover, updateLinkPopoverPosition])
+
+  useEffect(() => {
+    if (headingOpen) {
+      updateHeadingDropdownPosition()
+    } else {
+      setHeadingDropdownRect(null)
+    }
+  }, [headingOpen, updateHeadingDropdownPosition])
+
+  useEffect(() => {
+    if (colorOpen) {
+      updateColorDropdownPosition()
+    } else {
+      setColorDropdownRect(null)
+    }
+  }, [colorOpen, updateColorDropdownPosition])
 
   useEffect(() => {
     if (!showLinkPopover || !linkButtonRef.current) return
@@ -66,6 +164,28 @@ function MenuBar({ editor }: { editor: Editor | null }) {
       window.removeEventListener('resize', update)
     }
   }, [showLinkPopover, updateLinkPopoverPosition])
+
+  useEffect(() => {
+    if (!headingOpen || !headingButtonRef.current) return
+    const update = () => updateHeadingDropdownPosition()
+    window.addEventListener('scroll', update, true)
+    window.addEventListener('resize', update)
+    return () => {
+      window.removeEventListener('scroll', update, true)
+      window.removeEventListener('resize', update)
+    }
+  }, [headingOpen, updateHeadingDropdownPosition])
+
+  useEffect(() => {
+    if (!colorOpen || !colorButtonRef.current) return
+    const update = () => updateColorDropdownPosition()
+    window.addEventListener('scroll', update, true)
+    window.addEventListener('resize', update)
+    return () => {
+      window.removeEventListener('scroll', update, true)
+      window.removeEventListener('resize', update)
+    }
+  }, [colorOpen, updateColorDropdownPosition])
 
   if (!editor) return null
 
@@ -167,9 +287,10 @@ function MenuBar({ editor }: { editor: Editor | null }) {
       </div>
       <div className="w-px h-6 bg-slate-200/80 mx-0.5" aria-hidden />
 
-      {/* Text / Headings */}
+      {/* Text / Headings — dropdown portaled to body for top layer */}
       <div className="relative" role="group" aria-label="Block format">
         <button
+          ref={headingButtonRef}
           type="button"
           onClick={() => setHeadingOpen((o) => !o)}
           className={`${toolbarBtnBase} min-w-[4rem] gap-0.5 px-2 ${headingOpen ? 'bg-slate-200' : ''}`}
@@ -182,23 +303,30 @@ function MenuBar({ editor }: { editor: Editor | null }) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         </button>
-        {headingOpen && (
-          <>
-            <div className="fixed inset-0 z-10" aria-hidden onClick={() => setHeadingOpen(false)} />
-            <div className="absolute top-full left-0 mt-1 z-20 rounded-lg border border-slate-200 bg-white shadow-lg py-1 min-w-[7rem]">
-              {[
-                { label: 'Paragraph', run: () => editor.chain().focus().setParagraph().run() },
-                { label: 'Heading 1', run: () => editor.chain().focus().setHeading({ level: 1 }).run() },
-                { label: 'Heading 2', run: () => editor.chain().focus().setHeading({ level: 2 }).run() },
-                { label: 'Heading 3', run: () => editor.chain().focus().setHeading({ level: 3 }).run() },
-              ].map(({ label, run }) => (
-                <button key={label} type="button" onClick={() => { run(); setHeadingOpen(false) }} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 text-slate-800">
-                  {label}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
+        {typeof document !== 'undefined' &&
+          headingOpen &&
+          headingDropdownRect &&
+          createPortal(
+            <>
+              <div className="fixed inset-0 z-[9998]" aria-hidden onClick={() => setHeadingOpen(false)} />
+              <div
+                className="fixed z-[9999] rounded-lg border border-slate-200 bg-white shadow-xl py-1 min-w-[7rem]"
+                style={{ top: headingDropdownRect.top, left: headingDropdownRect.left }}
+              >
+                {[
+                  { label: 'Paragraph', run: () => editor.chain().focus().setParagraph().run() },
+                  { label: 'Heading 1', run: () => editor.chain().focus().setHeading({ level: 1 }).run() },
+                  { label: 'Heading 2', run: () => editor.chain().focus().setHeading({ level: 2 }).run() },
+                  { label: 'Heading 3', run: () => editor.chain().focus().setHeading({ level: 3 }).run() },
+                ].map(({ label, run }) => (
+                  <button key={label} type="button" onClick={() => { run(); setHeadingOpen(false) }} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 text-slate-800">
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </>,
+            document.body
+          )}
       </div>
       <div className="w-px h-6 bg-slate-200/80 mx-0.5" aria-hidden />
 
@@ -239,6 +367,76 @@ function MenuBar({ editor }: { editor: Editor | null }) {
             <path d="M2 17h2v.5H3v1h1v.5H2v1h3v-4H2v1zm1-9h1V4H2v1h1v3zm-1 3h1.8L2 13.1v.9h3v-1H3.2L5 10.9V10H2v1zm5-6v2h14V5H7zm0 14h14v-2H7v2zm0-6h14v-2H7v2z" />
           </svg>
         </button>
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().toggleTaskList().run()}
+          className={`${toolbarBtnBase} ${isActive(editor, 'taskList') ? 'bg-[#06B6D4]/15 text-[#0891b2]' : ''}`}
+          title="Task list (checklist)"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+          </svg>
+        </button>
+      </div>
+      <div className="w-px h-6 bg-slate-200/80 mx-0.5" aria-hidden />
+
+      {/* Highlight */}
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleHighlight().run()}
+        className={`${toolbarBtnBase} ${isActive(editor, 'highlight') ? 'bg-[#06B6D4]/15 text-[#0891b2]' : ''}`}
+        title="Highlight"
+      >
+        <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+          <path d="M15.24 2.86l-3.5 3.5-1.5-1.5-1.41 1.41 1.5 1.5L3 17.25V21h3.75L20.78 9.94l-1.41-1.41-1.5 1.5-3.5-3.5 1.5-1.5-1.42-1.42-1.5 1.5z" />
+        </svg>
+      </button>
+      <div className="w-px h-6 bg-slate-200/80 mx-0.5" aria-hidden />
+
+      {/* Text color — dropdown portaled to body for top layer */}
+      <div className="relative" role="group" aria-label="Text color">
+        <button
+          ref={colorButtonRef}
+          type="button"
+          onClick={() => setColorOpen((o) => !o)}
+          className={`${toolbarBtnBase} ${editor.isActive('textStyle') ? 'bg-[#06B6D4]/15 text-[#0891b2]' : ''}`}
+          title="Text color"
+        >
+          <span className="text-sm font-medium">A</span>
+          <span className="w-3 h-3 rounded border border-slate-300 ml-0.5" style={{ backgroundColor: editor.getAttributes('textStyle').color || '#374151' }} aria-hidden />
+          <svg className="h-3 w-3 shrink-0 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        {typeof document !== 'undefined' &&
+          colorOpen &&
+          colorDropdownRect &&
+          createPortal(
+            <>
+              <div className="fixed inset-0 z-[9998]" aria-hidden onClick={() => setColorOpen(false)} />
+              <div
+                className="fixed z-[9999] rounded-lg border border-slate-200 bg-white shadow-xl p-2 min-w-[8rem]"
+                style={{ top: colorDropdownRect.top, left: colorDropdownRect.left }}
+              >
+                {TEXT_COLORS.map(({ label, value }) => (
+                  <button
+                    key={label + (value || 'default')}
+                    type="button"
+                    onClick={() => {
+                      if (value) editor.chain().focus().setColor(value).run()
+                      else editor.chain().focus().unsetColor().run()
+                      setColorOpen(false)
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 text-slate-800 flex items-center gap-2 rounded"
+                  >
+                    <span className="w-4 h-4 rounded border border-slate-200 shrink-0" style={{ backgroundColor: value || '#e2e8f0' }} />
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </>,
+            document.body
+          )}
       </div>
       <div className="w-px h-6 bg-slate-200/80 mx-0.5" aria-hidden />
 
@@ -311,27 +509,37 @@ export function ProjectTasksRichEditor({
   value,
   onChange,
   placeholder = 'Add description…',
-  minHeight = '120px',
+  minHeight = '180px',
   editable = true,
   error = false,
   wrapperClassName = '',
   id,
 }: ProjectTasksRichEditorProps) {
+  const normalizedValue = normalizeChecklistHtml(value || '')
+
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
       StarterKit.configure({ link: false }),
+      Underline,
       Link.configure({
         openOnClick: false,
         HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer' },
       }),
       Placeholder.configure({ placeholder }),
+      TaskItemBackspaceGuard,
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      Highlight.configure({ multicolor: false }),
+      TextStyle,
+      Color,
     ],
-    content: value || '',
+    content: normalizedValue,
     editable,
     editorProps: {
+      transformPastedHTML: (html) => normalizeChecklistHtml(html),
       attributes: {
-        class: 'prose prose-sm max-w-none min-h-[80px] px-3 py-2 focus:outline-none',
+        class: 'prose prose-sm max-w-none min-h-[80px] px-3 py-2 focus:outline-none rich-editor-content',
       },
     },
     onUpdate: ({ editor }) => {
@@ -340,10 +548,10 @@ export function ProjectTasksRichEditor({
   })
 
   useEffect(() => {
-    if (editor && value !== editor.getHTML()) {
-      editor.commands.setContent(value || '', { emitUpdate: false })
+    if (editor && normalizedValue !== editor.getHTML()) {
+      editor.commands.setContent(normalizedValue, { emitUpdate: false })
     }
-  }, [value, editor])
+  }, [normalizedValue, editor])
 
   return (
     <div
