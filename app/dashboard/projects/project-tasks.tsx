@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, useId, type ReactElement } from 'react'
+import { useState, useEffect, useLayoutEffect, useCallback, useRef, useId, type ReactElement } from 'react'
 import { createPortal } from 'react-dom'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -184,6 +184,8 @@ async function uploadTaskFilesToCloudinary(
 }
 /** When selectedTaskId is this value, Task Detail panel opens in creation mode (no popup). */
 const CREATE_TASK_SENTINEL = '__create__'
+const COMMENT_INPUT_MIN_HEIGHT_PX = 72
+const COMMENT_INPUT_MAX_HEIGHT_PX = 200
 
 function isImageAttachment(a: TaskAttachment) {
   return (a.mime_type && a.mime_type.startsWith('image/')) || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(a.file_name || '')
@@ -2718,6 +2720,8 @@ function TaskDetailPanel({
   const [isMobileViewport, setIsMobileViewport] = useState(false)
   const [mobileDetailTab, setMobileDetailTab] = useState<'details' | 'comments'>('details')
   const commentAttachmentInputRef = useRef<HTMLInputElement>(null)
+  const commentTextareaRef = useRef<HTMLTextAreaElement>(null)
+  const commentPreviewRef = useRef<HTMLDivElement>(null)
   const commentPreviewUrlsRef = useRef<Set<string>>(new Set())
   const detailStatusRef = useRef<HTMLButtonElement>(null)
   const detailAssigneeRef = useRef<HTMLButtonElement>(null)
@@ -2736,6 +2740,34 @@ function TaskDetailPanel({
             : detailTypeRef
     return ref.current?.getBoundingClientRect() ?? null
   }
+
+  const syncCommentComposerLayout = useCallback(() => {
+    const textarea = commentTextareaRef.current
+    if (!textarea) return
+
+    textarea.style.height = 'auto'
+    const nextHeight = Math.min(
+      Math.max(textarea.scrollHeight, COMMENT_INPUT_MIN_HEIGHT_PX),
+      COMMENT_INPUT_MAX_HEIGHT_PX
+    )
+    textarea.style.height = `${nextHeight}px`
+    textarea.style.overflowY =
+      textarea.scrollHeight > COMMENT_INPUT_MAX_HEIGHT_PX ? 'auto' : 'hidden'
+
+    if (textarea.value.length === 0) {
+      textarea.scrollTop = 0
+      textarea.scrollLeft = 0
+    }
+
+    if (commentPreviewRef.current) {
+      commentPreviewRef.current.scrollTop = textarea.scrollTop
+      commentPreviewRef.current.scrollLeft = textarea.scrollLeft
+    }
+  }, [])
+
+  useLayoutEffect(() => {
+    syncCommentComposerLayout()
+  }, [commentText, syncCommentComposerLayout])
 
   useEffect(() => {
     if (!detailDropdownOpen) {
@@ -2980,6 +3012,298 @@ function TaskDetailPanel({
   }
 
   const isCreateFlow = isCreateMode && !taskDetail && !detailLoading
+  const metaStatus = isCreateFlow ? createStatus : (taskDetail?.status ?? 'todo')
+  const metaAssigneeIds = isCreateFlow ? createAssigneeIds : (taskDetail?.assignees.map((a) => a.id) ?? [])
+  const metaDueDate = isCreateFlow ? createDueDate : (taskDetail?.due_date ?? '')
+  const metaPriority = isCreateFlow ? createPriority : (taskDetail?.priority ?? '')
+  const metaType = isCreateFlow ? createType : (taskDetail?.task_type ?? '')
+  const taskMetaBar = (
+    <div className="flex flex-wrap items-center gap-x-1.25 gap-y-0.5 text-xs leading-none sm:gap-y-1">
+      <span className="font-medium text-slate-500">Status:</span>
+      {(canUpdateStatus || isCreateFlow) ? (
+        <div className="relative inline-block">
+          <button
+            ref={detailStatusRef}
+            type="button"
+            onClick={() => setDetailDropdownOpen((o) => (o === 'status' ? null : 'status'))}
+            className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-1.25 py-0.5 text-[11px] font-medium leading-none hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30"
+            title="Change status"
+          >
+            <span className={`h-2 w-2 rounded-full ${TASK_STATUS_DOT_COLORS[metaStatus] ?? 'bg-slate-400'}`} />
+            <span>{TASK_STATUS_LABELS[metaStatus] ?? metaStatus}</span>
+          </button>
+          {detailDropdownOpen === 'status' && detailDropdownRect && typeof document !== 'undefined' &&
+            createPortal(
+              <>
+                <div className="fixed inset-0 z-[9998]" aria-hidden onClick={() => setDetailDropdownOpen(null)} />
+                <div data-detail-dropdown className="fixed z-[9999] w-44 rounded-lg border border-slate-200 bg-white shadow-xl py-1" style={{ top: detailDropdownRect.top, left: detailDropdownRect.left }}>
+                  {TASK_STATUSES.map((s) => (
+                    <button key={s} type="button" onClick={() => { if (isCreateFlow) setCreateStatus(s); else onStatusChange(taskId, s); setDetailDropdownOpen(null) }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50">
+                      <span className={`h-2 w-2 flex-shrink-0 rounded-full ${TASK_STATUS_DOT_COLORS[s] ?? 'bg-slate-400'}`} />
+                      <span>{TASK_STATUS_LABELS[s] ?? s}</span>
+                    </button>
+                  ))}
+                </div>
+              </>,
+              document.body
+            )}
+        </div>
+      ) : (
+        <span className="inline-flex items-center gap-1.5 text-xs">
+          <span className={`h-2 w-2 rounded-full ${TASK_STATUS_DOT_COLORS[metaStatus] ?? 'bg-slate-400'}`} />
+          {TASK_STATUS_LABELS[metaStatus] ?? metaStatus}
+        </span>
+      )}
+      <span className="hidden text-slate-300 sm:inline">|</span>
+
+      <span className="font-medium text-slate-500">Assignee:</span>
+      {(() => {
+        const assigneeIds = Array.isArray(metaAssigneeIds) ? metaAssigneeIds : []
+        const assigneeOptions = assigneeIds.map((id) => {
+          const m = assignableUsers.find((u) => u.id === id)
+          const a = taskDetail?.assignees?.find((x) => x.id === id)
+          return (m ?? (a ? { id: a.id, full_name: a.full_name, email: a.email, role: a.role, photo_url: a.photo_url } : null)) as StaffSelectOption | null
+        }).filter(Boolean) as StaffSelectOption[]
+        const maxAvatars = 3
+        const assigneesToShow = assigneeOptions.slice(0, maxAvatars)
+        const extraCount = assigneeOptions.length - maxAvatars
+        const assigneeNamesTooltip = assigneeOptions.length > 0 ? assigneeOptions.map((o) => staffLabel(o)).join(', ') : 'No assignees'
+        const extraAssigneesTooltip = extraCount > 0 ? assigneeOptions.slice(maxAvatars).map((o) => staffLabel(o)).join(', ') : ''
+        if (canEditTask) {
+          return (
+            <div className="relative inline-block">
+              <button
+                ref={detailAssigneeRef}
+                type="button"
+                onClick={() => setDetailDropdownOpen((o) => (o === 'assignee' ? null : 'assignee'))}
+                className="flex items-center gap-1 rounded-full border border-slate-200 bg-white p-0.5 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30"
+                title={assigneeOptions.length === 0 ? 'Change assignee' : assigneeNamesTooltip}
+              >
+                {assigneeOptions.length > 0 ? (
+                  <span className="flex items-center -space-x-1.5">
+                    {assigneesToShow.map((m) => (
+                      <span key={m.id} title={staffLabel(m)} className="flex shrink-0 rounded-full border-2 border-white ring-1 ring-slate-200">
+                        <StaffAvatar
+                          photoUrl={m.photo_url}
+                          fullName={m.full_name}
+                          email={m.email}
+                          size="sm"
+                          className="border-0"
+                          bgClassName={getAssigneeColor(m.id).bg}
+                          textClassName={getAssigneeColor(m.id).text}
+                        />
+                      </span>
+                    ))}
+                    {extraCount > 0 && (
+                      <span
+                        title={extraAssigneesTooltip}
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-white bg-slate-100 text-[10px] font-semibold text-slate-600 ring-1 ring-slate-200"
+                      >
+                        +{extraCount}
+                      </span>
+                    )}
+                  </span>
+                ) : (
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </span>
+                )}
+              </button>
+              {detailDropdownOpen === 'assignee' && detailDropdownRect && typeof document !== 'undefined' &&
+                createPortal(
+                  <>
+                    <div className="fixed inset-0 z-[9998]" aria-hidden onClick={() => setDetailDropdownOpen(null)} />
+                    <div data-detail-dropdown className="fixed z-[9999] w-56 max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl py-1" style={{ top: detailDropdownRect.top, left: detailDropdownRect.left }}>
+                      {assignableUsers.map((m) => {
+                        const isSelected = assigneeIds.includes(m.id)
+                        const color = getAssigneeColor(m.id)
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => {
+                              const next = isSelected ? assigneeIds.filter((id) => id !== m.id) : [...assigneeIds, m.id]
+                              if (isCreateFlow) setCreateAssigneeIds(next)
+                              else onAssigneesChange(taskId, next)
+                              setDetailDropdownOpen(null)
+                            }}
+                            className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-slate-50 ${isSelected ? 'bg-cyan-50/80' : ''}`}
+                          >
+                            <StaffAvatar
+                              photoUrl={m.photo_url}
+                              fullName={m.full_name}
+                              email={m.email}
+                              size="sm"
+                              bgClassName={color.bg}
+                              textClassName={color.text}
+                            />
+                            <span className="text-sm truncate">{staffLabel(m)}</span>
+                            {isSelected && (
+                              <svg className="h-4 w-4 ml-auto text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </>,
+                  document.body
+                )}
+            </div>
+          )
+        }
+        return assigneeOptions.length > 0 ? (
+          <span className="inline-flex items-center -space-x-1.5">
+            {assigneesToShow.map((m) => (
+              <span key={m.id} title={staffLabel(m)} className="flex shrink-0 rounded-full border-2 border-white ring-1 ring-slate-200">
+                <StaffAvatar
+                  photoUrl={m.photo_url}
+                  fullName={m.full_name}
+                  email={m.email}
+                  size="sm"
+                  className="border-0"
+                  bgClassName={getAssigneeColor(m.id).bg}
+                  textClassName={getAssigneeColor(m.id).text}
+                />
+              </span>
+            ))}
+            {extraCount > 0 && (
+              <span
+                title={extraAssigneesTooltip}
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-white bg-slate-100 text-[10px] font-semibold text-slate-600 ring-1 ring-slate-200"
+              >
+                +{extraCount}
+              </span>
+            )}
+          </span>
+        ) : (
+          <span className="text-slate-400 text-xs">—</span>
+        )
+      })()}
+      <span className="hidden text-slate-300 sm:inline">|</span>
+
+      <span className="font-medium text-slate-500">Due Date:</span>
+      {(canEditTask || isCreateFlow) ? (
+        <div className="relative inline-block">
+          <input
+            ref={detailDueInputRef}
+            type="date"
+            value={metaDueDate}
+            onChange={(e) => { if (isCreateFlow) setCreateDueDate(e.target.value); else onUpdateTask(taskId, { due_date: e.target.value || null }) }}
+            className="absolute left-0 top-0 w-full h-full opacity-0 cursor-pointer pointer-events-none"
+            aria-hidden
+            tabIndex={-1}
+          />
+          <button
+            type="button"
+            onClick={() => {
+              if (detailDueInputRef.current) {
+                try {
+                  detailDueInputRef.current.showPicker?.()
+                } catch {
+                  detailDueInputRef.current.focus()
+                }
+              }
+            }}
+            className="flex items-center gap-1 rounded border border-slate-200 bg-white px-1.25 py-0.5 text-[11px] text-slate-700 leading-none hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30"
+            title="Select due date"
+          >
+            <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            {metaDueDate ? formatDate(metaDueDate) : '—'}
+          </button>
+        </div>
+      ) : (
+        <span className="text-slate-600 text-xs">{metaDueDate ? formatDate(metaDueDate) : '—'}</span>
+      )}
+      <span className="hidden text-slate-300 sm:inline">|</span>
+
+      <span className="font-medium text-slate-500">Priority:</span>
+      {(canEditTask || isCreateFlow) ? (
+        <div className="relative inline-block">
+          <button
+            ref={detailPriorityRef}
+            type="button"
+            onClick={() => setDetailDropdownOpen((o) => (o === 'priority' ? null : 'priority'))}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium leading-none shadow-sm focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30 ${
+              metaPriority
+                ? `border-slate-200/80 ${TASK_PRIORITY_STYLES[metaPriority as TaskPriority]}`
+                : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+            }`}
+            title="Change priority"
+          >
+            <PriorityFlagIcon className={`h-4 w-4 flex-shrink-0 ${metaPriority ? TASK_PRIORITY_FLAG_COLORS[metaPriority as TaskPriority] : 'text-slate-400'}`} />
+            <span>{metaPriority ? TASK_PRIORITY_LABELS[metaPriority as TaskPriority] : '—'}</span>
+          </button>
+          {detailDropdownOpen === 'priority' && detailDropdownRect && typeof document !== 'undefined' &&
+            createPortal(
+              <>
+                <div className="fixed inset-0 z-[9998]" aria-hidden onClick={() => setDetailDropdownOpen(null)} />
+                <div data-detail-dropdown className="fixed z-[9999] w-44 rounded-lg border border-slate-200 bg-white shadow-xl py-1" style={{ top: detailDropdownRect.top, left: detailDropdownRect.left }}>
+                  {TASK_PRIORITIES.map((p) => (
+                    <button key={p} type="button" onClick={() => { if (isCreateFlow) setCreatePriority(p); else onUpdateTask(taskId, { priority: p }); setDetailDropdownOpen(null) }} className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-sky-50 ${metaPriority === p ? 'bg-sky-50' : ''}`}>
+                    <PriorityFlagIcon className={`h-4 w-4 flex-shrink-0 ${TASK_PRIORITY_FLAG_COLORS[p]}`} />
+                    <span>{TASK_PRIORITY_LABELS[p]}</span>
+                  </button>
+                ))}
+                </div>
+              </>,
+              document.body
+            )}
+        </div>
+      ) : (
+        <span className={`inline-flex items-center gap-1.5 text-xs ${metaPriority ? TASK_PRIORITY_STYLES[metaPriority as TaskPriority] : 'text-slate-400'}`}>
+          {metaPriority && <PriorityFlagIcon className={`h-4 w-4 ${TASK_PRIORITY_FLAG_COLORS[metaPriority as TaskPriority]}`} />}
+          {metaPriority ? TASK_PRIORITY_LABELS[metaPriority as TaskPriority] : '—'}
+        </span>
+      )}
+      <span className="hidden text-slate-300 sm:inline">|</span>
+
+      <span className="font-medium text-slate-500">Type:</span>
+      {(canEditTask || isCreateFlow) ? (
+        <div className="relative inline-block">
+          <button
+            ref={detailTypeRef}
+            type="button"
+            onClick={() => setDetailDropdownOpen((o) => (o === 'type' ? null : 'type'))}
+            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium leading-none text-slate-700 hover:bg-slate-50 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30"
+            title="Change type"
+          >
+            {metaType ? <TaskTypeIcon type={metaType as TaskType} className="h-4 w-4 flex-shrink-0 text-slate-500" /> : null}
+            <span>{metaType ? TASK_TYPE_LABELS[metaType as TaskType] : '—'}</span>
+          </button>
+          {detailDropdownOpen === 'type' && detailDropdownRect && typeof document !== 'undefined' &&
+            createPortal(
+              <>
+                <div className="fixed inset-0 z-[9998]" aria-hidden onClick={() => setDetailDropdownOpen(null)} />
+                <div data-detail-dropdown className="fixed z-[9999] w-44 rounded-lg border border-slate-200 bg-white shadow-xl py-1" style={{ top: detailDropdownRect.top, left: detailDropdownRect.left }}>
+                  {TASK_TYPES.map((t) => (
+                    <button key={t} type="button" onClick={() => { if (isCreateFlow) setCreateType(t); else onUpdateTask(taskId, { task_type: t }); setDetailDropdownOpen(null) }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">
+                      <TaskTypeIcon type={t} className="h-4 w-4 text-slate-500" />
+                      {TASK_TYPE_LABELS[t]}
+                    </button>
+                  ))}
+                </div>
+              </>,
+              document.body
+            )}
+        </div>
+      ) : (
+        metaType ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-[11px] font-medium text-slate-600 shadow-sm">
+            <TaskTypeIcon type={metaType as TaskType} className="h-4 w-4 text-slate-500" />
+            {TASK_TYPE_LABELS[metaType as TaskType]}
+          </span>
+        ) : (
+          <span className="text-xs text-slate-400">—</span>
+        )
+      )}
+    </div>
+  )
   if (!isCreateFlow && (detailLoading || !taskDetail)) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 p-0 sm:p-4 md:p-6">
@@ -3083,40 +3407,42 @@ function TaskDetailPanel({
   }
   const showHeaderSave = isCreateFlow || descriptionDirty
   const commentCount = taskDetail?.comments.length ?? 0
-
   const detailsSection = (
-    <div className="h-full min-h-0 overflow-y-auto p-3.5 md:border-r md:border-slate-200 md:p-6">
+    <div className="h-full min-h-0 overflow-y-auto p-3 md:border-r md:border-slate-200 md:p-4">
+        <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50/40 px-2.5 py-2 shadow-sm">
+          {taskMetaBar}
+        </div>
         {/* Description — full width with icon + label row */}
-        <div className="mb-5">
-          <div className="flex items-center gap-2 mb-2">
+        <div className="mb-3.5">
+          <div className="mb-1.5 flex items-center gap-2">
             <svg className="h-4 w-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            <span className="text-sm font-medium text-slate-600">Description</span>
+            <span className="text-sm font-medium text-black capitalize">Description</span>
           </div>
           {isCreateFlow ? (
             <>
               <ProjectTasksRichEditor
                 value={createDescriptionHtml}
                 onChange={(html) => { setCreateDescriptionHtml(html); if (createDescriptionError) setCreateDescriptionError(null) }}
-                minHeight="180px"
+                minHeight="150px"
                 editable={true}
                 placeholder="Describe the task…"
               />
               {createDescriptionError && (
-                <p className="mt-1.5 text-sm text-red-600" role="alert">{createDescriptionError}</p>
+                <p className="mt-1 text-sm text-red-600" role="alert">{createDescriptionError}</p>
               )}
             </>
           ) : canEditTask ? (
             <ProjectTasksRichEditor
               value={pendingDescriptionHtml ?? taskDetail!.description_html ?? ''}
               onChange={(html) => setPendingDescriptionHtml(html)}
-              minHeight="180px"
+              minHeight="150px"
               editable={true}
             />
           ) : (
             <div
-              className="prose prose-sm max-w-none text-slate-700 rounded-xl border border-slate-200 bg-slate-50/30 p-4 min-h-[80px] rich-editor-render"
+              className="prose prose-sm max-w-none rounded-xl border border-slate-200 bg-slate-50/30 p-3 min-h-[72px] text-slate-700 rich-editor-render"
               dangerouslySetInnerHTML={{
                 __html: normalizeChecklistHtml(taskDetail!.description_html || '') || '<p class="text-slate-400">No description</p>',
               }}
@@ -3125,22 +3451,22 @@ function TaskDetailPanel({
         </div>
 
         {/* Attachments — upload zone + grid with hover view/delete */}
-        <div className="space-y-4">
+        <div className="space-y-2.5">
           <div className="flex items-center gap-2 text-slate-600">
             <svg className="h-4 w-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
             </svg>
-            <span className="text-sm font-medium">Attachments</span>
+            <span className="text-sm font-medium text-black capitalize">Attachments</span>
             {isCreateFlow && (
               <span className="text-xs text-slate-500">(uploaded when you save)</span>
             )}
             {!isCreateFlow && taskDetail!.attachments.length > 0 && (
-              <span className="text-xs font-semibold text-slate-400 bg-slate-100 rounded-full px-2 py-0.5">
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-400">
                 {taskDetail!.attachments.length}
               </span>
             )}
             {isCreateFlow && createInitialFiles.length > 0 && (
-              <span className="text-xs font-semibold text-slate-400 bg-slate-100 rounded-full px-2 py-0.5">
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-400">
                 {createInitialFiles.length}
               </span>
             )}
@@ -3148,7 +3474,7 @@ function TaskDetailPanel({
 
           {isCreateFlow ? (
             <>
-              <label className="flex items-center justify-center gap-2 h-[60px] min-h-[60px] rounded-xl border-2 border-dashed border-slate-300 bg-slate-50/50 px-4 cursor-pointer transition-colors hover:border-[#06B6D4]/50 hover:bg-slate-50 focus-within:ring-2 focus-within:ring-[#06B6D4]/30 focus-within:border-[#06B6D4]">
+              <label className="flex items-center justify-center gap-2 h-[54px] min-h-[54px] rounded-xl border-2 border-dashed border-slate-300 bg-slate-50/50 px-3 cursor-pointer transition-colors hover:border-[#06B6D4]/50 hover:bg-slate-50 focus-within:ring-2 focus-within:ring-[#06B6D4]/30 focus-within:border-[#06B6D4]">
                 <input
                   type="file"
                   accept={ACCEPTED_FILE_TYPES}
@@ -3167,14 +3493,14 @@ function TaskDetailPanel({
                 <svg className="h-5 w-5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                 </svg>
-                <span className="text-xs text-slate-600">
+                <span className="text-xs text-slate-600 leading-tight">
                   Add files (max {MAX_FILE_MB} MB). Attachments are uploaded when you save the task.
                 </span>
               </label>
               {createInitialFiles.length > 0 && (
-                <ul className="space-y-1.5">
+                <ul className="space-y-1">
                   {createInitialFiles.map((f, i) => (
-                    <li key={`${f.name}-${i}`} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-sm">
+                    <li key={`${f.name}-${i}`} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50/50 px-2.5 py-1 text-sm">
                       <span className="truncate text-slate-700">{f.name}</span>
                       <button type="button" onClick={() => setCreateInitialFiles((prev) => prev.filter((_, idx) => idx !== i))} className="text-rose-600 hover:text-rose-700 text-xs font-medium ml-2">Remove</button>
                     </li>
@@ -3184,7 +3510,7 @@ function TaskDetailPanel({
             </>
           ) : canManageAttachments && (
             <label
-              className="flex items-center justify-center gap-2 h-[60px] min-h-[60px] rounded-xl border-2 border-dashed border-slate-300 bg-slate-50/50 px-4 cursor-pointer transition-colors hover:border-[#06B6D4]/50 hover:bg-slate-50 focus-within:ring-2 focus-within:ring-[#06B6D4]/30 focus-within:border-[#06B6D4]"
+              className="flex items-center justify-center gap-2 h-[54px] min-h-[54px] rounded-xl border-2 border-dashed border-slate-300 bg-slate-50/50 px-3 cursor-pointer transition-colors hover:border-[#06B6D4]/50 hover:bg-slate-50 focus-within:ring-2 focus-within:ring-[#06B6D4]/30 focus-within:border-[#06B6D4]"
             >
               <input
                 key={fileInputKey}
@@ -3207,7 +3533,7 @@ function TaskDetailPanel({
               <svg className="h-5 w-5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
               </svg>
-              <span className="text-xs text-slate-600">
+              <span className="text-xs text-slate-600 leading-tight">
                 Drop your files here to upload, or <span className="underline font-medium text-cyan-600">browse</span> (max {MAX_FILE_MB} MB)
               </span>
             </label>
@@ -3215,7 +3541,7 @@ function TaskDetailPanel({
 
           {!isCreateFlow && taskDetail!.attachments.length > 0 && (
             <>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
               {taskDetail!.attachments.map((a) => (
                 <div
                   key={a.id}
@@ -3303,15 +3629,15 @@ function TaskDetailPanel({
                       )}
                     </div>
                   </div>
-                  <div className="p-2.5 min-w-0">
+                  <div className="min-w-0 p-2">
                     <p className="text-xs font-medium text-slate-800 truncate" title={a.file_name}>{a.file_name}</p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">{formatAttachmentDate(a.created_at)}</p>
+                    <p className="mt-0.5 text-[11px] text-slate-500">{formatAttachmentDate(a.created_at)}</p>
                   </div>
                 </div>
               ))}
             </div>
             {taskDetail!.attachments.length < (taskDetail!.attachmentsTotalCount ?? taskDetail!.attachments.length) && (
-              <div className="mt-3">
+              <div className="mt-2">
                 <button
                   type="button"
                   onClick={onLoadMoreAttachments}
@@ -3329,18 +3655,18 @@ function TaskDetailPanel({
   )
 
   const commentsSection = (
-    <div className="h-full min-h-0 overflow-hidden p-3.5 sm:p-4 md:p-5 flex flex-col">
-      <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider pb-3 border-b border-slate-200 mb-3 flex-shrink-0">
+    <div className="h-full min-h-0 overflow-hidden p-2 sm:p-2.5 md:p-3 flex flex-col">
+      <h3 className="text-sm font-semibold text-black capitalize tracking-wider pb-1.5 border-b border-slate-200 mb-1.5 flex-shrink-0">
         Comments
       </h3>
       {isCreateFlow && (
-        <p className="text-sm text-slate-500 flex-shrink-0 mb-3">Add a comment below. The task will be saved when you post.</p>
+        <p className="text-sm text-slate-500 flex-shrink-0 mb-1.5">Add a comment below. The task will be saved when you post.</p>
       )}
       {!isCreateFlow && (
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden space-y-3">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden space-y-1.5">
           {taskDetail!.comments.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center text-slate-500">
-                <svg className="h-10 w-10 text-slate-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+              <div className="flex flex-col items-center justify-center py-5 text-center text-slate-500">
+                <svg className="mb-1 h-8 w-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
                 <p className="text-sm font-medium">No comments yet</p>
@@ -3360,7 +3686,7 @@ function TaskDetailPanel({
             />
           ))}
           {!isCreateFlow && taskDetail!.comments.length < (taskDetail!.commentsTotalCount ?? taskDetail!.comments.length) && (
-            <div className="pt-2">
+            <div className="pt-0.5">
               <button
                 type="button"
                 onClick={onLoadMoreComments}
@@ -3374,13 +3700,14 @@ function TaskDetailPanel({
         </div>
       )}
       {userRole !== 'client' && (
-            <div className="flex-shrink-0 pt-3 mt-auto relative">
+            <div className="relative mt-auto flex-shrink-0 pt-1.5">
               {/* Single comment container: typing area + toolbar (attachment + send) inside */}
-              <div className="rounded-xl border border-slate-200 focus-within:ring-2 focus-within:ring-[#06B6D4]/30 focus-within:border-[#06B6D4] bg-white flex flex-col min-h-[100px] max-h-[280px]">
+              <div className="rounded-xl border border-slate-200 focus-within:ring-2 focus-within:ring-[#06B6D4]/30 focus-within:border-[#06B6D4] bg-white flex flex-col min-h-[88px] max-h-[248px]">
                   {/* Typing area */}
                   <div className="relative flex-1 min-h-[72px] overflow-hidden rounded-t-xl">
                     <div
-                      className="absolute inset-0 px-4 pt-3 pb-2 text-sm whitespace-pre-wrap overflow-hidden pointer-events-none"
+                      ref={commentPreviewRef}
+                      className="absolute inset-0 overflow-auto scrollbar-hide px-2.5 pt-2 pb-1.5 text-sm leading-5 whitespace-pre-wrap break-words pointer-events-none"
                       aria-hidden
                     >
                       {commentText ? (
@@ -3390,8 +3717,10 @@ function TaskDetailPanel({
                       ) : null}
                     </div>
                     <textarea
+                      ref={commentTextareaRef}
                       value={commentText}
                       onChange={(e) => handleCommentTextChange(e.target.value)}
+                      onScroll={syncCommentComposerLayout}
                       onKeyDown={(e) => {
                         if (showMentionPicker && filteredMentionUsers.length > 0) {
                           if (e.key === 'Enter') {
@@ -3413,7 +3742,7 @@ function TaskDetailPanel({
                         if (e.key === 'Escape') setShowMentionPicker(false)
                       }}
                       placeholder="Add a comment… Type @ to mention"
-                      className="relative z-10 w-full min-h-[72px] max-h-[200px] border-0 bg-transparent px-4 pt-3 pb-2 text-sm focus:outline-none focus:ring-0 resize-none text-transparent caret-slate-800 placeholder:text-slate-400 block"
+                      className="relative z-10 block w-full min-h-[72px] max-h-[200px] overflow-y-auto scrollbar-hide border-0 bg-transparent px-2.5 pt-2 pb-1.5 text-sm leading-5 focus:outline-none focus:ring-0 resize-none text-transparent caret-slate-800 placeholder:text-slate-400"
                       rows={3}
                     />
                   </div>
@@ -3431,8 +3760,8 @@ function TaskDetailPanel({
                     }}
                   />
                   {commentFiles.length > 0 && (
-                    <div className="border-t border-slate-200 px-3 py-2">
-                      <div className="flex flex-wrap gap-3 overflow-x-auto">
+                    <div className="border-t border-slate-200 px-2 py-1.5">
+                      <div className="flex flex-wrap gap-1.5 overflow-x-auto">
                         {commentFiles.map((file, index) => {
                           const preview = commentFilePreviews[index]
                           const isImage = preview?.isImage ?? false
@@ -3498,14 +3827,14 @@ function TaskDetailPanel({
                     </div>
                   )}
                   {/* Toolbar inside container: attachment + send only */}
-                  <div className="flex-shrink-0 flex items-center justify-between gap-2 px-3 py-2 border-t border-slate-200 rounded-b-xl bg-slate-50/50">
+                  <div className="flex-shrink-0 flex items-center justify-between gap-2 border-t border-slate-200 rounded-b-xl bg-slate-50/50 px-2 py-1">
                     <div className="flex items-center gap-1">
                       <Tooltip content="Attach file">
                         <button
                           type="button"
                           onClick={() => commentAttachmentInputRef.current?.click()}
                           disabled={commentSubmitting}
-                          className="p-2 rounded-lg text-slate-500 hover:bg-slate-200/60 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30 disabled:opacity-50 disabled:hover:bg-transparent"
+                          className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-200/60 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30 disabled:opacity-50 disabled:hover:bg-transparent"
                           aria-label="Attach file"
                           title="Attach file"
                         >
@@ -3528,7 +3857,7 @@ function TaskDetailPanel({
                         type="button"
                         onClick={handleCommentSubmit}
                         disabled={commentSubmitting || (!commentText.trim() && commentFiles.length === 0)}
-                        className={`flex-shrink-0 p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30 disabled:opacity-50 disabled:hover:bg-transparent ${
+                        className={`flex-shrink-0 rounded-lg p-1.5 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30 disabled:opacity-50 disabled:hover:bg-transparent ${
                           commentText.trim() || commentFiles.length > 0
                             ? 'text-[#06B6D4] hover:bg-cyan-50'
                             : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200/60'
@@ -3670,308 +3999,6 @@ function TaskDetailPanel({
               </Tooltip>
             </div>
           </div>
-          <div className="border-t border-slate-200/80 px-3.5 pb-4 pt-3 sm:px-5">
-            {/* Same compact row as Task List View: Status | Assignees | Due date | Priority | Type */}
-            {(() => {
-              const metaStatus = isCreateFlow ? createStatus : (taskDetail?.status ?? 'todo')
-              const metaAssigneeIds = isCreateFlow ? createAssigneeIds : (taskDetail?.assignees.map((a) => a.id) ?? [])
-              const metaDueDate = isCreateFlow ? createDueDate : (taskDetail?.due_date ?? '')
-              const metaPriority = isCreateFlow ? createPriority : (taskDetail?.priority ?? '')
-              const metaType = isCreateFlow ? createType : (taskDetail?.task_type ?? '')
-              return (
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs sm:gap-y-2">
-              <span className="font-medium text-slate-500">Status:</span>
-              {/* Status — list row style */}
-              {(canUpdateStatus || isCreateFlow) ? (
-                <div className="relative inline-block">
-                  <button
-                    ref={detailStatusRef}
-                    type="button"
-                    onClick={() => setDetailDropdownOpen((o) => (o === 'status' ? null : 'status'))}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30"
-                    title="Change status"
-                  >
-                    <span className={`h-2 w-2 rounded-full ${TASK_STATUS_DOT_COLORS[metaStatus] ?? 'bg-slate-400'}`} />
-                    <span>{TASK_STATUS_LABELS[metaStatus] ?? metaStatus}</span>
-                  </button>
-                  {detailDropdownOpen === 'status' && detailDropdownRect && typeof document !== 'undefined' &&
-                    createPortal(
-                      <>
-                        <div className="fixed inset-0 z-[9998]" aria-hidden onClick={() => setDetailDropdownOpen(null)} />
-                        <div data-detail-dropdown className="fixed z-[9999] w-44 rounded-lg border border-slate-200 bg-white shadow-xl py-1" style={{ top: detailDropdownRect.top, left: detailDropdownRect.left }}>
-                          {TASK_STATUSES.map((s) => (
-                            <button key={s} type="button" onClick={() => { if (isCreateFlow) setCreateStatus(s); else onStatusChange(taskId, s); setDetailDropdownOpen(null) }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50">
-                              <span className={`h-2 w-2 flex-shrink-0 rounded-full ${TASK_STATUS_DOT_COLORS[s] ?? 'bg-slate-400'}`} />
-                              <span>{TASK_STATUS_LABELS[s] ?? s}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </>,
-                      document.body
-                    )}
-                </div>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 text-xs">
-                  <span className={`h-2 w-2 rounded-full ${TASK_STATUS_DOT_COLORS[metaStatus] ?? 'bg-slate-400'}`} />
-                  {TASK_STATUS_LABELS[metaStatus] ?? metaStatus}
-                </span>
-              )}
-              <span className="hidden text-slate-300 sm:inline">|</span>
-
-              <span className="font-medium text-slate-500">Assignee:</span>
-              {/* Assignees — list row style (avatar stack + dropdown) */}
-              {(() => {
-                const assigneeIds = Array.isArray(metaAssigneeIds) ? metaAssigneeIds : []
-                const assigneeOptions = assigneeIds.map((id) => {
-                  const m = assignableUsers.find((u) => u.id === id)
-                  const a = taskDetail?.assignees?.find((x) => x.id === id)
-                  return (m ?? (a ? { id: a.id, full_name: a.full_name, email: a.email, role: a.role, photo_url: a.photo_url } : null)) as StaffSelectOption | null
-                }).filter(Boolean) as StaffSelectOption[]
-                const maxAvatars = 3
-                const assigneesToShow = assigneeOptions.slice(0, maxAvatars)
-                const extraCount = assigneeOptions.length - maxAvatars
-                const assigneeNamesTooltip = assigneeOptions.length > 0 ? assigneeOptions.map((o) => staffLabel(o)).join(', ') : 'No assignees'
-                const extraAssigneesTooltip = extraCount > 0 ? assigneeOptions.slice(maxAvatars).map((o) => staffLabel(o)).join(', ') : ''
-                if (canEditTask) {
-                  return (
-                    <div className="relative inline-block">
-                      <button
-                        ref={detailAssigneeRef}
-                        type="button"
-                        onClick={() => setDetailDropdownOpen((o) => (o === 'assignee' ? null : 'assignee'))}
-                        className="flex items-center gap-1 rounded-full border border-slate-200 bg-white p-0.5 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30"
-                        title={assigneeOptions.length === 0 ? 'Change assignee' : assigneeNamesTooltip}
-                      >
-                        {assigneeOptions.length > 0 ? (
-                          <span className="flex items-center -space-x-2">
-                            {assigneesToShow.map((m) => (
-                              <span key={m.id} title={staffLabel(m)} className="flex shrink-0 rounded-full border-2 border-white ring-1 ring-slate-200">
-                                <StaffAvatar
-                                  photoUrl={m.photo_url}
-                                  fullName={m.full_name}
-                                  email={m.email}
-                                  size="md"
-                                  className="border-0"
-                                  bgClassName={getAssigneeColor(m.id).bg}
-                                  textClassName={getAssigneeColor(m.id).text}
-                                />
-                              </span>
-                            ))}
-                            {extraCount > 0 && (
-                              <span
-                                title={extraAssigneesTooltip}
-                                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-white bg-slate-100 text-xs font-semibold text-slate-600 ring-1 ring-slate-200"
-                              >
-                                +{extraCount}
-                              </span>
-                            )}
-                          </span>
-                        ) : (
-                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                            </svg>
-                          </span>
-                        )}
-                      </button>
-                      {detailDropdownOpen === 'assignee' && detailDropdownRect && typeof document !== 'undefined' &&
-                        createPortal(
-                          <>
-                            <div className="fixed inset-0 z-[9998]" aria-hidden onClick={() => setDetailDropdownOpen(null)} />
-                            <div data-detail-dropdown className="fixed z-[9999] w-56 max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl py-1" style={{ top: detailDropdownRect.top, left: detailDropdownRect.left }}>
-                              {assignableUsers.map((m) => {
-                                const isSelected = assigneeIds.includes(m.id)
-                                const color = getAssigneeColor(m.id)
-                                return (
-                                  <button
-                                    key={m.id}
-                                    type="button"
-                                    onClick={() => {
-                                      const next = isSelected ? assigneeIds.filter((id) => id !== m.id) : [...assigneeIds, m.id]
-                                      if (isCreateFlow) setCreateAssigneeIds(next)
-                                      else onAssigneesChange(taskId, next)
-                                      setDetailDropdownOpen(null)
-                                    }}
-                                    className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-slate-50 ${isSelected ? 'bg-cyan-50/80' : ''}`}
-                                  >
-                                    <StaffAvatar
-                                      photoUrl={m.photo_url}
-                                      fullName={m.full_name}
-                                      email={m.email}
-                                      size="sm"
-                                      bgClassName={color.bg}
-                                      textClassName={color.text}
-                                    />
-                                    <span className="text-sm truncate">{staffLabel(m)}</span>
-                                    {isSelected && (
-                                      <svg className="h-4 w-4 ml-auto text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                      </svg>
-                                    )}
-                                  </button>
-                                )
-                              })}
-                            </div>
-                          </>,
-                          document.body
-                        )}
-                    </div>
-                  )
-                }
-                return assigneeOptions.length > 0 ? (
-                  <span className="inline-flex items-center -space-x-2">
-                    {assigneesToShow.map((m) => (
-                      <span key={m.id} title={staffLabel(m)} className="flex shrink-0 rounded-full border-2 border-white ring-1 ring-slate-200">
-                        <StaffAvatar
-                          photoUrl={m.photo_url}
-                          fullName={m.full_name}
-                          email={m.email}
-                          size="md"
-                          className="border-0"
-                          bgClassName={getAssigneeColor(m.id).bg}
-                          textClassName={getAssigneeColor(m.id).text}
-                        />
-                      </span>
-                    ))}
-                    {extraCount > 0 && (
-                      <span
-                        title={extraAssigneesTooltip}
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-white bg-slate-100 text-xs font-semibold text-slate-600 ring-1 ring-slate-200"
-                      >
-                        +{extraCount}
-                      </span>
-                    )}
-                  </span>
-                ) : (
-                  <span className="text-slate-400 text-xs">—</span>
-                )
-              })()}
-              <span className="hidden text-slate-300 sm:inline">|</span>
-
-              <span className="font-medium text-slate-500">Due Date:</span>
-              {/* Due date — list row style */}
-              {(canEditTask || isCreateFlow) ? (
-                <div className="relative inline-block">
-                  <input
-                    ref={detailDueInputRef}
-                    type="date"
-                    value={metaDueDate}
-                    onChange={(e) => { if (isCreateFlow) setCreateDueDate(e.target.value); else onUpdateTask(taskId, { due_date: e.target.value || null }) }}
-                    className="absolute left-0 top-0 w-full h-full opacity-0 cursor-pointer pointer-events-none"
-                    aria-hidden
-                    tabIndex={-1}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (detailDueInputRef.current) {
-                        try {
-                          detailDueInputRef.current.showPicker?.()
-                        } catch {
-                          detailDueInputRef.current.focus()
-                        }
-                      }
-                    }}
-                    className="flex items-center gap-1.5 rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30"
-                    title="Select due date"
-                  >
-                    <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    {metaDueDate ? formatDate(metaDueDate) : '—'}
-                  </button>
-                </div>
-              ) : (
-                <span className="text-slate-600 text-xs">{metaDueDate ? formatDate(metaDueDate) : '—'}</span>
-              )}
-              <span className="hidden text-slate-300 sm:inline">|</span>
-
-              <span className="font-medium text-slate-500">Priority:</span>
-              {/* Priority — list row style */}
-              {(canEditTask || isCreateFlow) ? (
-                <div className="relative inline-block">
-                  <button
-                    ref={detailPriorityRef}
-                    type="button"
-                    onClick={() => setDetailDropdownOpen((o) => (o === 'priority' ? null : 'priority'))}
-                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30 ${
-                      metaPriority
-                        ? `border-slate-200/80 ${TASK_PRIORITY_STYLES[metaPriority as TaskPriority]}`
-                        : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
-                    }`}
-                    title="Change priority"
-                  >
-                    <PriorityFlagIcon className={`h-4 w-4 flex-shrink-0 ${metaPriority ? TASK_PRIORITY_FLAG_COLORS[metaPriority as TaskPriority] : 'text-slate-400'}`} />
-                    <span>{metaPriority ? TASK_PRIORITY_LABELS[metaPriority as TaskPriority] : '—'}</span>
-                  </button>
-                  {detailDropdownOpen === 'priority' && detailDropdownRect && typeof document !== 'undefined' &&
-                    createPortal(
-                      <>
-                        <div className="fixed inset-0 z-[9998]" aria-hidden onClick={() => setDetailDropdownOpen(null)} />
-                        <div data-detail-dropdown className="fixed z-[9999] w-44 rounded-lg border border-slate-200 bg-white shadow-xl py-1" style={{ top: detailDropdownRect.top, left: detailDropdownRect.left }}>
-                          {TASK_PRIORITIES.map((p) => (
-                            <button key={p} type="button" onClick={() => { if (isCreateFlow) setCreatePriority(p); else onUpdateTask(taskId, { priority: p }); setDetailDropdownOpen(null) }} className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-sky-50 ${metaPriority === p ? 'bg-sky-50' : ''}`}>
-                            <PriorityFlagIcon className={`h-4 w-4 flex-shrink-0 ${TASK_PRIORITY_FLAG_COLORS[p]}`} />
-                            <span>{TASK_PRIORITY_LABELS[p]}</span>
-                          </button>
-                        ))}
-                        </div>
-                      </>,
-                      document.body
-                    )}
-                </div>
-              ) : (
-                <span className={`inline-flex items-center gap-1.5 text-xs ${metaPriority ? TASK_PRIORITY_STYLES[metaPriority as TaskPriority] : 'text-slate-400'}`}>
-                  {metaPriority && <PriorityFlagIcon className={`h-4 w-4 ${TASK_PRIORITY_FLAG_COLORS[metaPriority as TaskPriority]}`} />}
-                  {metaPriority ? TASK_PRIORITY_LABELS[metaPriority as TaskPriority] : '—'}
-                </span>
-              )}
-              <span className="hidden text-slate-300 sm:inline">|</span>
-
-              <span className="font-medium text-slate-500">Type:</span>
-              {/* Type — same pill style as list (detail-only field) */}
-              {(canEditTask || isCreateFlow) ? (
-                <div className="relative inline-block">
-                  <button
-                    ref={detailTypeRef}
-                    type="button"
-                    onClick={() => setDetailDropdownOpen((o) => (o === 'type' ? null : 'type'))}
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30"
-                    title="Change type"
-                  >
-                    {metaType ? <TaskTypeIcon type={metaType as TaskType} className="h-4 w-4 flex-shrink-0 text-slate-500" /> : null}
-                    <span>{metaType ? TASK_TYPE_LABELS[metaType as TaskType] : '—'}</span>
-                  </button>
-                  {detailDropdownOpen === 'type' && detailDropdownRect && typeof document !== 'undefined' &&
-                    createPortal(
-                      <>
-                        <div className="fixed inset-0 z-[9998]" aria-hidden onClick={() => setDetailDropdownOpen(null)} />
-                        <div data-detail-dropdown className="fixed z-[9999] w-44 rounded-lg border border-slate-200 bg-white shadow-xl py-1" style={{ top: detailDropdownRect.top, left: detailDropdownRect.left }}>
-                          {TASK_TYPES.map((t) => (
-                            <button key={t} type="button" onClick={() => { if (isCreateFlow) setCreateType(t); else onUpdateTask(taskId, { task_type: t }); setDetailDropdownOpen(null) }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">
-                              <TaskTypeIcon type={t} className="h-4 w-4 text-slate-500" />
-                              {TASK_TYPE_LABELS[t]}
-                            </button>
-                          ))}
-                        </div>
-                      </>,
-                      document.body
-                    )}
-                </div>
-              ) : (
-                metaType ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm">
-                    <TaskTypeIcon type={metaType as TaskType} className="h-4 w-4 text-slate-500" />
-                    {TASK_TYPE_LABELS[metaType as TaskType]}
-                  </span>
-                ) : (
-                  <span className="text-xs text-slate-400">—</span>
-                )
-              )}
-            </div>
-            )
-            })()}
-          </div>
         </header>
         {isMobileViewport && !isCreateFlow && (
           <div className="flex items-center gap-2 border-b border-slate-200 bg-white px-3.5 py-2 sm:hidden">
@@ -4080,11 +4107,11 @@ function TaskDetailPanel({
 }
 
 function renderCommentWithMentions(commentText: string, mentionedUsers: TaskAssignee[] = []) {
-  if (!mentionedUsers.length) return <span className="whitespace-pre-wrap">{commentText}</span>
+  if (!mentionedUsers.length) return <span className="whitespace-pre-wrap break-words">{commentText}</span>
   const mentions = mentionedUsers
     .map((u) => ({ id: u.id, name: getUserName(u), displayName: getUserName(u) }))
     .filter((m) => m.name)
-  if (!mentions.length) return <span className="whitespace-pre-wrap">{commentText}</span>
+  if (!mentions.length) return <span className="whitespace-pre-wrap break-words">{commentText}</span>
   const parts: Array<{ type: 'text'; value: string } | { type: 'mention'; name: string; displayName: string }> = []
   let text = commentText
   while (text.length > 0) {
@@ -4103,7 +4130,7 @@ function renderCommentWithMentions(commentText: string, mentionedUsers: TaskAssi
     text = text.slice(best.index + ('@' + best.name).length)
   }
   return (
-    <span className="whitespace-pre-wrap">
+    <span className="whitespace-pre-wrap break-words">
       {parts.map((p, i) =>
         p.type === 'text' ? (
           <span key={i}>{p.value}</span>
@@ -4185,14 +4212,14 @@ function CommentRow({
   const hasText = Boolean(comment.comment_text?.trim())
 
   return (
-    <div className="group rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow transition-shadow overflow-hidden">
-      <div className="flex gap-2.5 p-3.5">
-        <div className="h-9 w-9 shrink-0 rounded-full bg-cyan-100 text-cyan-800 flex items-center justify-center text-sm font-semibold">
+    <div className="group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow">
+      <div className="flex gap-1.5 p-2.5">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cyan-100 text-sm font-semibold text-cyan-800">
           {getInitials(comment.created_by_name)}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-start justify-between gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               <span className="text-sm font-semibold text-slate-900">
                 {comment.created_by_role
                   ? `${comment.created_by_name} (${formatRoleLabel(comment.created_by_role)})`
@@ -4234,11 +4261,11 @@ function CommentRow({
             )}
           </div>
           {editing ? (
-            <div className="mt-2 space-y-2">
+            <div className="mt-1 space-y-1">
               <textarea
                 value={editText}
                 onChange={(e) => setEditText(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm min-h-[72px] focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
+                className="min-h-[72px] w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
                 rows={3}
                 autoFocus
               />
@@ -4246,14 +4273,14 @@ function CommentRow({
                 <button
                   type="button"
                   onClick={handleSaveEdit}
-                  className="rounded-lg bg-cyan-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-cyan-700"
+                  className="rounded-lg bg-cyan-600 px-2.5 py-1.5 text-sm font-medium text-white hover:bg-cyan-700"
                 >
                   Save
                 </button>
                 <button
                   type="button"
                   onClick={() => { setEditing(false); setEditText(comment.comment_text) }}
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
                 >
                   Cancel
                 </button>
@@ -4262,12 +4289,12 @@ function CommentRow({
           ) : (
             <>
               {hasText ? (
-                <p className="mt-1 text-sm text-slate-700">
+                <p className="mt-0.5 text-sm text-slate-700">
                   {renderCommentWithMentions(comment.comment_text, comment.mentioned_users)}
                 </p>
               ) : null}
               {comment.attachments.length > 0 && (
-                <div className={`${hasText ? 'mt-2' : 'mt-1'} grid grid-cols-2 sm:grid-cols-3 gap-2`}>
+                <div className={`${hasText ? 'mt-1' : 'mt-0.5'} grid grid-cols-2 gap-1 sm:grid-cols-3`}>
                   {comment.attachments.map((attachment) => {
                     const isImage = isImageAttachment(attachment)
                     const extension = getTaskAttachmentFileExtension(attachment.file_name)
@@ -4398,8 +4425,8 @@ function CommentRow({
         </div>
       </div>
       {deleteConfirm && (
-        <div className="px-3.5 pb-3.5 pt-0">
-          <div className="rounded-lg border border-rose-200 bg-rose-50/50 p-3 flex items-center justify-between gap-2">
+        <div className="px-2.5 pb-2.5 pt-0">
+          <div className="flex items-center justify-between gap-2 rounded-lg border border-rose-200 bg-rose-50/50 p-2">
             <span className="text-sm text-rose-800">Delete this comment?</span>
             <div className="flex gap-2">
               <button
