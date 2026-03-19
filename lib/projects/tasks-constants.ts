@@ -114,6 +114,78 @@ export const TASK_EXTENSION_MIME_MAP: Record<string, string> = {
 
 export const TASK_CLOUDINARY_FOLDER = 'project-tasks'
 
+export const TASK_COMMENT_REACTION_CATEGORIES = [
+  { id: 'smileys', label: 'Smiles & People', icon: '🙂' },
+  { id: 'gestures', label: 'Gestures', icon: '👍' },
+  { id: 'celebration', label: 'Celebration', icon: '🎉' },
+  { id: 'love', label: 'Love & Energy', icon: '❤️' },
+  { id: 'work', label: 'Work & Status', icon: '✅' },
+] as const
+export type TaskCommentReactionCategory = (typeof TASK_COMMENT_REACTION_CATEGORIES)[number]['id']
+
+export const TASK_COMMENT_REACTION_OPTIONS = [
+  { emoji: '😀', name: 'Grinning Face', shortcode: ':grinning:', keywords: ['happy', 'smile', 'joy'], category: 'smileys' },
+  { emoji: '😄', name: 'Smiling Face', shortcode: ':smile:', keywords: ['happy', 'smile', 'joy'], category: 'smileys' },
+  { emoji: '😁', name: 'Beaming Face', shortcode: ':grin:', keywords: ['happy', 'cheerful'], category: 'smileys' },
+  { emoji: '😅', name: 'Smiling Face With Sweat', shortcode: ':sweat_smile:', keywords: ['relief', 'nervous', 'funny'], category: 'smileys' },
+  { emoji: '😂', name: 'Face With Tears of Joy', shortcode: ':joy:', keywords: ['funny', 'laugh', 'lol'], category: 'smileys' },
+  { emoji: '🤣', name: 'Rolling on the Floor Laughing', shortcode: ':rofl:', keywords: ['funny', 'laugh', 'lol'], category: 'smileys' },
+  { emoji: '😊', name: 'Smiling Face With Smiling Eyes', shortcode: ':blush:', keywords: ['happy', 'warm', 'kind'], category: 'smileys' },
+  { emoji: '🙂', name: 'Slightly Smiling Face', shortcode: ':slightly_smiling_face:', keywords: ['smile', 'calm'], category: 'smileys' },
+  { emoji: '😉', name: 'Winking Face', shortcode: ':wink:', keywords: ['playful'], category: 'smileys' },
+  { emoji: '😍', name: 'Smiling Face With Heart-Eyes', shortcode: ':heart_eyes:', keywords: ['love', 'like'], category: 'smileys' },
+  { emoji: '😎', name: 'Smiling Face With Sunglasses', shortcode: ':sunglasses:', keywords: ['cool', 'nice'], category: 'smileys' },
+  { emoji: '🤔', name: 'Thinking Face', shortcode: ':thinking:', keywords: ['think', 'hmm'], category: 'smileys' },
+  { emoji: '😮', name: 'Face With Open Mouth', shortcode: ':open_mouth:', keywords: ['wow', 'surprised'], category: 'smileys' },
+  { emoji: '😢', name: 'Crying Face', shortcode: ':cry:', keywords: ['sad'], category: 'smileys' },
+  { emoji: '😭', name: 'Loudly Crying Face', shortcode: ':sob:', keywords: ['sad', 'cry'], category: 'smileys' },
+  { emoji: '😡', name: 'Pouting Face', shortcode: ':rage:', keywords: ['angry', 'mad'], category: 'smileys' },
+  { emoji: '😴', name: 'Sleeping Face', shortcode: ':sleeping:', keywords: ['sleep', 'tired'], category: 'smileys' },
+  { emoji: '👍', name: 'Thumbs Up', shortcode: ':+1:', keywords: ['approve', 'yes', 'good', 'like'], category: 'gestures' },
+  { emoji: '👎', name: 'Thumbs Down', shortcode: ':-1:', keywords: ['disapprove', 'no', 'bad'], category: 'gestures' },
+  { emoji: '👏', name: 'Clapping Hands', shortcode: ':clap:', keywords: ['applause', 'good job'], category: 'gestures' },
+  { emoji: '🙌', name: 'Raising Hands', shortcode: ':raised_hands:', keywords: ['celebrate', 'hooray'], category: 'gestures' },
+  { emoji: '🙏', name: 'Folded Hands', shortcode: ':pray:', keywords: ['thanks', 'please'], category: 'gestures' },
+  { emoji: '💪', name: 'Flexed Biceps', shortcode: ':muscle:', keywords: ['strong', 'power'], category: 'gestures' },
+  { emoji: '👀', name: 'Eyes', shortcode: ':eyes:', keywords: ['look', 'watch'], category: 'gestures' },
+  { emoji: '🤝', name: 'Handshake', shortcode: ':handshake:', keywords: ['deal', 'agreement'], category: 'gestures' },
+  { emoji: '✌️', name: 'Victory Hand', shortcode: ':v:', keywords: ['peace', 'win'], category: 'gestures' },
+  { emoji: '👌', name: 'OK Hand', shortcode: ':ok_hand:', keywords: ['okay', 'perfect'], category: 'gestures' },
+  { emoji: '🎉', name: 'Party Popper', shortcode: ':tada:', keywords: ['party', 'celebrate', 'congrats'], category: 'celebration' },
+  { emoji: '🔥', name: 'Fire', shortcode: ':fire:', keywords: ['hot', 'great', 'lit'], category: 'celebration' },
+  { emoji: '🚀', name: 'Rocket', shortcode: ':rocket:', keywords: ['launch', 'ship', 'fast'], category: 'celebration' },
+  { emoji: '💯', name: 'Hundred Points', shortcode: ':100:', keywords: ['perfect', 'great'], category: 'celebration' },
+  { emoji: '🏆', name: 'Trophy', shortcode: ':trophy:', keywords: ['win', 'success'], category: 'celebration' },
+  { emoji: '⭐', name: 'Star', shortcode: ':star:', keywords: ['favorite', 'important'], category: 'celebration' },
+  { emoji: '🥳', name: 'Partying Face', shortcode: ':partying_face:', keywords: ['party', 'celebrate'], category: 'celebration' },
+  { emoji: '❤️', name: 'Red Heart', shortcode: ':heart:', keywords: ['love', 'like'], category: 'love' },
+  { emoji: '💜', name: 'Purple Heart', shortcode: ':purple_heart:', keywords: ['love', 'care'], category: 'love' },
+  { emoji: '💙', name: 'Blue Heart', shortcode: ':blue_heart:', keywords: ['love', 'care'], category: 'love' },
+  { emoji: '💚', name: 'Green Heart', shortcode: ':green_heart:', keywords: ['love', 'care'], category: 'love' },
+  { emoji: '💛', name: 'Yellow Heart', shortcode: ':yellow_heart:', keywords: ['love', 'care'], category: 'love' },
+  { emoji: '💖', name: 'Sparkling Heart', shortcode: ':sparkling_heart:', keywords: ['love', 'sparkle'], category: 'love' },
+  { emoji: '🥰', name: 'Smiling Face With Hearts', shortcode: ':smiling_face_with_3_hearts:', keywords: ['love', 'care', 'adore'], category: 'love' },
+  { emoji: '✅', name: 'Check Mark Button', shortcode: ':white_check_mark:', keywords: ['done', 'approved', 'complete'], category: 'work' },
+  { emoji: '☑️', name: 'Check Box With Check', shortcode: ':ballot_box_with_check:', keywords: ['task', 'check'], category: 'work' },
+  { emoji: '⚡', name: 'High Voltage', shortcode: ':zap:', keywords: ['fast', 'energy'], category: 'work' },
+  { emoji: '📌', name: 'Pushpin', shortcode: ':pushpin:', keywords: ['pin', 'important'], category: 'work' },
+  { emoji: '📝', name: 'Memo', shortcode: ':memo:', keywords: ['note', 'write'], category: 'work' },
+  { emoji: '🎯', name: 'Direct Hit', shortcode: ':dart:', keywords: ['target', 'goal'], category: 'work' },
+  { emoji: '💡', name: 'Light Bulb', shortcode: ':bulb:', keywords: ['idea', 'insight'], category: 'work' },
+  { emoji: '⏳', name: 'Hourglass', shortcode: ':hourglass_flowing_sand:', keywords: ['waiting', 'time'], category: 'work' },
+] as const satisfies ReadonlyArray<{
+  emoji: string
+  name: string
+  shortcode: string
+  keywords: readonly string[]
+  category: TaskCommentReactionCategory
+}>
+
+export const TASK_COMMENT_REACTION_EMOJIS = Array.from(
+  new Set(TASK_COMMENT_REACTION_OPTIONS.map((option) => option.emoji))
+) as readonly string[]
+export type TaskCommentReactionEmoji = (typeof TASK_COMMENT_REACTION_EMOJIS)[number]
+
 /** Pagination limits for task detail initial load (comments, activity, attachments) */
 export const TASK_DETAIL_COMMENTS_LIMIT = 20
 export const TASK_DETAIL_ACTIVITY_LIMIT = 20
