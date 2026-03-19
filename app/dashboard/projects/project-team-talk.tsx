@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Tooltip } from '@/app/components/ui/tooltip'
 import { useToast } from '@/app/components/ui/toast-context'
 import { EmptyState } from '@/app/components/empty-state'
+import { useFileDropzone } from '@/app/components/ui/use-file-dropzone'
 import type { ProjectTeamMember } from '@/lib/projects/actions'
 import {
   TEAM_TALK_ALLOWED_EXTENSIONS,
@@ -270,7 +271,6 @@ export function ProjectTeamTalk({
   const doRefresh = () => (onRefresh ? onRefresh() : router.refresh())
   const { success: showSuccess, error: showError } = useToast()
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
   const editTextareaRef = useRef<HTMLTextAreaElement | null>(null)
   const objectUrlsRef = useRef<Map<number, string>>(new Map())
 
@@ -411,12 +411,12 @@ export function ProjectTeamTalk({
     setSelectedFiles(combinedFiles)
   }
 
-  const handleFileInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || [])
-    if (!files.length) return
-    handleFilesSelected(files)
-    event.target.value = ''
-  }
+  const attachmentDropzone = useFileDropzone({
+    accept: acceptedExtensions,
+    multiple: true,
+    disabled: submitting,
+    onFilesSelected: handleFilesSelected,
+  })
 
   const handleRemoveFile = (index: number) => {
     setSelectedFiles((prev) => {
@@ -1024,13 +1024,23 @@ export function ProjectTeamTalk({
           )}
         </div>
 
-        <footer className="border-t border-slate-200 bg-white/90 backdrop-blur-sm px-4 sm:px-5 py-3 flex flex-col min-h-0 flex-shrink-0">
+        <footer
+          {...attachmentDropzone.rootProps}
+          className={`border-t border-slate-200 backdrop-blur-sm px-4 sm:px-5 py-3 flex flex-col min-h-0 flex-shrink-0 transition-colors duration-200 ${
+            attachmentDropzone.isDragging ? 'bg-cyan-50/85' : 'bg-white/90'
+          }`}
+        >
           <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
             <label htmlFor="project-team-talk-message" className="text-xs font-medium text-slate-600">
               New message
             </label>
-            <p id="team-talk-limits" className="text-[11px] text-slate-500">
-              Up to {TEAM_TALK_MAX_ATTACHMENTS} files · max {maxSizeMB}MB each
+            <p
+              id="team-talk-limits"
+              className={`text-[11px] transition-colors ${
+                attachmentDropzone.isDragging ? 'text-cyan-600' : 'text-slate-500'
+              }`}
+            >
+              Up to {TEAM_TALK_MAX_ATTACHMENTS} files · max {maxSizeMB}MB each · {attachmentDropzone.isDragging ? 'drop now' : 'drag & drop'}
             </p>
           </div>
 
@@ -1096,7 +1106,7 @@ export function ProjectTeamTalk({
             <div className="flex flex-row gap-2 sm:flex-col flex-shrink-0">
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={attachmentDropzone.openFilePicker}
                 disabled={submitting}
                 className="flex flex-1 flex-col items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-700 transition-colors duration-200 hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed min-w-[72px] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1"
                 aria-label="Add attachment"
@@ -1140,14 +1150,7 @@ export function ProjectTeamTalk({
           )}
         </footer>
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          className="hidden"
-          multiple
-          accept={acceptedExtensions}
-          onChange={handleFileInputChange}
-        />
+        <input {...attachmentDropzone.inputProps} className="hidden" />
       </section>
 
       <MessageDeleteModal

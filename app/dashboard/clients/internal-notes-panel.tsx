@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import { Tooltip } from '@/app/components/ui/tooltip'
 import { useToast } from '@/app/components/ui/toast-context'
+import { useFileDropzone } from '@/app/components/ui/use-file-dropzone'
 import {
   INTERNAL_NOTE_ALLOWED_EXTENSIONS,
   INTERNAL_NOTE_EXTENSION_MIME_MAP,
@@ -30,6 +31,7 @@ interface InternalNotesPanelProps {
 }
 
 const maxSizeMB = INTERNAL_NOTE_MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024)
+const acceptedExtensions = INTERNAL_NOTE_ALLOWED_EXTENSIONS.map((ext) => `.${ext}`).join(',') + ',image/*'
 
 function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
@@ -59,7 +61,6 @@ export function InternalNotesPanel({
   onClose,
 }: InternalNotesPanelProps) {
   const { success: showSuccess, error: showError } = useToast()
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
   const notesListRef = useRef<HTMLDivElement | null>(null)
   const [notes, setNotes] = useState<ClientInternalNote[]>([])
   const [loading, setLoading] = useState(false)
@@ -234,12 +235,12 @@ export function InternalNotesPanel({
     setSelectedFiles(combinedFiles)
   }
 
-  const handleFileInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || [])
-    if (!files.length) return
-    handleFilesSelected(files)
-    event.target.value = ''
-  }
+  const attachmentDropzone = useFileDropzone({
+    accept: acceptedExtensions,
+    multiple: true,
+    disabled: submitting,
+    onFilesSelected: handleFilesSelected,
+  })
 
   const handleRemoveFile = (index: number) => {
     setSelectedFiles((prev) => {
@@ -625,16 +626,26 @@ export function InternalNotesPanel({
         </div>
 
         {/* Note Form - Sticky at bottom (Compact Design) */}
-        <div className="border-t border-slate-200 bg-white px-4 py-2.5 flex-shrink-0 shadow-[0_-2px_8px_rgba(0,0,0,0.04)] flex flex-col" style={{ maxHeight: '40vh' }}>
+        <div
+          {...attachmentDropzone.rootProps}
+          className={`border-t border-slate-200 px-4 py-2.5 flex-shrink-0 shadow-[0_-2px_8px_rgba(0,0,0,0.04)] flex flex-col transition-colors duration-200 ${
+            attachmentDropzone.isDragging ? 'bg-cyan-50/80' : 'bg-white'
+          }`}
+          style={{ maxHeight: '40vh' }}
+        >
           {/* Compact Header with title and info text side by side */}
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-xs font-semibold text-slate-900">Add a new note</h3>
-            <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+            <div className={`flex items-center gap-1.5 text-[10px] transition-colors ${
+              attachmentDropzone.isDragging ? 'text-cyan-600' : 'text-slate-500'
+            }`}>
               <span>Max {INTERNAL_NOTE_MAX_ATTACHMENTS}</span>
               <span>•</span>
               <span>{maxSizeMB}MB</span>
               <span>•</span>
               <span>Same category</span>
+              <span>•</span>
+              <span>{attachmentDropzone.isDragging ? 'Drop now' : 'Drag & drop'}</span>
             </div>
           </div>
 
@@ -713,8 +724,9 @@ export function InternalNotesPanel({
               {/* Attachment button */}
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="flex flex-col items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs font-medium text-slate-700 transition-all duration-200 hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-700 cursor-pointer min-w-[60px]"
+                onClick={attachmentDropzone.openFilePicker}
+                disabled={submitting}
+                className="flex flex-col items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs font-medium text-slate-700 transition-all duration-200 hover:border-cyan-400 hover:bg-cyan-50 hover:text-cyan-700 disabled:cursor-not-allowed disabled:opacity-50 min-w-[60px] cursor-pointer"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828L18 9.828a4 4 0 00-5.656-5.656L6.343 10.172a6 6 0 108.486 8.486L20 13" />
@@ -750,14 +762,7 @@ export function InternalNotesPanel({
           </div>
 
           {/* Hidden file input */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept={INTERNAL_NOTE_ALLOWED_EXTENSIONS.map((ext) => `.${ext}`).join(',') + ',image/*'}
-            onChange={handleFileInputChange}
-            className="hidden"
-          />
+          <input {...attachmentDropzone.inputProps} className="hidden" />
 
           {/* Upload progress */}
           {submitting && uploadProgress.total > 0 && (
