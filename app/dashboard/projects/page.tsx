@@ -22,8 +22,14 @@ export default async function ProjectsPage({
   }>
 }) {
   const user = await requireAuth()
-  const canReadModule = await hasPermission(user, MODULE_PERMISSION_IDS.projects, 'read')
-  const canRead = user.role === 'admin' || user.role === 'manager' || user.role === 'staff' || canReadModule
+  const canReadProjectsModule = await hasPermission(user, MODULE_PERMISSION_IDS.projects, 'read')
+  const canReadProjectTasksModule = await hasPermission(user, MODULE_PERMISSION_IDS.projectTasks, 'read')
+  const canRead =
+    user.role === 'admin' ||
+    user.role === 'manager' ||
+    user.role === 'staff' ||
+    canReadProjectsModule ||
+    canReadProjectTasksModule
 
   if (!canRead) {
     redirect('/dashboard?error=unauthorized')

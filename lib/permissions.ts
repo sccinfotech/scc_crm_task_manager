@@ -6,6 +6,7 @@ export const MODULE_PERMISSION_IDS = {
   clients: 'customers',
   quotations: 'quotations',
   projects: 'projects',
+  projectTasks: 'project_tasks',
   products: 'products',
   logs: 'logs',
   settings: 'settings',

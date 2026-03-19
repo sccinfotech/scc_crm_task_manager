@@ -324,8 +324,9 @@ export async function getStaffForSelect(): Promise<{ data: StaffSelectOption[]; 
 
   const isAdminManager = currentUser.role === 'admin' || currentUser.role === 'manager'
   const canWriteProjects = await hasPermission(currentUser, MODULE_PERMISSION_IDS.projects, 'write')
+  const canWriteProjectTasks = await hasPermission(currentUser, MODULE_PERMISSION_IDS.projectTasks, 'write')
 
-  if (!isAdminManager && !canWriteProjects) {
+  if (!isAdminManager && !canWriteProjects && !canWriteProjectTasks) {
     return { data: [], error: 'You do not have permission to view staff' }
   }
 

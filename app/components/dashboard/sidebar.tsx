@@ -259,7 +259,8 @@ export function Sidebar({
                     userRole === 'admin' ||
                     userRole === 'manager' ||
                     userRole === 'staff' ||
-                    canReadModule({ role: userRole, modulePermissions }, item.moduleId)
+                    canReadModule({ role: userRole, modulePermissions }, item.moduleId) ||
+                    canReadModule({ role: userRole, modulePermissions }, MODULE_PERMISSION_IDS.projectTasks)
                   )
                 }
                 return canReadModule({ role: userRole, modulePermissions }, item.moduleId)

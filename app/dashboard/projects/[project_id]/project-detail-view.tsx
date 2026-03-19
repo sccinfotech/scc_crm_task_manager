@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Tooltip } from '@/app/components/ui/tooltip'
@@ -48,9 +48,11 @@ interface ProjectDetailViewProps {
   initialFollowUps?: ProjectFollowUp[]
   initialTab?: string
   canManageProject: boolean
+  canManageTasks: boolean
   canManageFollowUps: boolean
   canViewAmount: boolean
   userRole: string
+  taskTabOnlyAccess?: boolean
   currentUserId?: string
   clients: ClientSelectOption[]
   clientsError: string | null
@@ -322,13 +324,10 @@ function resolveRightPanelTab(tab: RightPanelTab | null, userRole: string): Righ
 
 function resolveProjectDetailTab(
   tab: ProjectDetailTab | null,
-  showRequirementsAndPayments: boolean
+  visibleTabs: ProjectDetailTab[]
 ): ProjectDetailTab {
-  if (!tab) return 'tasks'
-  if (!showRequirementsAndPayments && (tab === 'requirements' || tab === 'payments')) {
-    return 'tasks'
-  }
-  return tab
+  if (!tab) return visibleTabs[0] ?? 'tasks'
+  return visibleTabs.includes(tab) ? tab : (visibleTabs[0] ?? 'tasks')
 }
 
 function PaymentSummarySection({
@@ -375,9 +374,11 @@ export function ProjectDetailView({
   initialFollowUps = [],
   initialTab,
   canManageProject,
+  canManageTasks,
   canManageFollowUps,
   canViewAmount,
   userRole,
+  taskTabOnlyAccess = false,
   currentUserId,
   clients,
   clientsError,
@@ -395,7 +396,15 @@ export function ProjectDetailView({
   const { success: showSuccess, error: showError, info: showInfo } = useToast()
   /** Requirements and Payments tabs are hidden from Staff and Clients */
   const showRequirementsAndPayments = userRole !== 'staff' && userRole !== 'client'
-  const initialResolvedTab = resolveProjectDetailTab(parseProjectDetailTab(initialTab), showRequirementsAndPayments)
+  const visibleTabs = useMemo(() => (
+    taskTabOnlyAccess
+      ? PROJECT_DETAIL_TABS.filter((tab) => tab.id === 'tasks')
+      : showRequirementsAndPayments
+        ? PROJECT_DETAIL_TABS
+        : PROJECT_DETAIL_TABS.filter((tab) => tab.id !== 'requirements' && tab.id !== 'payments')
+  ), [showRequirementsAndPayments, taskTabOnlyAccess])
+  const visibleTabIds = useMemo(() => visibleTabs.map((tab) => tab.id), [visibleTabs])
+  const initialResolvedTab = resolveProjectDetailTab(parseProjectDetailTab(initialTab), visibleTabIds)
   const [project, setProject] = useState<Project>(initialProject)
   const [activeTab, setActiveTab] = useState<ProjectDetailTab>(initialResolvedTab)
   const [editModalOpen, setEditModalOpen] = useState(false)
@@ -428,9 +437,6 @@ export function ProjectDetailView({
   const taskAssigneeOptionsLoadPromiseRef = useRef<Promise<void> | null>(null)
   const detailsSupplementLoadedRef = useRef(false)
 
-  const visibleTabs = showRequirementsAndPayments
-    ? PROJECT_DETAIL_TABS
-    : PROJECT_DETAIL_TABS.filter((t) => t.id !== 'requirements' && t.id !== 'payments')
   const [activeDetailsPanelTab, setActiveDetailsPanelTab] = useState<RightPanelTab>(() =>
     resolveRightPanelTab(parseRightPanelTab(searchParams.get(DETAILS_PANEL_QUERY_PARAM)), userRole)
   )
@@ -571,9 +577,10 @@ export function ProjectDetailView({
 
   useEffect(() => {
     if (activeTab !== 'tasks') return
+    if (!canManageTasks) return
     if (taskAssigneeOptionsLoaded) return
     void ensureTaskAssigneeOptionsLoaded()
-  }, [activeTab, taskAssigneeOptionsLoaded, ensureTaskAssigneeOptionsLoaded])
+  }, [activeTab, canManageTasks, taskAssigneeOptionsLoaded, ensureTaskAssigneeOptionsLoaded])
 
   useEffect(() => {
     if (activeTab !== 'details') return
@@ -603,10 +610,10 @@ export function ProjectDetailView({
   useEffect(() => {
     const nextTab = resolveProjectDetailTab(
       parseProjectDetailTab(searchParams.get('tab')),
-      showRequirementsAndPayments
+      visibleTabIds
     )
     setActiveTab((currentTab) => (currentTab === nextTab ? currentTab : nextTab))
-  }, [searchParams, showRequirementsAndPayments])
+  }, [searchParams, visibleTabIds])
 
   useEffect(() => {
     if (activeTab !== 'details') {
@@ -637,11 +644,11 @@ export function ProjectDetailView({
     if (!rawTabParam) return
 
     const parsedTabParam = parseProjectDetailTab(rawTabParam)
-    const resolvedTab = resolveProjectDetailTab(parsedTabParam, showRequirementsAndPayments)
+    const resolvedTab = resolveProjectDetailTab(parsedTabParam, visibleTabIds)
     if (!parsedTabParam || parsedTabParam !== resolvedTab) {
       updateTabInUrl(resolvedTab)
     }
-  }, [searchParams, showRequirementsAndPayments, updateTabInUrl])
+  }, [searchParams, updateTabInUrl, visibleTabIds])
 
   const handleTabChange = (nextTab: ProjectDetailTab) => {
     if (nextTab === activeTab) return
@@ -1237,7 +1244,7 @@ export function ProjectDetailView({
           {activeTab === 'tasks' && (
             <ProjectTasks
               projectId={project.id}
-              canManageTasks={canManageProject}
+              canManageTasks={canManageTasks}
               userRole={userRole}
               currentUserId={currentUserId}
               teamMembers={taskAssigneeOptions}

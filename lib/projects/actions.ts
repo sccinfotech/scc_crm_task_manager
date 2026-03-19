@@ -341,7 +341,8 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
   const isAdmin = isAdminManager(currentUser.role)
   const isStaff = currentUser.role === 'staff'
   const canReadModule = await hasPermission(currentUser, MODULE_PERMISSION_IDS.projects, 'read')
-  if (!isAdmin && !isStaff && !canReadModule) {
+  const canReadTaskModule = await hasPermission(currentUser, MODULE_PERMISSION_IDS.projectTasks, 'read')
+  if (!isAdmin && !isStaff && !canReadModule && !canReadTaskModule) {
     return { data: [], totalCount: 0, error: 'You do not have permission to view projects' }
   }
 
@@ -651,7 +652,8 @@ export const getProject = cache(async (
   const isAdmin = isAdminManager(currentUser.role)
   const isStaff = currentUser.role === 'staff'
   const canReadModule = await hasPermission(currentUser, MODULE_PERMISSION_IDS.projects, 'read')
-  if (!isAdmin && !isStaff && !canReadModule) {
+  const canReadTaskModule = await hasPermission(currentUser, MODULE_PERMISSION_IDS.projectTasks, 'read')
+  if (!isAdmin && !isStaff && !canReadModule && !canReadTaskModule) {
     return { data: null, error: 'You do not have permission to view this project' }
   }
 
