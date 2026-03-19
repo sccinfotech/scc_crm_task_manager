@@ -380,27 +380,44 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
   const searchTerm = prepareSearchTerm(options.search)
   if (searchTerm) {
     const projectNameFilter = `name.ilike.%${searchTerm}%`
+    const orConditions: string[] = [projectNameFilter]
 
-    // Find matching clients by name/company and then OR on project name OR client_id.in(...)
+    // Find matching clients by name/company
     const { data: clientRows, error: clientSearchError } = await supabase
       .from('clients')
       .select('id')
       .or(`name.ilike.%${searchTerm}%,company_name.ilike.%${searchTerm}%`)
 
-    if (clientSearchError) {
+    if (!clientSearchError && clientRows?.length) {
+      const clientIdList = clientRows.map((row: { id: string }) => `"${row.id}"`).join(',')
+      orConditions.push(`client_id.in.(${clientIdList})`)
+    } else if (clientSearchError) {
       console.error('Error searching clients for project list:', clientSearchError)
-      query = query.or(projectNameFilter)
-    } else {
-      const clientIds = (clientRows || []).map((row: { id: string }) => row.id)
-      if (clientIds.length > 0) {
-        const clientIdList = clientIds.map((id) => `"${id}"`).join(',')
-        query = query.or(
-          `${projectNameFilter},client_id.in.(${clientIdList})`
-        )
-      } else {
-        query = query.or(projectNameFilter)
-      }
     }
+
+    // Find projects linked to technology tools whose name matches the search term
+    const { data: toolRows, error: toolSearchError } = await supabase
+      .from('technology_tools')
+      .select('id')
+      .ilike('name', `%${searchTerm}%`)
+
+    if (!toolSearchError && toolRows?.length) {
+      const toolIds = toolRows.map((row: { id: string }) => row.id)
+      const { data: projectToolRows, error: projectToolError } = await supabase
+        .from('project_technology_tools')
+        .select('project_id')
+        .in('technology_tool_id', toolIds)
+
+      if (!projectToolError && projectToolRows?.length) {
+        const projectIdsFromTools = [...new Set(projectToolRows.map((r: { project_id: string }) => r.project_id))]
+        const projectIdList = projectIdsFromTools.map((id) => `"${id}"`).join(',')
+        orConditions.push(`id.in.(${projectIdList})`)
+      }
+    } else if (toolSearchError) {
+      console.error('Error searching technology tools for project list:', toolSearchError)
+    }
+
+    query = query.or(orConditions.join(','))
   }
 
   if (options.status && options.status !== 'all') {

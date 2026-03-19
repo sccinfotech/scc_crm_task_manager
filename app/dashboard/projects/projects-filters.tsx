@@ -80,7 +80,7 @@ export function ProjectsFilters({
             <SearchInput
               value={searchQuery}
               onChange={onSearchChange}
-              placeholder="Search by project or client..."
+              placeholder="Search by project, client, or technology & tools..."
               debounceMs={SEARCH_DEBOUNCE_MS}
             />
           </div>
