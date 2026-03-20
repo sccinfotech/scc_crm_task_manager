@@ -289,8 +289,12 @@ export async function getClientsForSelect(): Promise<{ data: ClientSelectOption[
   if (!currentUser) {
     return { data: [], error: 'You must be logged in to view clients' }
   }
-  const canRead = await hasPermission(currentUser, MODULE_PERMISSION_IDS.clients, 'read')
-  if (!canRead) {
+  // Project creation needs a client dropdown.
+  // Staff users can still browse/select clients if they have Projects=write,
+  // even if they don't have Clients=read.
+  const canReadClients = await hasPermission(currentUser, MODULE_PERMISSION_IDS.clients, 'read')
+  const canWriteProjects = await hasPermission(currentUser, MODULE_PERMISSION_IDS.projects, 'write')
+  if (!canReadClients && !canWriteProjects) {
     return { data: [], error: 'You do not have permission to view clients' }
   }
 
