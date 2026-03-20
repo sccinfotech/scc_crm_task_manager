@@ -114,6 +114,16 @@ function getFollowUpDateColor(dateString: string | null): string {
   return 'text-gray-700'
 }
 
+function formatClientLabel(clientName: string | null | undefined, companyName: string | null | undefined) {
+  const name = clientName?.trim() || null
+  const company = companyName?.trim() || null
+
+  if (name && company) return `${name} (${company})`
+  if (name) return name
+  if (company) return company
+  return '--'
+}
+
 function SortIcon({ direction }: { direction: 'asc' | 'desc' | null }) {
   if (!direction) {
     return (
@@ -380,7 +390,7 @@ export const ProjectsTable = memo(function ProjectsTable({
           {projects.map((project) => {
             const canEdit = canWrite
             const canDelete = canWrite
-            const clientLabel = project.client_name || project.client_company_name || '--'
+            const clientLabel = formatClientLabel(project.client_name, project.client_company_name)
             const projectHref = buildProjectHref
               ? buildProjectHref(project.id)
               : `/dashboard/projects/${project.id}?tab=tasks`

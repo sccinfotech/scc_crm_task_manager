@@ -159,6 +159,16 @@ function parseWebsiteLinks(value: string | null): string[] {
   return value.split(',').map((link) => link.trim()).filter(Boolean)
 }
 
+function formatClientLabel(clientName: string | null | undefined, companyName: string | null | undefined) {
+  const name = clientName?.trim() || null
+  const company = companyName?.trim() || null
+
+  if (name && company) return `${name} (${company})`
+  if (name) return name
+  if (company) return company
+  return '--'
+}
+
 function normalizeLink(url: string) {
   if (/^https?:\/\//i.test(url)) return url
   return `https://${url}`
@@ -276,7 +286,7 @@ export const ProjectsCardList = memo(function ProjectsCardList({
   return (
     <div className="flex flex-col gap-3 bg-white p-3 pb-6 sm:p-4 sm:pb-8">
       {projects.map((project) => {
-        const clientLabel = project.client_name || project.client_company_name || '—'
+        const clientLabel = formatClientLabel(project.client_name, project.client_company_name)
         const websiteLinks = parseWebsiteLinks(project.website_links)
         const myStatus = project.my_work_status as ProjectTeamMemberWorkStatus | null | undefined
         const projectHref = buildProjectHref
