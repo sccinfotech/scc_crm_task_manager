@@ -5015,13 +5015,6 @@ function ActivityEntry({ entry }: { entry: TaskActivityLogEntry }) {
         <span className="text-slate-500"> {msg}</span>
         <span className="text-xs text-slate-400 ml-1">{formatRelative(entry.created_at)}</span>
       </div>
-      <MediaViewerModal
-        isOpen={Boolean(previewAttachment)}
-        mediaUrl={previewAttachment?.url ?? null}
-        fileName={previewAttachment?.name ?? null}
-        mimeType={previewAttachment?.mimeType ?? null}
-        onClose={() => setPreviewAttachment(null)}
-      />
     </div>
   )
 }

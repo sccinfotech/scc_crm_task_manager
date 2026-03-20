@@ -535,6 +535,10 @@ export async function updateClientStatus(clientId: string, status: ClientStatus)
     }
   }
 
+  // Supabase typing for this query can degrade to `never` under strict TS settings.
+  // We only need `id` and `name` here (already selected in the query above).
+  const existingClientName = (existingClient as unknown as { name: string }).name
+
   const { data, error } = await supabase
     .from('clients')
     .update({ status } as never)
@@ -557,7 +561,7 @@ export async function updateClientStatus(clientId: string, status: ClientStatus)
     actionType: 'Update',
     moduleName: 'Clients',
     recordId: clientId,
-    description: `Updated client "${existingClient.name}" status to ${status}`,
+    description: `Updated client "${existingClientName}" status to ${status}`,
     status: 'Success',
   })
 
