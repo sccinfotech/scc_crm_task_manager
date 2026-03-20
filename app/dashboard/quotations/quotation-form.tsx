@@ -25,6 +25,7 @@ import {
   QuotationLeadClientCombobox,
   type LeadOrClientOption,
 } from './quotation-lead-client-combobox'
+import { MediaViewerModal } from '@/app/components/ui/media-viewer-modal'
 
 const STATUS_OPTIONS: { value: QuotationStatus; label: string }[] = [
   { value: 'draft', label: 'Draft' },
@@ -261,6 +262,7 @@ export function QuotationForm({
   const toolComboRef = useRef<HTMLDivElement>(null)
   const requirementFileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const [draggingRequirementId, setDraggingRequirementId] = useState<string | null>(null)
+  const [previewAttachment, setPreviewAttachment] = useState<{ url: string; name?: string } | null>(null)
   const [requirements, setRequirements] = useState<RequirementDraft[]>(() => {
     if (Array.isArray(initialData?.requirements) && initialData.requirements.length > 0) {
       return initialData.requirements.map(mapFormDataRequirementToDraft)
@@ -870,14 +872,13 @@ export function QuotationForm({
                     </div>
                     <div className="mt-3">
                       {requirement.attachment_url && !requirement.attachment_file && (
-                        <a
-                          href={requirement.attachment_url}
-                          target="_blank"
-                          rel="noreferrer"
+                        <button
+                          type="button"
+                          onClick={() => setPreviewAttachment({ url: requirement.attachment_url!, name: 'Requirement attachment' })}
                           className="text-sm font-semibold text-cyan-700 hover:underline"
                         >
                           View current attachment
-                        </a>
+                        </button>
                       )}
                       {requirement.attachment_file && (
                         <p className="text-sm font-semibold text-slate-700">{requirement.attachment_file.name}</p>
@@ -1085,6 +1086,13 @@ export function QuotationForm({
           {submitLabel}
         </button>
       </div>
+
+      <MediaViewerModal
+        isOpen={Boolean(previewAttachment)}
+        mediaUrl={previewAttachment?.url ?? null}
+        fileName={previewAttachment?.name ?? null}
+        onClose={() => setPreviewAttachment(null)}
+      />
     </form>
   )
 }
