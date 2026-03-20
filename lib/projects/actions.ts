@@ -907,7 +907,16 @@ export async function createProject(formData: ProjectFormData): Promise<ProjectA
   const websiteLinks = formData.website_links?.trim() || null
   const referenceLinks = formData.reference_links?.trim() || null
   const toolIds = Array.from(new Set(formData.technology_tool_ids ?? [])).filter(Boolean)
-  const teamMemberIds = Array.from(new Set(formData.team_member_ids ?? [])).filter(Boolean)
+  let teamMemberIds = Array.from(new Set(formData.team_member_ids ?? [])).filter(Boolean)
+
+  // Important:
+  // After creating the project we call `getProject()` to fetch the full details.
+  // For `staff` users (non-admin), `getProject()` only returns the project if the
+  // current user is assigned in `project_team_members`. If they didn't select
+  // themselves in "Team Members" during creation, the app would show "Project not found".
+  if (currentUser.role === 'staff' && !isAdmin && !teamMemberIds.includes(currentUser.id)) {
+    teamMemberIds = [...teamMemberIds, currentUser.id]
+  }
 
   const supabase = await createClient()
   const encryptedAmount = amount !== null ? encryptAmount(amount) : null
