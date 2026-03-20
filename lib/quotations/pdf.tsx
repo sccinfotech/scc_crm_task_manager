@@ -20,6 +20,8 @@ const COMPANY = {
   website: 'www.sccinfotech.com',
 }
 
+// Fallback to local filesystem paths (works in dev when `process.cwd()` is project root).
+// In production (Vercel), we pass absolute public URLs from the API route instead.
 const SCC_HEADER_PATH = `${process.cwd()}/public/scc_header.png`
 const SCC_FOOTER_PATH = `${process.cwd()}/public/scc_footer.png`
 
@@ -661,6 +663,9 @@ type Props = {
   subtotal: number
   discount: number
   finalTotal: number
+  // When set, these should be absolute URLs (recommended for Vercel).
+  headerImageSrc?: string
+  footerImageSrc?: string
 }
 
 // ─── Document ─────────────────────────────────────────────────────────────────
@@ -671,6 +676,8 @@ export function QuotationPdfDocument({
   subtotal,
   discount,
   finalTotal,
+  headerImageSrc,
+  footerImageSrc,
 }: Props): React.ReactElement<DocumentProps> {
   const source = getSourceDetails(quotation)
   const termsItems = splitLines(quotation.terms)
@@ -679,6 +686,9 @@ export function QuotationPdfDocument({
   const showPricing = hasRequirements || finalTotal > 0
   const showDiscount = discount > 0
   const recipientName = hasText(source.name) ? source.name! : 'Sir/Madam'
+
+  const headerSrc = headerImageSrc ?? SCC_HEADER_PATH
+  const footerSrc = footerImageSrc ?? SCC_FOOTER_PATH
 
   // Subject: reference or auto-generated
   const subjectText = hasText(quotation.title)
@@ -699,7 +709,7 @@ export function QuotationPdfDocument({
 
         {/* ── FIXED HEADER IMAGE (same on every page) ─────────────────────── */}
         <View style={S.headerFixed} fixed>
-          <Image src={SCC_HEADER_PATH} style={S.headerImage} />
+          <Image src={headerSrc} style={S.headerImage} />
         </View>
 
         {/* ── TOP DETAILS ROW: PREPARED FOR + QUOTATION META ──────────────── */}
@@ -1015,7 +1025,7 @@ export function QuotationPdfDocument({
 
         {/* ── FOOTER IMAGE (same on every page) ───────────────────────────── */}
         <View style={S.footer} fixed>
-          <Image src={SCC_FOOTER_PATH} style={S.footerImage} />
+          <Image src={footerSrc} style={S.footerImage} />
         </View>
 
       </Page>

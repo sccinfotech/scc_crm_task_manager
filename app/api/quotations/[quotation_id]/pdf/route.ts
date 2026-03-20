@@ -10,8 +10,16 @@ interface RouteContext {
   params: Promise<{ quotation_id: string }>
 }
 
-export async function GET(_request: Request, { params }: RouteContext) {
+export async function GET(request: Request, { params }: RouteContext) {
   const { quotation_id } = await params
+
+  // Build absolute origin so react-pdf can reliably fetch public assets on Vercel.
+  const headers = request.headers
+  const forwardedProto = headers.get('x-forwarded-proto')
+  const forwardedHost = headers.get('x-forwarded-host')
+  const host = forwardedHost ?? headers.get('host') ?? 'localhost:3000'
+  const protocol = forwardedProto ?? 'https'
+  const origin = `${protocol}://${host}`
 
   const [quotationResult, requirementsResult] = await Promise.all([
     getQuotation(quotation_id),
@@ -39,6 +47,8 @@ export async function GET(_request: Request, { params }: RouteContext) {
       subtotal: requirementsResult.subtotal,
       discount: requirementsResult.discount,
       finalTotal: requirementsResult.final_total,
+      headerImageSrc: `${origin}/scc_header.png`,
+      footerImageSrc: `${origin}/scc_footer.png`,
     })
   )
 
