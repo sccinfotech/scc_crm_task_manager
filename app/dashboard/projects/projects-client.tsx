@@ -333,20 +333,16 @@ export function ProjectsClient({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
             </button>
-            {userRole !== 'staff' && userRole !== 'client' && (
-              <button
-                onClick={() => setCreateModalOpen(true)}
-                disabled={!canCreate}
-                title={
-                  !canWrite
-                    ? 'Read-only access'
-                    : 'Create project'
-                }
-                className={`btn-gradient-smooth rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-[#06B6D4]/25 transition-all duration-200 hover:shadow-xl hover:shadow-[#06B6D4]/30 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-offset-2 active:translate-y-0 active:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 sm:px-5 sm:py-2.5 ${!canCreate ? 'hover:shadow-lg hover:-translate-y-0' : ''}`}
-              >
-                Create Project
-              </button>
-            )}
+            <button
+              onClick={() => setCreateModalOpen(true)}
+              disabled={!canCreate}
+              title={!canWrite ? 'Read-only access' : 'Create project'}
+              className={`btn-gradient-smooth rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-[#06B6D4]/25 transition-all duration-200 hover:shadow-xl hover:shadow-[#06B6D4]/30 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-offset-2 active:translate-y-0 active:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 sm:px-5 sm:py-2.5 ${
+                !canCreate ? 'hover:shadow-lg hover:-translate-y-0' : ''
+              }`}
+            >
+              Create Project
+            </button>
           </div>
         </div>
 
