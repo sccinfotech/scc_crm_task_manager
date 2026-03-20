@@ -31,26 +31,39 @@ function addOneYearFromToday(): string {
 }
 
 function getStatusAndRemaining(renewDate: string) {
-  const today = new Date()
-  const target = new Date(renewDate + 'T00:00:00')
-  const diffMs = target.getTime() - today.setHours(0, 0, 0, 0)
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  // `renewDate` is stored as a DATE in DB and comes in as `YYYY-MM-DD`.
+  // Renew is date-only, so compute countdown until end-of-day for that date.
+  // Use UTC for consistent day boundaries across timezones.
+  const parts = renewDate.split('-').map((x) => Number(x))
+  const [y, m, d] = parts
+  if (!y || !m || !d) return { status: 'Expired', label: '-', isActive: false }
 
-  if (diffDays < 0) {
-    return { status: 'Expired', label: 'Expired', isActive: false }
+  const msPerHour = 1000 * 60 * 60
+  const msPerDay = 1000 * 60 * 60 * 24
+
+  const now = Date.now()
+  const todayUTCmidnight = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate())
+  const renewUTCmidnight = Date.UTC(y, m - 1, d)
+
+  const diffDays = Math.floor((renewUTCmidnight - todayUTCmidnight) / msPerDay)
+  const isActive = diffDays >= 0
+
+  if (!isActive) {
+    return { status: 'Expired', label: '-', isActive: false }
   }
 
-  const years = Math.floor(diffDays / 365)
-  const remainingDaysAfterYears = diffDays % 365
-  const months = Math.floor(remainingDaysAfterYears / 30)
-  const days = remainingDaysAfterYears % 30
+  const endOfRenewUTC = Date.UTC(y, m - 1, d, 23, 59, 59, 999)
+  const remainingMs = endOfRenewUTC - now
+  const totalHours = Math.max(0, Math.floor(remainingMs / msPerHour))
 
-  const parts: string[] = []
-  if (years > 0) parts.push(`${years}y`)
-  if (months > 0) parts.push(`${months}m`)
-  if (days > 0 || parts.length === 0) parts.push(`${days}d`)
+  const totalDays = Math.floor(totalHours / 24)
+  const hours = totalHours % 24
 
-  return { status: 'Active', label: parts.join(' '), isActive: true }
+  // Approximate month length as 30 days (same approach as earlier logic).
+  const months = Math.floor(totalDays / 30)
+  const days = totalDays % 30
+
+  return { status: 'Active', label: `${months}m ${days}d ${hours}h`, isActive: true }
 }
 
 export function ProductClientsSection({
@@ -258,6 +271,7 @@ export function ProductClientsSection({
                     <th className="px-3 py-2 text-left">Renew date</th>
                   )}
                   <th className="px-3 py-2 text-left">Status</th>
+                  <th className="px-3 py-2 text-left">Remaining Time</th>
                   <th className="px-3 py-2 text-right">Actions</th>
                 </tr>
               </thead>
@@ -282,25 +296,23 @@ export function ProductClientsSection({
                         </td>
                       )}
                       <td className="px-3 py-2 align-middle">
-                        <div className="flex flex-col gap-1">
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                            isActive
+                              ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-500/20'
+                              : 'bg-rose-50 text-rose-700 ring-1 ring-rose-500/20'
+                          }`}
+                        >
                           <span
-                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                              isActive
-                                ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-500/20'
-                                : 'bg-rose-50 text-rose-700 ring-1 ring-rose-500/20'
+                            className={`h-1.5 w-1.5 rounded-full ${
+                              isActive ? 'bg-emerald-500' : 'bg-rose-500'
                             }`}
-                          >
-                            <span
-                              className={`h-1.5 w-1.5 rounded-full ${
-                                isActive ? 'bg-emerald-500' : 'bg-rose-500'
-                              }`}
-                            />
-                            {status}
-                          </span>
-                          <span className="text-[11px] text-slate-500">
-                            {isActive ? `Remaining: ${label}` : 'Expired'}
-                          </span>
-                        </div>
+                          />
+                          {status}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 align-middle">
+                        <div className="text-xs font-semibold text-slate-700">{label}</div>
                       </td>
                       <td className="px-3 py-2 align-middle text-right">
                         <div className="flex items-center justify-end gap-1.5">
