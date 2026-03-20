@@ -25,11 +25,14 @@ function resolveMediaKind(mimeType?: string | null, fileName?: string | null, me
   if (lowerMime.startsWith('video/')) return 'video'
   if (lowerMime.startsWith('audio/')) return 'audio'
   if (lowerMime === 'application/pdf') return 'pdf'
+  if (lowerMime === 'text/plain') return 'text'
+  if (lowerMime === 'application/rtf' || lowerMime === 'text/rtf') return 'text'
 
   if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif'].includes(ext)) return 'image'
   if (['mp4', 'webm', 'mov', 'm4v', 'ogg'].includes(ext)) return 'video'
   if (['mp3', 'wav', 'm4a', 'aac', 'oga'].includes(ext)) return 'audio'
   if (ext === 'pdf') return 'pdf'
+  if (ext === 'txt' || ext === 'rtf') return 'text'
   return 'file'
 }
 
@@ -117,6 +120,16 @@ export function MediaViewerModal({
               <iframe
                 src={mediaUrl}
                 title={fileName || 'PDF preview'}
+                className="h-full w-full rounded-lg border border-slate-200 bg-white"
+              />
+            </div>
+          )}
+
+          {mediaKind === 'text' && (
+            <div className="h-full">
+              <iframe
+                src={mediaUrl}
+                title={fileName || 'Text preview'}
                 className="h-full w-full rounded-lg border border-slate-200 bg-white"
               />
             </div>
