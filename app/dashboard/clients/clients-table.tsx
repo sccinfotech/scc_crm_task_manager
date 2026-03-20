@@ -25,35 +25,13 @@ interface ClientsTableProps {
   onView: (clientId: string) => void
   onEdit: (clientId: string) => void
   onDelete: (clientId: string, clientName: string) => void
+  onToggleStatus: (clientId: string, clientName: string, currentStatus: Client['status']) => void
   onOpenInternalNotes?: (clientId: string, clientName: string) => void
   sortField?: SortField
   sortDirection?: SortDirection
   onSort?: (field: SortField) => void
   isFiltered?: boolean
   showProductsColumn?: boolean
-}
-
-function StatusPill({ status }: { status: Client['status'] }) {
-  const styles = {
-    active: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-600', ring: 'ring-emerald-600/20' },
-    inactive: { bg: 'bg-gray-50', text: 'text-gray-700', dot: 'bg-gray-600', ring: 'ring-gray-600/20' },
-  }
-
-  const labels = {
-    active: 'Active',
-    inactive: 'Inactive',
-  }
-
-  const style = styles[status]
-
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-medium ${style.bg} ${style.text} ring-1 ring-inset ${style.ring}`}
-    >
-      <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`}></span>
-      {labels[status]}
-    </span>
-  )
 }
 
 function formatDate(dateString: string) {
@@ -98,6 +76,7 @@ export function ClientsTable({
   onView,
   onEdit,
   onDelete,
+  onToggleStatus,
   onOpenInternalNotes,
   sortField = null,
   sortDirection = null,
@@ -168,15 +147,6 @@ export function ClientsTable({
               className="group hidden md:table-cell md:w-[20%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-colors"
             >
               Remark
-            </th>
-            <th
-              className="group w-[15%] sm:w-[12%] px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 cursor-pointer select-none hover:bg-gray-50 transition-colors"
-              onClick={() => handleSort('status')}
-            >
-              <div className="flex items-center">
-                Status
-                <SortIcon direction={sortField === 'status' ? sortDirection : null} />
-              </div>
             </th>
             {showProductsColumn && (
               <th className="hidden lg:table-cell lg:w-[20%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 transition-colors">
@@ -259,11 +229,6 @@ export function ClientsTable({
                     )}
                   </Link>
                 </td>
-                <td className="px-3 sm:px-4 py-3">
-                  <Link href={`/dashboard/clients/${client.id}`} prefetch className="block no-underline text-inherit">
-                    <StatusPill status={client.status} />
-                  </Link>
-                </td>
                 {showProductsColumn && (
                   <td className="hidden px-4 py-3 lg:table-cell align-top">
                     {client.products && client.products.length > 0 ? (
@@ -318,6 +283,32 @@ export function ClientsTable({
                           <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                           </svg>
+                        </button>
+                      </Tooltip>
+                    )}
+                    {canEdit && (
+                      <Tooltip
+                        content={client.status === 'active' ? 'Set Inactive' : 'Set Active'}
+                        position="left"
+                      >
+                        <button
+                          onClick={() => onToggleStatus(client.id, client.name, client.status)}
+                          className={`rounded-lg p-2 transition-colors ${
+                            client.status === 'active'
+                              ? 'text-emerald-600 hover:bg-emerald-50'
+                              : 'text-rose-600 hover:bg-rose-50'
+                          }`}
+                        >
+                          {client.status === 'active' ? (
+                            <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          ) : (
+                            <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <circle cx="12" cy="12" r="9" />
+                              <path strokeLinecap="round" d="M6 6l12 12" />
+                            </svg>
+                          )}
                         </button>
                       </Tooltip>
                     )}

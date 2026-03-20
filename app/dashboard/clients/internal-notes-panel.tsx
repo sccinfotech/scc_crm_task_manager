@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { Tooltip } from '@/app/components/ui/tooltip'
 import { useToast } from '@/app/components/ui/toast-context'
 import { useFileDropzone } from '@/app/components/ui/use-file-dropzone'
+import { MediaViewerModal } from '@/app/components/ui/media-viewer-modal'
 import {
   INTERNAL_NOTE_ALLOWED_EXTENSIONS,
   INTERNAL_NOTE_EXTENSION_MIME_MAP,
@@ -87,6 +88,11 @@ export function InternalNotesPanel({
     noteId: null,
   })
   const [deletingAttachment, setDeletingAttachment] = useState(false)
+  const [previewAttachment, setPreviewAttachment] = useState<{
+    url: string
+    fileName: string
+    mimeType?: string
+  } | null>(null)
   const [deletingNote, setDeletingNote] = useState(false)
   const objectUrlsRef = useRef<Map<number, string>>(new Map())
 
@@ -575,10 +581,9 @@ export function InternalNotesPanel({
                             key={attachment.id}
                             className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 group hover:border-cyan-200 hover:bg-cyan-50 transition-colors duration-200"
                           >
-                            <a
-                              href={attachment.cloudinary_url}
-                              target="_blank"
-                              rel="noreferrer"
+                            <button
+                              type="button"
+                              onClick={() => setPreviewAttachment({ url: attachment.cloudinary_url, fileName: attachment.file_name, mimeType: attachment.mime_type })}
                               className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
                             >
                               <div className="relative flex h-10 w-10 items-center justify-center rounded-lg bg-white text-slate-400 flex-shrink-0 overflow-hidden">
@@ -600,7 +605,7 @@ export function InternalNotesPanel({
                                 <p className="truncate font-semibold text-slate-700">{attachment.file_name}</p>
                                 <p className="text-xs text-slate-400">{formatFileSize(attachment.size_bytes)}</p>
                               </div>
-                            </a>
+                            </button>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()
@@ -836,6 +841,14 @@ export function InternalNotesPanel({
           </div>
         </div>
       )}
+
+      <MediaViewerModal
+        isOpen={Boolean(previewAttachment)}
+        mediaUrl={previewAttachment?.url ?? null}
+        fileName={previewAttachment?.fileName ?? null}
+        mimeType={previewAttachment?.mimeType ?? null}
+        onClose={() => setPreviewAttachment(null)}
+      />
 
       {/* Delete Note Confirmation Modal */}
       {deleteNoteModal.isOpen && (

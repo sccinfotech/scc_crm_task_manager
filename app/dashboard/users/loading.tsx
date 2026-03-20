@@ -19,7 +19,6 @@ export default function UsersLoading() {
                 <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">User</th>
                 <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Email</th>
                 <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Role</th>
-                <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Status</th>
                 <th className="px-3 sm:px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Actions</th>
               </tr>
             </thead>
@@ -29,7 +28,6 @@ export default function UsersLoading() {
                   <td className="whitespace-nowrap px-3 sm:px-4 py-4"><div className="h-4 w-32 rounded bg-gray-200" /></td>
                   <td className="whitespace-nowrap px-3 sm:px-4 py-4"><div className="h-4 w-40 rounded bg-gray-200" /></td>
                   <td className="whitespace-nowrap px-3 sm:px-4 py-4"><div className="h-4 w-20 rounded bg-gray-200" /></td>
-                  <td className="whitespace-nowrap px-3 sm:px-4 py-4"><div className="h-6 w-16 rounded-full bg-gray-200" /></td>
                   <td className="whitespace-nowrap px-3 sm:px-4 py-4 text-right"><div className="ml-auto h-8 w-24 rounded bg-gray-200" /></td>
                 </tr>
               ))}

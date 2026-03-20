@@ -504,6 +504,71 @@ export async function updateClient(clientId: string, formData: ClientFormData): 
   return { data: client, error: null }
 }
 
+export async function updateClientStatus(clientId: string, status: ClientStatus): Promise<ClientActionResult> {
+  const currentUser = await getCurrentUser()
+  if (!currentUser) {
+    return {
+      error: 'You must be logged in to update a client',
+      data: null,
+    }
+  }
+  const canWrite = await hasPermission(currentUser, MODULE_PERMISSION_IDS.clients, 'write')
+  if (!canWrite) {
+    return {
+      error: 'You do not have permission to update this client',
+      data: null,
+    }
+  }
+
+  const supabase = await createSupabaseClient()
+
+  const { data: existingClient, error: fetchError } = await supabase
+    .from('clients')
+    .select('id, name')
+    .eq('id', clientId)
+    .single()
+
+  if (fetchError || !existingClient) {
+    return {
+      error: 'Client not found',
+      data: null,
+    }
+  }
+
+  // Supabase typing for this query can degrade to `never` under strict TS settings.
+  // We only need `id` and `name` here (already selected in the query above).
+  const existingClientName = (existingClient as unknown as { name: string }).name
+
+  const { data, error } = await supabase
+    .from('clients')
+    .update({ status } as never)
+    .eq('id', clientId)
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Error updating client status:', error)
+    return {
+      error: error.message || 'Failed to update client status',
+      data: null,
+    }
+  }
+
+  const client = data as unknown as Client
+  await createActivityLogEntry({
+    userId: currentUser.id,
+    userName: currentUser.fullName ?? currentUser.email,
+    actionType: 'Update',
+    moduleName: 'Clients',
+    recordId: clientId,
+    description: `Updated client "${existingClientName}" status to ${status}`,
+    status: 'Success',
+  })
+
+  revalidatePath('/dashboard/clients')
+  return { data: client, error: null }
+}
+
 export async function getClient(clientId: string): Promise<{ data: Client | null; error: string | null }> {
   const currentUser = await getCurrentUser()
   if (!currentUser) {

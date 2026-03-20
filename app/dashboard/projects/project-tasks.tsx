@@ -8,6 +8,7 @@ import { useToast } from '@/app/components/ui/toast-context'
 import { Tooltip } from '@/app/components/ui/tooltip'
 import { StaffAvatar } from '@/app/components/ui/staff-avatar'
 import { useFileDropzone } from '@/app/components/ui/use-file-dropzone'
+import { MediaViewerModal } from '@/app/components/ui/media-viewer-modal'
 import { EmptyState } from '@/app/components/empty-state'
 import dynamic from 'next/dynamic'
 import { normalizeChecklistHtml } from './checklist-html'
@@ -2886,6 +2887,7 @@ function TaskDetailPanel({
   const [commentFilePreviews, setCommentFilePreviews] = useState<Array<{ isImage: boolean; previewUrl: string | null }>>([])
   const [commentSubmitting, setCommentSubmitting] = useState(false)
   const [attachmentMenuOpenId, setAttachmentMenuOpenId] = useState<string | null>(null)
+  const [previewAttachment, setPreviewAttachment] = useState<{ url: string; name: string; mimeType?: string | null } | null>(null)
   const [activityPanelOpen, setActivityPanelOpen] = useState(false)
   const [detailDropdownOpen, setDetailDropdownOpen] = useState<'status' | 'assignee' | 'priority' | 'type' | null>(null)
   const [detailDropdownRect, setDetailDropdownRect] = useState<{ top: number; left: number } | null>(null)
@@ -3731,7 +3733,9 @@ function TaskDetailPanel({
                 <div
                   key={a.id}
                   data-attachment-menu-id={a.id}
-                  className="group relative rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                  className={`group relative rounded-xl border border-slate-200 bg-white overflow-visible shadow-sm hover:shadow-md transition-shadow ${
+                    attachmentMenuOpenId === a.id ? 'z-30' : 'z-0'
+                  }`}
                 >
                   <div className="aspect-[4/3] bg-slate-100 relative">
                     {isImageAttachment(a) ? (
@@ -3765,13 +3769,14 @@ function TaskDetailPanel({
                         </svg>
                       </button>
                       {attachmentMenuOpenId === a.id && (
-                        <div className="absolute top-full right-0 mt-1 w-44 rounded-lg border border-slate-200 bg-white shadow-lg py-1 z-10">
-                          <a
-                            href={a.cloudinary_url}
-                            target="_blank"
-                            rel="noreferrer"
+                        <div className="absolute top-full right-0 mt-1 w-44 rounded-lg border border-slate-200 bg-white shadow-lg py-1 z-50">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPreviewAttachment({ url: a.cloudinary_url, name: a.file_name, mimeType: a.mime_type })
+                              setAttachmentMenuOpenId(null)
+                            }}
                             className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                            onClick={() => setAttachmentMenuOpenId(null)}
                             aria-label="View attachment"
                             title="View attachment"
                           >
@@ -3780,7 +3785,7 @@ function TaskDetailPanel({
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7C7.523 19 3.732 16.057 2.458 12z" />
                             </svg>
                             View
-                          </a>
+                          </button>
                           <a
                             href={a.cloudinary_url}
                             download={a.file_name}
@@ -4288,6 +4293,13 @@ function TaskDetailPanel({
             </div>
           </>
         )}
+        <MediaViewerModal
+          isOpen={Boolean(previewAttachment)}
+          mediaUrl={previewAttachment?.url ?? null}
+          fileName={previewAttachment?.name ?? null}
+          mimeType={previewAttachment?.mimeType ?? null}
+          onClose={() => setPreviewAttachment(null)}
+        />
       </div>
     </div>
   )
@@ -4539,6 +4551,7 @@ function CommentRow({
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null)
   const [attachmentMenuOpenId, setAttachmentMenuOpenId] = useState<string | null>(null)
+  const [previewAttachment, setPreviewAttachment] = useState<{ url: string; name: string; mimeType?: string | null } | null>(null)
   const [reactionPickerOpen, setReactionPickerOpen] = useState(false)
   const [pendingReactionEmoji, setPendingReactionEmoji] = useState<string | null>(null)
   const [reactionSearch, setReactionSearch] = useState('')
@@ -4788,10 +4801,9 @@ function CommentRow({
                         data-comment-attachment-menu-id={attachment.id}
                         className="group relative"
                       >
-                        <a
-                          href={attachment.cloudinary_url}
-                          target="_blank"
-                          rel="noreferrer"
+                        <button
+                          type="button"
+                          onClick={() => setPreviewAttachment({ url: attachment.cloudinary_url, name: attachment.file_name, mimeType: attachment.mime_type })}
                           className="block overflow-hidden rounded-lg border border-slate-200 bg-slate-50/50"
                           aria-label={attachment.file_name}
                           title={attachment.file_name}
@@ -4823,7 +4835,7 @@ function CommentRow({
                               {attachment.file_name}
                             </p>
                           </div>
-                        </a>
+                        </button>
                         <div
                           className={`absolute right-1.5 top-1.5 z-10 transition-opacity ${
                             attachmentMenuOpenId === attachment.id ? 'opacity-100' : 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100'

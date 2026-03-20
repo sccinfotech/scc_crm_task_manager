@@ -21,6 +21,9 @@ export const INTERNAL_NOTE_ALLOWED_MIME_TYPES = [
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+  'text/plain', // .txt
+  'application/rtf', // .rtf
+  'text/rtf', // some browsers
 ] as const
 
 // Allowed extensions
@@ -37,6 +40,8 @@ export const INTERNAL_NOTE_ALLOWED_EXTENSIONS = [
   'pdf',
   'docx',
   'xlsx',
+  'txt',
+  'rtf',
 ] as const
 
 // Extension to MIME type mapping
@@ -53,12 +58,14 @@ export const INTERNAL_NOTE_EXTENSION_MIME_MAP: Record<string, string> = {
   pdf: 'application/pdf',
   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  txt: 'text/plain',
+  rtf: 'application/rtf',
 }
 
 // Get file category from extension
 export function getFileCategory(extension: string): string | null {
   const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp']
-  const documentExtensions = ['pdf', 'docx', 'xlsx']
+  const documentExtensions = ['pdf', 'docx', 'xlsx', 'txt', 'rtf']
   
   if (imageExtensions.includes(extension.toLowerCase())) {
     return FILE_TYPE_CATEGORIES.IMAGE
@@ -76,7 +83,10 @@ export function getFileCategoryFromMime(mimeType: string): string | null {
   }
   if (mimeType === 'application/pdf' || 
       mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-      mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
+      mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+      mimeType === 'text/plain' ||
+      mimeType === 'application/rtf' ||
+      mimeType === 'text/rtf') {
     return FILE_TYPE_CATEGORIES.DOCUMENT
   }
   return null

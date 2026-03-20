@@ -6,6 +6,7 @@ import { Tooltip } from "@/app/components/ui/tooltip"
 import { EmptyState } from "@/app/components/empty-state"
 import { useToast } from "@/app/components/ui/toast-context"
 import { ListboxDropdown } from "@/app/components/ui/listbox-dropdown"
+import { MediaViewerModal } from "@/app/components/ui/media-viewer-modal"
 import {
   PROJECT_REQUIREMENT_ALLOWED_EXTENSIONS,
   PROJECT_REQUIREMENT_ALLOWED_MIME_TYPES,
@@ -124,6 +125,7 @@ function MilestoneRequirementCard({
   onEdit: () => void
   onDelete: () => void
 }) {
+  const [previewOpen, setPreviewOpen] = useState(false)
   const milestones = req.milestones ?? []
   const milestoneCount = milestones.length
 
@@ -203,17 +205,16 @@ function MilestoneRequirementCard({
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                   Attachment
                 </p>
-                <a
-                  href={req.attachment_url}
-                  target="_blank"
-                  rel="noreferrer"
+                <button
+                  type="button"
+                  onClick={() => setPreviewOpen(true)}
                   className="mt-1 inline-flex items-center gap-2 text-sm font-semibold text-cyan-700 hover:underline"
                 >
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828L18 9.828a4 4 0 10-5.656-5.656L5.757 10.757a6 6 0 108.486 8.486L20.5 13" />
                   </svg>
                   View attachment
-                </a>
+                </button>
               </div>
             )}
           </div>
@@ -252,6 +253,12 @@ function MilestoneRequirementCard({
           </div>
         </div>
       </div>
+      <MediaViewerModal
+        isOpen={previewOpen}
+        mediaUrl={req.attachment_url}
+        fileName="Requirement attachment"
+        onClose={() => setPreviewOpen(false)}
+      />
     </div>
   )
 }
@@ -351,6 +358,7 @@ function RequirementModal({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const createMilestone = (): MilestoneFormItem => ({
@@ -770,14 +778,13 @@ function RequirementModal({
             </div>
             <div className="mt-3">
               {attachmentUrl && !attachmentFile && (
-                <a
-                  href={attachmentUrl}
-                  target="_blank"
-                  rel="noreferrer"
+                <button
+                  type="button"
+                  onClick={() => setPreviewOpen(true)}
                   className="text-sm font-semibold text-cyan-700 hover:underline"
                 >
                   View current attachment
-                </a>
+                </button>
               )}
               {attachmentFile && (
                 <p className="text-sm font-semibold text-slate-700">{attachmentFile.name}</p>
@@ -1057,6 +1064,12 @@ function RequirementModal({
           </div>
         </form>
       </div>
+      <MediaViewerModal
+        isOpen={previewOpen}
+        mediaUrl={attachmentUrl}
+        fileName="Requirement attachment"
+        onClose={() => setPreviewOpen(false)}
+      />
     </div>
   )
 }
@@ -1081,6 +1094,7 @@ export function QuotationRequirements({
   const [modalOpen, setModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<"create" | "edit">("create")
   const [selectedRequirement, setSelectedRequirement] = useState<QuotationRequirement | null>(null)
+  const [previewAttachmentUrl, setPreviewAttachmentUrl] = useState<string | null>(null)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const hasLoadedRef = useRef(false)
@@ -1296,17 +1310,16 @@ export function QuotationRequirements({
                           <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                             Attachment
                           </p>
-                          <a
-                            href={req.attachment_url}
-                            target="_blank"
-                            rel="noreferrer"
+                          <button
+                            type="button"
+                            onClick={() => setPreviewAttachmentUrl(req.attachment_url)}
                             className="mt-1 inline-flex items-center gap-2 text-sm font-semibold text-cyan-700 hover:underline"
                           >
                             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828L18 9.828a4 4 0 10-5.656-5.656L5.757 10.757a6 6 0 108.486 8.486L20.5 13" />
                             </svg>
                             View attachment
-                          </a>
+                          </button>
                         </div>
                       )}
                     </div>
@@ -1406,6 +1419,13 @@ export function QuotationRequirements({
         onClose={() => setDeleteModalOpen(false)}
         onConfirm={handleDelete}
         isDeleting={deleting}
+      />
+
+      <MediaViewerModal
+        isOpen={Boolean(previewAttachmentUrl)}
+        mediaUrl={previewAttachmentUrl}
+        fileName="Requirement attachment"
+        onClose={() => setPreviewAttachmentUrl(null)}
       />
     </div>
   )

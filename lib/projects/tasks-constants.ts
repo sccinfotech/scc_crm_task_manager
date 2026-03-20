@@ -82,6 +82,9 @@ export const TASK_ALLOWED_MIME_TYPES = [
   'image/svg+xml',
   'image/bmp',
   'application/pdf',
+  'text/plain',
+  'application/rtf',
+  'text/rtf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 ] as const
@@ -95,6 +98,8 @@ export const TASK_ALLOWED_EXTENSIONS = [
   'svg',
   'bmp',
   'pdf',
+  'txt',
+  'rtf',
   'docx',
   'xlsx',
 ] as const
@@ -108,6 +113,8 @@ export const TASK_EXTENSION_MIME_MAP: Record<string, string> = {
   svg: 'image/svg+xml',
   bmp: 'image/bmp',
   pdf: 'application/pdf',
+  txt: 'text/plain',
+  rtf: 'application/rtf',
   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 }

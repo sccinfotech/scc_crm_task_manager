@@ -7,6 +7,7 @@ import { Tooltip } from '@/app/components/ui/tooltip'
 import { useToast } from '@/app/components/ui/toast-context'
 import { EmptyState } from '@/app/components/empty-state'
 import { useFileDropzone } from '@/app/components/ui/use-file-dropzone'
+import { MediaViewerModal } from '@/app/components/ui/media-viewer-modal'
 import {
   PROJECT_NOTE_ALLOWED_EXTENSIONS,
   PROJECT_NOTE_EXTENSION_MIME_MAP,
@@ -282,6 +283,11 @@ export function ProjectMyNotes({
     fileName: '',
   })
   const [deletingAttachment, setDeletingAttachment] = useState(false)
+  const [previewAttachment, setPreviewAttachment] = useState<{
+    url: string
+    fileName: string
+    mimeType?: string
+  } | null>(null)
   const editTextareaRef = useRef<HTMLTextAreaElement | null>(null)
   const objectUrlsRef = useRef<Map<number, string>>(new Map())
   const hasLoadedRef = useRef(false)
@@ -862,10 +868,9 @@ export function ProjectMyNotes({
                                 key={attachment.id}
                                 className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 hover:border-cyan-200 hover:bg-cyan-50 transition-colors"
                               >
-                                <a
-                                  href={attachment.cloudinary_url}
-                                  target="_blank"
-                                  rel="noreferrer"
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewAttachment({ url: attachment.cloudinary_url, fileName: attachment.file_name, mimeType: attachment.mime_type })}
                                   className="flex items-center gap-2 flex-1 min-w-0"
                                 >
                                   <div className="relative flex h-8 w-8 items-center justify-center rounded bg-white text-slate-400 flex-shrink-0 overflow-hidden">
@@ -887,7 +892,7 @@ export function ProjectMyNotes({
                                     <p className="truncate text-sm font-semibold text-slate-700">{attachment.file_name}</p>
                                     <p className="text-[10px] text-slate-400">{formatFileSize(attachment.size_bytes)}</p>
                                   </div>
-                                </a>
+                                </button>
                                 <button
                                   type="button"
                                   onClick={(e) => {
@@ -1070,6 +1075,14 @@ export function ProjectMyNotes({
         onConfirm={handleDeleteAttachmentConfirm}
         isLoading={deletingAttachment}
         fileName={deleteAttachmentModal.fileName}
+      />
+
+      <MediaViewerModal
+        isOpen={Boolean(previewAttachment)}
+        mediaUrl={previewAttachment?.url ?? null}
+        fileName={previewAttachment?.fileName ?? null}
+        mimeType={previewAttachment?.mimeType ?? null}
+        onClose={() => setPreviewAttachment(null)}
       />
     </>
   )

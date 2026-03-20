@@ -5,23 +5,6 @@ import Link from 'next/link'
 import { EmptyState } from '@/app/components/empty-state'
 import type { ClientListItem } from '@/lib/clients/actions'
 
-const StatusPill = memo(function StatusPill({ status }: { status: ClientListItem['status'] }) {
-  const styles = {
-    active: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-600', ring: 'ring-emerald-600/20' },
-    inactive: { bg: 'bg-gray-50', text: 'text-gray-700', dot: 'bg-gray-600', ring: 'ring-gray-600/20' },
-  }
-  const labels = { active: 'Active', inactive: 'Inactive' }
-  const style = styles[status]
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-medium ${style.bg} ${style.text} ring-1 ring-inset ${style.ring}`}
-    >
-      <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`} />
-      {labels[status]}
-    </span>
-  )
-})
-
 function formatDate(dateString: string) {
   return new Date(dateString).toLocaleDateString('en-US', {
     year: 'numeric',
@@ -44,6 +27,7 @@ export interface ClientsCardListProps {
   onView: (clientId: string) => void
   onEdit: (clientId: string) => void
   onDelete: (clientId: string, clientName: string) => void
+  onToggleStatus: (clientId: string, clientName: string, currentStatus: ClientListItem['status']) => void
   onOpenInternalNotes?: (clientId: string, clientName: string) => void
   isFiltered?: boolean
   hasMore: boolean
@@ -58,6 +42,7 @@ export const ClientsCardList = memo(function ClientsCardList({
   onView,
   onEdit,
   onDelete,
+  onToggleStatus,
   onOpenInternalNotes,
   isFiltered = false,
   hasMore,
@@ -156,7 +141,6 @@ export const ClientsCardList = memo(function ClientsCardList({
                   </p>
                 )}
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <StatusPill status={client.status} />
                   {client.products && client.products.length > 0 && (
                     <div className="flex flex-wrap gap-1">
                       {client.products.map((product) => (
@@ -203,6 +187,30 @@ export const ClientsCardList = memo(function ClientsCardList({
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                   </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    onToggleStatus(client.id, client.name, client.status)
+                  }}
+                  className={`rounded-lg p-2 transition-colors ${
+                    client.status === 'active'
+                      ? 'text-emerald-600 hover:bg-emerald-50'
+                      : 'text-rose-600 hover:bg-rose-50'
+                  }`}
+                  aria-label={client.status === 'active' ? 'Set inactive' : 'Set active'}
+                >
+                  {client.status === 'active' ? (
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  ) : (
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <circle cx="12" cy="12" r="9" />
+                      <path strokeLinecap="round" d="M6 6l12 12" />
+                    </svg>
+                  )}
                 </button>
                 <button
                   type="button"

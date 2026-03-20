@@ -8,9 +8,10 @@ import { ClientModal } from './client-modal'
 import { DeleteConfirmModal } from './delete-confirm-modal'
 import { ClientsFilters } from './clients-filters'
 import { InternalNotesPanel } from './internal-notes-panel'
+import { StatusConfirmModal } from './status-confirm-modal'
 import { SidebarToggleButton } from '@/app/components/dashboard/sidebar-context'
 import { Pagination } from '@/app/components/ui/pagination'
-import { createClient, updateClient, getClient, deleteClient, getClientsPage, ClientFormData, Client, ClientStatus, type ClientListItem, type ClientSortField, type ClientTypeFilter } from '@/lib/clients/actions'
+import { createClient, updateClient, getClient, deleteClient, getClientsPage, updateClientStatus, ClientFormData, Client, ClientStatus, type ClientListItem, type ClientSortField, type ClientTypeFilter } from '@/lib/clients/actions'
 import { useToast } from '@/app/components/ui/toast-context'
 
 interface ClientsClientProps {
@@ -56,6 +57,11 @@ export function ClientsClient({
   const [loading, setLoading] = useState(false)
   const [editLoading, setEditLoading] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [statusModalOpen, setStatusModalOpen] = useState(false)
+  const [statusUpdating, setStatusUpdating] = useState(false)
+  const [statusClientId, setStatusClientId] = useState<string | null>(null)
+  const [statusClientName, setStatusClientName] = useState<string>('')
+  const [nextStatus, setNextStatus] = useState<ClientStatus>('inactive')
   const [internalNotesOpen, setInternalNotesOpen] = useState(false)
   const [internalNotesClientId, setInternalNotesClientId] = useState<string | null>(null)
   const [internalNotesClientName, setInternalNotesClientName] = useState<string>('')
@@ -221,6 +227,36 @@ export function ClientsClient({
     setDeleteClientName('')
   }
 
+  const handleToggleStatus = (clientId: string, clientName: string, currentStatus: ClientStatus) => {
+    if (!canWrite) {
+      showError('Read-only Access', 'You do not have permission to update clients.')
+      return
+    }
+    setStatusClientId(clientId)
+    setStatusClientName(clientName)
+    setNextStatus(currentStatus === 'active' ? 'inactive' : 'active')
+    setStatusModalOpen(true)
+  }
+
+  const handleConfirmStatusChange = async () => {
+    if (!statusClientId) return
+    setStatusUpdating(true)
+    const result = await updateClientStatus(statusClientId, nextStatus)
+    setStatusUpdating(false)
+    if (result.error) {
+      showError('Status Update Failed', result.error)
+      return
+    }
+    showSuccess(
+      'Client Updated',
+      `${statusClientName} is now ${nextStatus === 'active' ? 'Active' : 'Inactive'}.`
+    )
+    setStatusModalOpen(false)
+    setStatusClientId(null)
+    setStatusClientName('')
+    router.refresh()
+  }
+
   const getInitialEditData = (): Partial<ClientFormData> | undefined => {
     if (!selectedClient) return undefined
     return {
@@ -357,6 +393,7 @@ export function ClientsClient({
                 onView={handleView}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
+                onToggleStatus={handleToggleStatus}
                 onOpenInternalNotes={handleOpenInternalNotes}
                 isFiltered={initialStatus !== 'all' || initialSearch.trim() !== ''}
                 hasMore={mobileClients.length < totalCount}
@@ -373,6 +410,7 @@ export function ClientsClient({
                 onView={handleView}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
+                onToggleStatus={handleToggleStatus}
                 onOpenInternalNotes={handleOpenInternalNotes}
                 sortField={initialSortField}
                 sortDirection={initialSortField ? initialSortDirection : undefined}
@@ -432,6 +470,19 @@ export function ClientsClient({
           onClose={() => setInternalNotesOpen(false)}
         />
       )}
+
+      <StatusConfirmModal
+        isOpen={statusModalOpen}
+        clientName={statusClientName}
+        nextStatus={nextStatus}
+        isLoading={statusUpdating}
+        onClose={() => {
+          setStatusModalOpen(false)
+          setStatusClientId(null)
+          setStatusClientName('')
+        }}
+        onConfirm={handleConfirmStatusChange}
+      />
     </>
   )
 }

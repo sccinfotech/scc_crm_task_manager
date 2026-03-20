@@ -7,6 +7,7 @@ import { Tooltip } from '@/app/components/ui/tooltip'
 import { useToast } from '@/app/components/ui/toast-context'
 import { EmptyState } from '@/app/components/empty-state'
 import { useFileDropzone } from '@/app/components/ui/use-file-dropzone'
+import { MediaViewerModal } from '@/app/components/ui/media-viewer-modal'
 import type { ProjectTeamMember } from '@/lib/projects/actions'
 import {
   TEAM_TALK_ALLOWED_EXTENSIONS,
@@ -308,6 +309,11 @@ export function ProjectTeamTalk({
     fileName: '',
   })
   const [deletingAttachment, setDeletingAttachment] = useState(false)
+  const [previewAttachment, setPreviewAttachment] = useState<{
+    url: string
+    fileName: string
+    mimeType?: string
+  } | null>(null)
   const hasLoadedRef = useRef(false)
   const wasActiveTabRef = useRef(isActiveTab)
 
@@ -939,10 +945,9 @@ export function ProjectTeamTalk({
                       <div className={`grid grid-cols-2 gap-2 ${hasText ? 'mt-2' : 'mt-0'}`}>
                         {imageAttachments.map((attachment) => (
                           <div key={attachment.id} className="relative">
-                            <a
-                              href={attachment.cloudinary_url}
-                              target="_blank"
-                              rel="noreferrer"
+                            <button
+                              type="button"
+                              onClick={() => setPreviewAttachment({ url: attachment.cloudinary_url, fileName: attachment.file_name, mimeType: attachment.mime_type })}
                               className="block overflow-hidden rounded-lg border border-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 relative h-24"
                             >
                               <Image
@@ -952,7 +957,7 @@ export function ProjectTeamTalk({
                                 sizes="(max-width: 640px) 50vw, 200px"
                                 className="object-cover"
                               />
-                            </a>
+                            </button>
                             {canManageMessage && (
                               <button
                                 type="button"
@@ -981,10 +986,9 @@ export function ProjectTeamTalk({
                             key={attachment.id}
                             className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-700 transition-colors duration-200 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1"
                           >
-                            <a
-                              href={attachment.cloudinary_url}
-                              target="_blank"
-                              rel="noreferrer"
+                            <button
+                              type="button"
+                              onClick={() => setPreviewAttachment({ url: attachment.cloudinary_url, fileName: attachment.file_name, mimeType: attachment.mime_type })}
                               className="flex items-center gap-2 flex-1 min-w-0"
                             >
                               <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded bg-slate-200 text-slate-600" aria-hidden>
@@ -996,7 +1000,7 @@ export function ProjectTeamTalk({
                                 <p className="truncate font-medium text-slate-700">{attachment.file_name}</p>
                                 <p className="text-[10px] font-normal text-slate-500">{formatFileSize(attachment.size_bytes)}</p>
                               </div>
-                            </a>
+                            </button>
                             {canManageMessage && (
                               <button
                                 type="button"
@@ -1169,6 +1173,14 @@ export function ProjectTeamTalk({
         onConfirm={handleDeleteAttachmentConfirm}
         isLoading={deletingAttachment}
         fileName={deleteAttachmentModal.fileName}
+      />
+
+      <MediaViewerModal
+        isOpen={Boolean(previewAttachment)}
+        mediaUrl={previewAttachment?.url ?? null}
+        fileName={previewAttachment?.fileName ?? null}
+        mimeType={previewAttachment?.mimeType ?? null}
+        onClose={() => setPreviewAttachment(null)}
       />
     </>
   )
