@@ -11,22 +11,8 @@ interface UsersTableProps {
   onRowClick: (user: UserData) => void
   onEdit: (user: UserData) => void
   onManagePermissions: (user: UserData) => void
+  onToggleStatus: (user: UserData) => void
 }
-
-const StatusPill = memo(function StatusPill({ status }: { status: boolean }) {
-  const style = status
-    ? { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-600', ring: 'ring-emerald-600/20' }
-    : { bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-600', ring: 'ring-red-600/20' }
-
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-medium ${style.bg} ${style.text} ring-1 ring-inset ${style.ring}`}
-    >
-      <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`}></span>
-      {status ? 'Active' : 'Inactive'}
-    </span>
-  )
-})
 
 function RolePill({ role }: { role: string }) {
   const styles = {
@@ -65,7 +51,7 @@ function UserAvatar({ user }: { user: UserData }) {
   )
 }
 
-export const UsersTable = memo(function UsersTable({ users, canWrite, onRowClick, onEdit, onManagePermissions }: UsersTableProps) {
+export const UsersTable = memo(function UsersTable({ users, canWrite, onRowClick, onEdit, onManagePermissions, onToggleStatus }: UsersTableProps) {
   if (users.length === 0) {
     return (
       <div className="flex h-full w-full min-h-[500px] items-center justify-center bg-white">
@@ -122,6 +108,28 @@ export const UsersTable = memo(function UsersTable({ users, canWrite, onRowClick
                       </svg>
                     </button>
                   </Tooltip>
+                  <Tooltip content={user.is_active ? 'Set Inactive' : 'Set Active'} position="left">
+                    <button
+                      type="button"
+                      onClick={() => onToggleStatus(user)}
+                      className={`rounded-lg p-2 transition-colors ${
+                        user.is_active
+                          ? 'text-emerald-600 hover:bg-emerald-50'
+                          : 'text-rose-600 hover:bg-rose-50'
+                      }`}
+                    >
+                      {user.is_active ? (
+                        <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      ) : (
+                        <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <circle cx="12" cy="12" r="9" />
+                          <path strokeLinecap="round" d="M6 6l12 12" />
+                        </svg>
+                      )}
+                    </button>
+                  </Tooltip>
                 </div>
               )}
             </div>
@@ -143,7 +151,32 @@ export const UsersTable = memo(function UsersTable({ users, canWrite, onRowClick
 
             <div className="mt-3 flex items-center justify-between gap-2">
               <RolePill role={user.role} />
-              <StatusPill status={user.is_active} />
+              {canWrite && (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onToggleStatus(user)
+                  }}
+                  className={`rounded-lg p-2 transition-colors ${
+                    user.is_active
+                      ? 'text-emerald-600 hover:bg-emerald-50'
+                      : 'text-rose-600 hover:bg-rose-50'
+                  }`}
+                  aria-label={user.is_active ? 'Set inactive' : 'Set active'}
+                >
+                  {user.is_active ? (
+                    <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  ) : (
+                    <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <circle cx="12" cy="12" r="9" />
+                      <path strokeLinecap="round" d="M6 6l12 12" />
+                    </svg>
+                  )}
+                </button>
+              )}
             </div>
           </article>
         ))}
@@ -164,9 +197,6 @@ export const UsersTable = memo(function UsersTable({ users, canWrite, onRowClick
               </th>
               <th className="w-[20%] sm:w-[12%] px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                 Role
-              </th>
-              <th className="w-[17%] sm:w-[12%] px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                Status
               </th>
               <th className="w-[18%] sm:w-[14%] px-3 sm:px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">
                 {canWrite ? 'Actions' : 'View'}
@@ -210,9 +240,6 @@ export const UsersTable = memo(function UsersTable({ users, canWrite, onRowClick
                 <td className="px-4 sm:px-4 py-3 text-sm">
                   <RolePill role={user.role} />
                 </td>
-                <td className="px-4 sm:px-4 py-3 text-sm">
-                  <StatusPill status={user.is_active} />
-                </td>
                 <td className="px-4 sm:px-4 py-3 text-right text-sm" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-end gap-1">
                     {canWrite && (
@@ -238,6 +265,28 @@ export const UsersTable = memo(function UsersTable({ users, canWrite, onRowClick
                             <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                             </svg>
+                          </button>
+                        </Tooltip>
+                        <Tooltip content={user.is_active ? 'Set Inactive' : 'Set Active'} position="left">
+                          <button
+                            type="button"
+                            onClick={() => onToggleStatus(user)}
+                            className={`rounded-lg p-2 transition-colors ${
+                              user.is_active
+                                ? 'text-emerald-600 hover:bg-emerald-50'
+                                : 'text-rose-600 hover:bg-rose-50'
+                            }`}
+                          >
+                            {user.is_active ? (
+                              <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            ) : (
+                              <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <circle cx="12" cy="12" r="9" />
+                                <path strokeLinecap="round" d="M6 6l12 12" />
+                              </svg>
+                            )}
                           </button>
                         </Tooltip>
                       </>

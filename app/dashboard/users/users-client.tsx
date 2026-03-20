@@ -6,6 +6,7 @@ import { UsersFilters } from '@/app/components/users/users-filters'
 import { UsersTable } from '@/app/components/users/users-table'
 import { UserModal } from '@/app/components/users/user-modal'
 import { UserPermissionsModal } from '@/app/components/users/user-permissions-modal'
+import { StatusConfirmModal } from '@/app/components/users/status-confirm-modal'
 import { Pagination } from '@/app/components/ui/pagination'
 import { SidebarToggleButton } from '@/app/components/dashboard/sidebar-context'
 import {
@@ -53,6 +54,10 @@ export default function UsersClient({
 
   const [isPermissionsModalOpen, setIsPermissionsModalOpen] = useState(false)
   const [userForPermissions, setUserForPermissions] = useState<UserData | undefined>(undefined)
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false)
+  const [statusUser, setStatusUser] = useState<UserData | undefined>(undefined)
+  const [nextActive, setNextActive] = useState(false)
+  const [isStatusUpdating, setIsStatusUpdating] = useState(false)
 
   const updateFilters = (updates: Record<string, string | null>) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -118,6 +123,16 @@ export default function UsersClient({
     setIsPermissionsModalOpen(true)
   }
 
+  const handleToggleStatusOpen = (user: UserData) => {
+    if (!canWrite) {
+      showError('Read-only Access', 'You do not have permission to update users.')
+      return
+    }
+    setStatusUser(user)
+    setNextActive(!user.is_active)
+    setIsStatusModalOpen(true)
+  }
+
   const handleModalSubmit = async (formData: CreateUserFormData | UpdateUserFormData) => {
     if (modalMode === 'create') {
       if (!canCreate) {
@@ -174,6 +189,35 @@ export default function UsersClient({
     return { success: true }
   }
 
+  const handleConfirmStatusChange = async () => {
+    if (!statusUser) return
+    setIsStatusUpdating(true)
+    const result = await updateUser(statusUser.id, {
+      full_name: statusUser.full_name ?? '',
+      designation: statusUser.designation ?? '',
+      joining_date: statusUser.joining_date ?? '',
+      role: statusUser.role,
+      is_active: nextActive,
+      personal_email: statusUser.personal_email ?? undefined,
+      personal_mobile_no: statusUser.personal_mobile_no ?? '',
+      home_mobile_no: statusUser.home_mobile_no ?? undefined,
+      address: statusUser.address ?? undefined,
+      date_of_birth: statusUser.date_of_birth ?? undefined,
+      photo_url: statusUser.photo_url ?? undefined,
+    })
+    setIsStatusUpdating(false)
+
+    if (result.error) {
+      showError('Status Update Failed', result.error)
+      return
+    }
+
+    showSuccess('Status Updated', `${statusUser.full_name || statusUser.email} is now ${nextActive ? 'Active' : 'Inactive'}.`)
+    setIsStatusModalOpen(false)
+    setStatusUser(undefined)
+    router.refresh()
+  }
+
   return (
     <div className="flex h-full flex-col p-2 sm:p-3 lg:p-4">
       <div className="mb-3 flex items-center justify-between">
@@ -222,6 +266,7 @@ export default function UsersClient({
             onRowClick={handleRowClick}
             onEdit={handleEditOpen}
             onManagePermissions={handleManagePermissionsOpen}
+            onToggleStatus={handleToggleStatusOpen}
           />
         </div>
 
@@ -253,6 +298,18 @@ export default function UsersClient({
         }}
         user={userForPermissions}
         onSubmit={handlePermissionsSubmit}
+      />
+
+      <StatusConfirmModal
+        isOpen={isStatusModalOpen}
+        userName={statusUser?.full_name || statusUser?.email || 'User'}
+        nextActive={nextActive}
+        isLoading={isStatusUpdating}
+        onClose={() => {
+          setIsStatusModalOpen(false)
+          setStatusUser(undefined)
+        }}
+        onConfirm={handleConfirmStatusChange}
       />
     </div>
   )

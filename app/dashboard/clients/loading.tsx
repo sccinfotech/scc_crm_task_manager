@@ -19,7 +19,6 @@ export default function ClientsLoading() {
                 <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Client Name</th>
                 <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Company</th>
                 <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Phone</th>
-                <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Status</th>
                 <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Created</th>
                 <th className="px-3 sm:px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Actions</th>
               </tr>
@@ -30,7 +29,6 @@ export default function ClientsLoading() {
                   <td className="whitespace-nowrap px-3 sm:px-4 py-4"><div className="h-4 w-32 rounded bg-gray-200" /></td>
                   <td className="whitespace-nowrap px-3 sm:px-4 py-4"><div className="h-4 w-24 rounded bg-gray-200" /></td>
                   <td className="whitespace-nowrap px-3 sm:px-4 py-4"><div className="h-4 w-28 rounded bg-gray-200" /></td>
-                  <td className="whitespace-nowrap px-3 sm:px-4 py-4"><div className="h-6 w-20 rounded-full bg-gray-200" /></td>
                   <td className="whitespace-nowrap px-3 sm:px-4 py-4"><div className="h-4 w-24 rounded bg-gray-200" /></td>
                   <td className="whitespace-nowrap px-3 sm:px-4 py-4 text-right"><div className="ml-auto h-8 w-24 rounded bg-gray-200" /></td>
                 </tr>
