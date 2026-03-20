@@ -2738,9 +2738,15 @@ function TaskListRow({
               )}
           </div>
         ) : (
-          <span className={`inline-flex items-center gap-1.5 text-xs ${task.priority ? TASK_PRIORITY_STYLES[task.priority] : 'text-slate-400'}`}>
-            {task.priority && <PriorityFlagIcon className={`h-4 w-4 ${TASK_PRIORITY_FLAG_COLORS[task.priority]}`} />}
-            {task.priority ? TASK_PRIORITY_LABELS[task.priority] : '—'}
+          <span
+            className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${
+              task.priority ? TASK_PRIORITY_STYLES[task.priority] : 'border-slate-200 bg-white text-slate-500'
+            }`}
+          >
+            <PriorityFlagIcon
+              className={`h-3.5 w-3.5 flex-shrink-0 ${task.priority ? TASK_PRIORITY_FLAG_COLORS[task.priority] : 'text-slate-400'}`}
+            />
+            <span>{task.priority ? TASK_PRIORITY_LABELS[task.priority] : '—'}</span>
           </span>
         )}
       </td>
@@ -3462,9 +3468,17 @@ function TaskDetailPanel({
             )}
         </div>
       ) : (
-        <span className={`inline-flex items-center gap-1.5 text-xs ${metaPriority ? TASK_PRIORITY_STYLES[metaPriority as TaskPriority] : 'text-slate-400'}`}>
-          {metaPriority && <PriorityFlagIcon className={`h-4 w-4 ${TASK_PRIORITY_FLAG_COLORS[metaPriority as TaskPriority]}`} />}
-          {metaPriority ? TASK_PRIORITY_LABELS[metaPriority as TaskPriority] : '—'}
+        <span
+          className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${
+            metaPriority ? TASK_PRIORITY_STYLES[metaPriority as TaskPriority] : 'border-slate-200 bg-white text-slate-500'
+          }`}
+        >
+          {metaPriority && (
+            <PriorityFlagIcon
+              className={`h-3.5 w-3.5 flex-shrink-0 ${TASK_PRIORITY_FLAG_COLORS[metaPriority as TaskPriority]}`}
+            />
+          )}
+          <span>{metaPriority ? TASK_PRIORITY_LABELS[metaPriority as TaskPriority] : '—'}</span>
         </span>
       )}
       <span className="hidden text-slate-300 sm:inline">|</span>

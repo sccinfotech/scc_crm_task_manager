@@ -11,6 +11,7 @@ interface DashboardShellProps {
     children: React.ReactNode;
     userEmail?: string;
     userFullName?: string;
+    userPhotoUrl?: string | null;
     userRole?: string;
     modulePermissions?: ModulePermissions;
 }
@@ -64,6 +65,7 @@ export function DashboardShell({
     children,
     userEmail,
     userFullName,
+    userPhotoUrl,
     userRole,
     modulePermissions,
 }: DashboardShellProps) {
@@ -100,6 +102,7 @@ export function DashboardShell({
         pathname?.startsWith('/dashboard/settings/'); // settings subpages
 
     const getTitle = () => {
+        if (pathname?.includes('self-profile')) return 'My Profile';
         if (pathname?.includes('users')) return 'Users';
         if (pathname?.includes('clients')) return 'Clients';
         if (pathname?.includes('projects')) return 'Projects';
@@ -127,6 +130,7 @@ export function DashboardShell({
                     setIsCollapsed={setClientSidebarState}
                     userEmail={userEmail}
                     userFullName={userFullName}
+                    userPhotoUrl={userPhotoUrl}
                     userRole={userRole}
                     modulePermissions={modulePermissions}
                 />

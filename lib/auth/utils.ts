@@ -21,7 +21,7 @@ async function getCurrentUserImpl() {
   // Fetch user data from users table (only columns needed for auth/session)
   const { data: userData, error: userError } = await supabase
     .from('users')
-    .select('id, email, full_name, role, is_active, module_permissions, deleted_at')
+    .select('id, email, full_name, photo_url, role, is_active, module_permissions, deleted_at')
     .eq('id', user.id)
     .single()
 
@@ -49,6 +49,7 @@ async function getCurrentUserImpl() {
     id: row.id,
     email: row.email,
     fullName: row.full_name ?? undefined,
+    photoUrl: row.photo_url ?? undefined,
     role: row.role,
     isActive: row.is_active,
     modulePermissions: (row.module_permissions as ModulePermissions | null) ?? {},
