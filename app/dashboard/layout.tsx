@@ -12,6 +12,7 @@ export default async function DashboardLayout({
         <DashboardShell
             userEmail={user.email}
             userFullName={user.fullName}
+            userPhotoUrl={user.photoUrl}
             userRole={user.role}
             modulePermissions={user.modulePermissions}
         >

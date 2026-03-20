@@ -14,11 +14,13 @@ interface SidebarProps {
   setIsCollapsed: (collapsed: boolean) => void
   userEmail?: string
   userFullName?: string
+  userPhotoUrl?: string | null
   userRole?: string
   modulePermissions?: ModulePermissions
 }
 
 const SETTINGS_HREF = '/dashboard/settings'
+const PROFILE_HREF = '/dashboard/self-profile'
 
 const menuItems = [
   { name: 'Dashboard', href: '/dashboard', icon: DashboardIcon },
@@ -128,6 +130,7 @@ export function Sidebar({
   setIsCollapsed,
   userEmail,
   userFullName,
+  userPhotoUrl,
   userRole,
   modulePermissions,
 }: SidebarProps) {
@@ -438,31 +441,49 @@ export function Sidebar({
           {/* Bottom Section - Enhanced Profile Section */}
           <div className={`border-t border-gray-100 transition-all duration-300 ${isCollapsed ? 'p-2' : 'p-3'}`}>
             {isCollapsed ? (
-              /* Collapsed - Logout Button Directly */
-              <form action={logout}>
-                <Tooltip content="Logout" position="right" wrapperClassName="w-full">
-                  <button
-                    type="button"
-                    onClick={() => setShowLogoutConfirm(true)}
-                    className="w-full flex items-center justify-center rounded-xl bg-red-500 px-2 py-3.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-red-600 active:bg-red-700 shadow-sm"
-                    aria-label="Logout"
+              <div className="space-y-2">
+                <Tooltip content="Self Profile" position="right" wrapperClassName="w-full">
+                  <Link
+                    href={PROFILE_HREF}
+                    className="w-full flex items-center justify-center rounded-xl bg-gradient-to-r from-[#06B6D4] to-[#0891b2] px-2 py-3.5 text-sm font-semibold text-white transition-all duration-200 hover:brightness-110 active:brightness-95 shadow-sm"
+                    aria-label="Self profile"
                   >
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                      />
-                    </svg>
-                  </button>
+                    {userPhotoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={userPhotoUrl} alt="Profile photo" className="h-5 w-5 rounded-full object-cover" />
+                    ) : (
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
+                        <span className="text-[10px] font-bold">{getInitials()}</span>
+                      </span>
+                    )}
+                  </Link>
                 </Tooltip>
-              </form>
+
+                <form action={logout}>
+                  <Tooltip content="Logout" position="right" wrapperClassName="w-full">
+                    <button
+                      type="button"
+                      onClick={() => setShowLogoutConfirm(true)}
+                      className="w-full flex items-center justify-center rounded-xl bg-red-500 px-2 py-3.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-red-600 active:bg-red-700 shadow-sm"
+                      aria-label="Logout"
+                    >
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                        />
+                      </svg>
+                    </button>
+                  </Tooltip>
+                </form>
+              </div>
             ) : (
               /* Expanded Profile Section */
               <div className="space-y-2">
@@ -475,17 +496,32 @@ export function Sidebar({
                 <div className="relative rounded-xl bg-gray-50/80 border border-gray-100 p-2.5">
                   {/* Profile Picture & Info */}
                   <div className="flex items-center gap-2.5">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-r from-[#06B6D4] to-[#0891b2] text-sm font-semibold text-white shadow-md flex-shrink-0">
-                      {getInitials()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-[#1E1B4B] truncate">
-                        {userFullName || userEmail || 'User'}
-                      </p>
-                      <p className="text-xs text-gray-500 truncate mt-0.5">
-                        {userRole ? userRole.charAt(0).toUpperCase() + userRole.slice(1) : 'User'}
-                      </p>
-                    </div>
+                    <Link
+                      href={PROFILE_HREF}
+                      aria-label="Open self profile"
+                      className="flex items-center gap-2.5 flex-1 min-w-0"
+                    >
+                      {userPhotoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={userPhotoUrl}
+                          alt="Profile photo"
+                          className="h-12 w-12 rounded-full object-cover shadow-md flex-shrink-0"
+                        />
+                      ) : (
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-r from-[#06B6D4] to-[#0891b2] text-sm font-semibold text-white shadow-md flex-shrink-0">
+                          {getInitials()}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-[#1E1B4B] truncate">
+                          {userFullName || userEmail || 'User'}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate mt-0.5">
+                          {userRole ? userRole.charAt(0).toUpperCase() + userRole.slice(1) : 'User'}
+                        </p>
+                      </div>
+                    </Link>
                     {/* Dropdown Arrow - Changes direction based on expanded state */}
                     <button
                       onClick={() => setIsProfileExpanded(!isProfileExpanded)}

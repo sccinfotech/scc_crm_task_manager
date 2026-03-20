@@ -597,3 +597,85 @@ export async function deleteUser(id: string) {
   revalidatePath('/dashboard/users')
   return { success: true }
 }
+
+/**
+ * Generate a Cloudinary upload signature for the *current* user to update their own profile photo.
+ * Unlike `getUserPhotoUploadSignature`, this is intentionally not tied to module write permissions,
+ * since this is only for updating the authenticated user's own `photo_url`.
+ */
+export async function getSelfUserPhotoUploadSignature(): Promise<{
+  data: CloudinaryUploadSignature | null
+  error: string | null
+}> {
+  const currentUser = await getCurrentUser()
+  if (!currentUser) {
+    return { data: null, error: 'You must be logged in to upload a photo.' }
+  }
+
+  try {
+    const { cloudName, apiKey, apiSecret } = getCloudinaryConfig()
+    const timestamp = Math.floor(Date.now() / 1000)
+    const folder = USER_PHOTO_CLOUDINARY_FOLDER
+    const signature = signCloudinaryParams({ timestamp, folder }, apiSecret)
+
+    return {
+      data: {
+        signature,
+        timestamp,
+        cloudName,
+        apiKey,
+        folder,
+      },
+      error: null,
+    }
+  } catch (error) {
+    console.error('Error preparing self user photo upload signature:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to prepare photo upload.',
+    }
+  }
+}
+
+/**
+ * Update only the authenticated user's `photo_url` (profile icon/photo).
+ */
+export async function updateSelfUserPhoto(photoUrl: string | null) {
+  const currentUser = await getCurrentUser()
+
+  if (!currentUser) {
+    return { error: 'You must be logged in to update your photo.' }
+  }
+
+  const normalizedPhotoUrl = normalizeTextInput(photoUrl)
+
+  const supabaseAdmin = createAdminClient()
+
+  const userUpdates: UserUpdate = {
+    photo_url: normalizedPhotoUrl,
+    updated_at: new Date().toISOString(),
+  }
+
+  const { error } = await supabaseAdmin
+    .from('users')
+    .update(userUpdates as never)
+    .eq('id', currentUser.id)
+
+  if (error) {
+    console.error('Error updating self user photo:', error)
+    return { error: 'Failed to update your photo.' }
+  }
+
+  await createActivityLogEntry({
+    userId: currentUser.id,
+    userName: currentUser.fullName ?? currentUser.email,
+    actionType: 'Update',
+    moduleName: 'Self Profile',
+    recordId: currentUser.id,
+    description: 'Updated profile photo',
+    status: 'Success',
+  })
+
+  revalidatePath('/dashboard/self-profile')
+  return { success: true }
+}
