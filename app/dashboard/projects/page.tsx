@@ -19,6 +19,7 @@ export default async function ProjectsPage({
     sort?: string
     sortDir?: 'asc' | 'desc'
     page?: string
+    technology?: string
   }>
 }) {
   const user = await requireAuth()
@@ -52,6 +53,7 @@ export default async function ProjectsPage({
       sortDirection: params.sortDir ?? 'desc',
       page,
       pageSize: PAGE_SIZE,
+      technologyToolId: params.technology,
     }),
     getClientsForSelect(),
     getTechnologyTools(),
@@ -77,6 +79,7 @@ export default async function ProjectsPage({
       initialStaffUserId={params.staff ?? ''}
       initialSortField={(params.sort as ProjectSortField) ?? 'created_at'}
       initialSortDirection={params.sortDir ?? 'desc'}
+      initialTechnologyToolId={params.technology ?? ''}
       canWrite={canWrite}
       canViewAmount={canViewAmount}
       canCreateClient={canCreateClient}

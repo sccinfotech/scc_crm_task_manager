@@ -23,6 +23,9 @@ interface ProjectsFiltersProps {
   showStaffFilter?: boolean
   searchQuery: string
   onSearchChange: (query: string) => void
+  technologyTools?: Array<{ id: string; name: string }>
+  selectedTechnologyToolId?: string
+  onTechnologyChange?: (id: string) => void
   onClearFilters: () => void
 }
 
@@ -48,6 +51,9 @@ export function ProjectsFilters({
   showStaffFilter = false,
   searchQuery,
   onSearchChange,
+  technologyTools,
+  selectedTechnologyToolId,
+  onTechnologyChange,
   onClearFilters,
 }: ProjectsFiltersProps) {
   // Debounced search logic removed as handled by SearchInput component
@@ -60,6 +66,7 @@ export function ProjectsFilters({
     statusFilter !== 'all' ||
     searchQuery.trim() !== '' ||
     selectedStaffId !== '' ||
+    selectedTechnologyToolId !== '' ||
     hasStaffWorkStatusFilter
 
   const paddingClasses = compact
@@ -108,6 +115,24 @@ export function ProjectsFilters({
                 ]}
                 onChange={onStaffChange}
                 ariaLabel="Filter by staff"
+              />
+            </div>
+          )}
+
+          {technologyTools && onTechnologyChange && (
+            <div className={`${compact ? 'sm:w-48' : 'sm:w-64'}`}>
+              <ListboxDropdown
+                value={selectedTechnologyToolId ?? ''}
+                options={[
+                  { value: '', label: 'All Technology' },
+                  ...technologyTools.map((tool) => ({
+                    value: tool.id,
+                    label: tool.name,
+                  })),
+                ]}
+                onChange={onTechnologyChange}
+                ariaLabel="Filter by technology"
+                searchable={true}
               />
             </div>
           )}

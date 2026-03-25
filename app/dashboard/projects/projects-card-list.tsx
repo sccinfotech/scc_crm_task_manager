@@ -324,6 +324,18 @@ export const ProjectsCardList = memo(function ProjectsCardList({
                         {workingStatusLabel}
                       </span>
                     ) : null}
+                    {project.technology_tools_display && (
+                      <div className="flex flex-wrap gap-1">
+                        {project.technology_tools_display.split(', ').map((tool, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center rounded-md bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 ring-1 ring-inset ring-slate-500/10"
+                          >
+                            {tool}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     {project.client_deadline_date && (
                       <span className="text-xs text-gray-500">
                         Client Deadline {formatDate(project.client_deadline_date)}

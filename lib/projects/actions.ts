@@ -105,6 +105,8 @@ export type GetProjectsPageOptions = {
   sortDirection?: 'asc' | 'desc'
   page?: number
   pageSize?: number
+  /** Optional filter by a specific technology or tool ID */
+  technologyToolId?: string
 }
 
 export type ProjectListItem = {
@@ -127,6 +129,8 @@ export type ProjectListItem = {
   my_work_status?: ProjectTeamMemberWorkStatus | null
   /** For staff: when current user started this work session (only when work_status is start). */
   my_work_started_at?: string | null
+  /** Comma-separated list of technology tools for display in the project list. */
+  technology_tools_display?: string
 }
 
 export type ProjectActionResult =
@@ -424,6 +428,23 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
     query = query.eq('status', options.status)
   }
 
+  if (options.technologyToolId) {
+    const { data: projectToolRows, error: projectToolError } = await supabase
+      .from('project_technology_tools')
+      .select('project_id')
+      .eq('technology_tool_id', options.technologyToolId)
+
+    if (!projectToolError && projectToolRows?.length) {
+      const projectIdsFromTools = projectToolRows.map((r: { project_id: string }) => r.project_id)
+      query = query.in('id', projectIdsFromTools)
+    } else {
+      // If no projects found for this tool, return empty if filtered
+      if (!projectToolError) {
+        return { data: [], totalCount: 0, error: null }
+      }
+    }
+  }
+
   const sortField = options.sortField ?? 'created_at'
   const sortDirection = options.sortDirection ?? 'desc'
   // follow_up_date is derived from project_followups, not a column on projects; fall back to created_at
@@ -459,6 +480,24 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
     }
   }
 
+  // Fetch technology tools for all projects in the list
+  const toolsByProject = new Map<string, string[]>()
+  if (projectIds.length > 0) {
+    const { data: projectTools } = await supabase
+      .from('project_technology_tools')
+      .select('project_id, technology_tools(name)')
+      .in('project_id', projectIds)
+
+    const rows = (projectTools || []) as Array<{ project_id: string; technology_tools: { name: string } | null }>
+    for (const row of rows) {
+      if (row.technology_tools?.name) {
+        const list = toolsByProject.get(row.project_id) || []
+        list.push(row.technology_tools.name)
+        toolsByProject.set(row.project_id, list)
+      }
+    }
+  }
+
   const list = (data || []).map((row: any) => {
     const client = normalizeClient(row.clients)
     const raw = row.project_team_members
@@ -483,6 +522,7 @@ export async function getProjectsPage(options: GetProjectsPageOptions = {}) {
       follow_up_date: followUpDateByProject.get(row.id) ?? null,
       my_work_status: myMember?.work_status ?? null,
       my_work_started_at: myMember?.work_started_at ?? null,
+      technology_tools_display: (toolsByProject.get(row.id) || []).join(', ') || undefined,
     }
   }) as ProjectListItem[]
 

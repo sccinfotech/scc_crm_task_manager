@@ -293,6 +293,7 @@ export function EditUserClient({
   const [isStatusUpdating, setIsStatusUpdating] = useState(false)
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'all'>('all')
   const [staffWorkFilter, setStaffWorkFilter] = useState<StaffWorkFilterValue>('all')
+  const [technologyFilter, setTechnologyFilter] = useState<string>('')
   const [searchQuery, setSearchQuery] = useState('')
   const [sortField, setSortField] = useState<SortField>('created_at')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
@@ -347,10 +348,18 @@ export function EditUserClient({
         }
       }
 
+      if (technologyFilter !== '') {
+        const matches = project.technology_tools_display?.toLowerCase().includes(technologyFilter.toLowerCase())
+        if (!matches) {
+          return false
+        }
+      }
+
       if (term.length > 0) {
         const clientLabel = `${project.client_name ?? ''} ${project.client_company_name ?? ''}`.toLowerCase()
         const nameLabel = project.name.toLowerCase()
-        if (!nameLabel.includes(term) && !clientLabel.includes(term)) {
+        const toolsLabel = project.technology_tools_display?.toLowerCase() ?? ''
+        if (!nameLabel.includes(term) && !clientLabel.includes(term) && !toolsLabel.includes(term)) {
           return false
         }
       }
@@ -378,7 +387,7 @@ export function EditUserClient({
   }, [assignedProjects, searchQuery, sortDirection, sortField, staffWorkFilter, statusFilter])
 
   const isFiltered =
-    statusFilter !== 'all' || searchQuery.trim() !== '' || staffWorkFilter !== 'all'
+    statusFilter !== 'all' || searchQuery.trim() !== '' || staffWorkFilter !== 'all' || technologyFilter !== ''
 
   const buildProjectHref = (projectId: string) => {
     const params = new URLSearchParams()
@@ -573,6 +582,7 @@ export function EditUserClient({
                 setStatusFilter('all')
                 setStaffWorkFilter('all')
                 setSearchQuery('')
+                setTechnologyFilter('')
               }}
             />
 

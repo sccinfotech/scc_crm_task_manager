@@ -22,6 +22,7 @@ type Project = {
   follow_up_date: string | null
   my_work_status?: ProjectTeamMemberWorkStatus | null
   my_work_started_at?: string | null
+  technology_tools_display?: string
 }
 
 type SortField =
@@ -371,6 +372,9 @@ export const ProjectsTable = memo(function ProjectsTable({
                 Work
               </th>
             )}
+            <th className="hidden lg:table-cell lg:w-[15%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+              Technology
+            </th>
             <th className="w-[12%] sm:w-[10%] px-3 sm:px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 transition-all duration-200">
               {canWrite ? 'Actions' : 'View'}
             </th>
@@ -540,6 +544,22 @@ export const ProjectsTable = memo(function ProjectsTable({
                     )}
                   </td>
                 )}
+                <td className="hidden lg:table-cell px-4 py-3 text-sm text-gray-500">
+                  <div className="flex flex-wrap gap-1">
+                    {project.technology_tools_display ? (
+                      project.technology_tools_display.split(', ').map((tool, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center rounded-md bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 ring-1 ring-inset ring-slate-500/10"
+                        >
+                          {tool}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
+                  </div>
+                </td>
                 <td className="px-3 sm:px-4 py-3 text-right text-sm">
                   <div className="flex items-center justify-end gap-1">
                     {canEdit && (
