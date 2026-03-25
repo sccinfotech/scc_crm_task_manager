@@ -23,9 +23,9 @@ interface ProjectsFiltersProps {
   showStaffFilter?: boolean
   searchQuery: string
   onSearchChange: (query: string) => void
-  technologyTools: Array<{ id: string; name: string }>
-  selectedTechnologyToolId: string
-  onTechnologyChange: (id: string) => void
+  technologyTools?: Array<{ id: string; name: string }>
+  selectedTechnologyToolId?: string
+  onTechnologyChange?: (id: string) => void
   onClearFilters: () => void
 }
 
@@ -119,21 +119,23 @@ export function ProjectsFilters({
             </div>
           )}
 
-          <div className={`${compact ? 'sm:w-48' : 'sm:w-64'}`}>
-            <ListboxDropdown
-              value={selectedTechnologyToolId}
-              options={[
-                { value: '', label: 'All Technology' },
-                ...technologyTools.map((tool) => ({
-                  value: tool.id,
-                  label: tool.name,
-                })),
-              ]}
-              onChange={onTechnologyChange}
-              ariaLabel="Filter by technology"
-              searchable={true}
-            />
-          </div>
+          {technologyTools && onTechnologyChange && (
+            <div className={`${compact ? 'sm:w-48' : 'sm:w-64'}`}>
+              <ListboxDropdown
+                value={selectedTechnologyToolId ?? ''}
+                options={[
+                  { value: '', label: 'All Technology' },
+                  ...technologyTools.map((tool) => ({
+                    value: tool.id,
+                    label: tool.name,
+                  })),
+                ]}
+                onChange={onTechnologyChange}
+                ariaLabel="Filter by technology"
+                searchable={true}
+              />
+            </div>
+          )}
 
           {staffWorkStatusOptions && staffWorkStatusOptions.length > 0 && onStaffWorkStatusChange ? (
             <div className={`${compact ? 'sm:w-40' : 'sm:w-56'}`}>
