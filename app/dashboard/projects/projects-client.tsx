@@ -36,6 +36,7 @@ interface ProjectsClientProps {
   initialStaffUserId: string
   initialSortField: ProjectSortField | null
   initialSortDirection: 'asc' | 'desc'
+  initialTechnologyToolId: string
   canWrite: boolean
   canViewAmount: boolean
   canCreateClient?: boolean
@@ -59,6 +60,7 @@ export function ProjectsClient({
   initialStaffUserId,
   initialSortField,
   initialSortDirection,
+  initialTechnologyToolId,
   canWrite,
   canViewAmount,
   canCreateClient = false,
@@ -105,6 +107,7 @@ export function ProjectsClient({
       sort?: string | null
       sortDir?: string
       page?: number
+      technology?: string
     }) => {
       const params = new URLSearchParams()
       const search = updates.search !== undefined ? updates.search : initialSearch
@@ -113,9 +116,11 @@ export function ProjectsClient({
       const sort = updates.sort !== undefined ? updates.sort : initialSortField
       const sortDir = updates.sortDir !== undefined ? updates.sortDir : initialSortDirection
       const pageNum = updates.page !== undefined ? updates.page : page
+      const technology = updates.technology !== undefined ? updates.technology : initialTechnologyToolId
       if (search) params.set('search', search)
       if (status && status !== 'all') params.set('status', status)
       if (staffUserId) params.set('staff', staffUserId)
+      if (technology) params.set('technology', technology)
       if (sort) {
         params.set('sort', sort)
         params.set('sortDir', sortDir)
@@ -270,11 +275,13 @@ export function ProjectsClient({
     search?: string
     status?: ProjectStatus | 'all'
     staffUserId?: string
+    technologyToolId?: string
   }) => {
     const q = buildSearchParams({
       search: updates.search,
       status: updates.status,
       staff: updates.staffUserId,
+      technology: updates.technologyToolId,
       page: 1,
     })
     router.push(`${pathname}${q ? `?${q}` : ''}`)
@@ -298,8 +305,8 @@ export function ProjectsClient({
     setLoadingMore(true)
     const result = await getProjectsPage({
       search: initialSearch || undefined,
-      status: initialStatus !== 'all' ? initialStatus : undefined,
       staffUserId: initialStaffUserId || undefined,
+      technologyToolId: initialTechnologyToolId || undefined,
       sortField: initialSortField ?? undefined,
       sortDirection: initialSortDirection,
       page: mobilePage + 1,
@@ -357,6 +364,9 @@ export function ProjectsClient({
             showStaffFilter={userRole === 'admin' || userRole === 'manager'}
             searchQuery={initialSearch}
             onSearchChange={(q) => handleFilterChange({ search: q })}
+            technologyTools={technologyTools}
+            selectedTechnologyToolId={initialTechnologyToolId}
+            onTechnologyChange={(technologyToolId) => handleFilterChange({ technologyToolId })}
             onClearFilters={handleClearFilters}
           />
 
