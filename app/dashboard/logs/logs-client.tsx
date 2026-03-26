@@ -263,7 +263,7 @@ export function LogsClient({
 
   return (
     <>
-      <div className="flex h-full flex-col p-2 sm:p-3 lg:p-4">
+      <div className="flex h-full min-h-0 flex-col p-2 sm:p-3 lg:p-4">
         {/* Page Title and optional actions (match Projects) */}
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2 sm:mb-3">
           <div className="flex items-center gap-3">
@@ -299,7 +299,7 @@ export function LogsClient({
         </div>
 
         {/* Full-height white card: filters + toolbar + table + pagination (match Projects) */}
-        <div className="flex flex-1 flex-col overflow-hidden rounded-lg bg-white shadow-sm">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg bg-white shadow-sm">
           {/* Filters */}
           <div className="border-b border-slate-200 bg-white px-3 sm:px-4 py-3 sm:py-3 lg:px-4">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -361,7 +361,7 @@ export function LogsClient({
                 <div className="min-w-[180px] flex-1 sm:max-w-xs">
                   <label className="mb-1 block text-xs font-medium text-slate-500">Search</label>
                   <SearchInput
-                    value={initialSearch}
+                    value={localSearch}
                     onChange={handleSearchChange}
                     placeholder="Keyword..."
                   />
@@ -388,8 +388,36 @@ export function LogsClient({
             </div>
           </div>
 
-          {/* Table */}
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-auto">
+            {logs.length === 0 ? (
+              <p className="p-6 text-center text-sm text-slate-500 md:hidden">No activity logs found for the selected filters.</p>
+            ) : (
+              <ul className="list-none space-y-3 p-3 md:hidden" aria-label="Activity logs list">
+                {logs.map((log) => (
+                  <li key={log.id}>
+                    <article
+                      className={`rounded-xl border border-slate-200 p-4 shadow-sm ${
+                        log.status === 'Success' ? 'bg-white' : 'bg-red-50/30'
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-xs text-slate-600">{formatDateTime(log.created_at)}</span>
+                        <StatusPill status={log.status} />
+                      </div>
+                      <p className="mt-2 text-sm font-semibold text-slate-900">{log.user_name}</p>
+                      <div className="mt-1 flex flex-wrap gap-2 text-xs">
+                        <span className="rounded-md bg-slate-100 px-2 py-0.5 font-medium text-slate-700">{log.action_type}</span>
+                        <span className="rounded-md bg-cyan-50 px-2 py-0.5 font-medium text-cyan-800">{log.module_name}</span>
+                      </div>
+                      <p className="mt-2 text-sm text-slate-700 break-words">{log.description}</p>
+                      <p className="mt-2 text-xs text-slate-500">IP: {log.ip_address ?? '—'}</p>
+                    </article>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <div className="hidden md:block overflow-x-auto">
             <table className="w-full border-collapse text-left text-sm">
               <thead className="sticky top-0 z-10 bg-slate-50">
                 <tr>
@@ -467,6 +495,7 @@ export function LogsClient({
                 )}
               </tbody>
             </table>
+            </div>
           </div>
 
           <Pagination

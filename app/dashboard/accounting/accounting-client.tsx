@@ -371,23 +371,23 @@ export function AccountingClient(props: AccountingClientProps) {
   const categoriesData = props.categoriesData ?? []
 
   return (
-    <div className="flex h-full flex-col p-2 sm:p-3 lg:p-4">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 sm:mb-4 flex-shrink-0">
+    <div className="flex h-full min-h-0 flex-col p-2 sm:p-3 lg:p-4">
+      <div className="mb-3 flex flex-shrink-0 flex-wrap items-center justify-between gap-2 sm:mb-4">
         <div className="flex items-center gap-3">
           <SidebarToggleButton />
           <h1 className="text-xl font-semibold text-[#1E1B4B] sm:text-2xl">Accounting</h1>
         </div>
       </div>
 
-      {/* Tab bar with Add/Create buttons inline */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 mb-4">
-        <div className="flex gap-1">
+      {/* Tab bar with Add/Create buttons inline — tabs scroll horizontally on narrow screens */}
+      <div className="mb-4 flex flex-col gap-2 border-b border-gray-200 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-0.5 scrollbar-hide sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
           {TAB_VALUES.map((tab) => (
             <button
               key={tab}
               type="button"
               onClick={() => setTab(tab)}
-              className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors ${
+              className={`flex-shrink-0 px-3 py-2.5 text-sm font-medium rounded-t-lg transition-colors sm:px-4 ${
                 currentTab === tab
                   ? 'bg-white border border-b-0 border-gray-200 text-[#06B6D4] -mb-px font-medium'
                   : 'text-gray-600 hover:text-[#1E1B4B] hover:bg-gray-50 font-medium'
@@ -397,7 +397,7 @@ export function AccountingClient(props: AccountingClientProps) {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2 pb-0.5">
+        <div className="flex flex-shrink-0 flex-wrap items-center gap-2 pb-0.5">
           {currentTab === 'entries' && canWrite && (
             <>
               <button
@@ -693,7 +693,10 @@ export function AccountingClient(props: AccountingClientProps) {
       {accountDetailPanel && (
         <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true">
           <div className="absolute inset-0 bg-black/20" onClick={() => setAccountDetailPanel(null)} />
-          <div className="relative z-10 w-full max-w-md bg-white shadow-xl flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="relative z-10 flex h-full max-h-[100dvh] w-full max-w-md flex-col overflow-y-auto bg-white shadow-xl sm:h-auto sm:max-h-[min(100dvh,90vh)]"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
               <h2 className="text-lg font-semibold text-[#1E1B4B]">Account: {accountDetailPanel.name}</h2>
               <button type="button" onClick={() => setAccountDetailPanel(null)} className="rounded-xl p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600" aria-label="Close">

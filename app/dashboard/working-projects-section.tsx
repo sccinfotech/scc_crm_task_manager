@@ -314,7 +314,77 @@ export function WorkingProjectsSection({
             : 'Projects you have started and not yet ended.'}
         </p>
       </div>
-      <div className="overflow-x-auto -mx-px sm:mx-0 flex-1 min-h-0">
+      <div className="flex flex-1 min-h-0 flex-col">
+        <div className="space-y-3 overflow-y-auto p-3 md:hidden">
+          {isAdmin
+            ? initialProjects.flatMap((project) =>
+                project.team_members.map((member) => (
+                  <article
+                    key={`${project.id}-${member.user_id}`}
+                    className={`rounded-xl border border-slate-200 bg-white p-4 shadow-sm ${
+                      member.work_status === 'hold' ? 'bg-amber-50/60' : ''
+                    }`}
+                  >
+                    <ProjectNameWithIcon
+                      name={project.name}
+                      logoUrl={project.logo_url}
+                      href={`/dashboard/projects/${project.id}`}
+                    />
+                    <div className="mt-3 flex items-center gap-2 border-t border-slate-100 pt-3">
+                      <StaffAvatar
+                        photoUrl={member.photo_url}
+                        fullName={member.full_name}
+                        size="md"
+                        className="shrink-0"
+                      />
+                      <span className="font-medium text-slate-800">{member.full_name || 'Unknown'}</span>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <span className="text-xs font-medium text-slate-500">Total timer</span>
+                      <MemberTimer member={member} />
+                    </div>
+                    <div className="mt-3 border-t border-slate-100 pt-3">{renderWorkActions(project.id, project.name, member)}</div>
+                  </article>
+                ))
+              )
+            : initialProjects.map((project) => (
+                <article
+                  key={project.id}
+                  className={`rounded-xl border border-slate-200 bg-white p-4 shadow-sm ${
+                    project.team_members[0]?.work_status === 'hold' ? 'bg-amber-50/60' : ''
+                  }`}
+                >
+                  <ProjectNameWithIcon
+                    name={project.name}
+                    logoUrl={project.logo_url}
+                    href={`/dashboard/projects/${project.id}`}
+                  />
+                  <div className="mt-3 flex items-center gap-2 border-t border-slate-100 pt-3">
+                    {project.team_members[0] && (
+                      <StaffAvatar
+                        photoUrl={project.team_members[0].photo_url}
+                        fullName={project.team_members[0].full_name}
+                        size="md"
+                        className="shrink-0"
+                      />
+                    )}
+                    <span className="font-medium text-slate-800">
+                      {project.team_members[0]?.full_name || 'Unknown'}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-slate-500">Total timer</span>
+                    {project.team_members.length > 0 && <MemberTimer member={project.team_members[0]} />}
+                  </div>
+                  <div className="mt-3 border-t border-slate-100 pt-3">
+                    {project.team_members.length > 0 &&
+                      renderWorkActions(project.id, project.name, project.team_members[0])}
+                  </div>
+                </article>
+              ))}
+        </div>
+
+        <div className="hidden min-h-0 flex-1 overflow-x-auto md:block -mx-px sm:mx-0">
         <table className="w-full min-w-[560px] text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/50">
@@ -414,6 +484,7 @@ export function WorkingProjectsSection({
             )}
           </tbody>
         </table>
+        </div>
       </div>
       <EndWorkModal
         isOpen={endWorkProject != null}

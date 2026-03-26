@@ -86,7 +86,7 @@ export function PaymentsClient({ projects, initialSearch, initialStatus }: Payme
   }, [router])
 
   return (
-    <div className="flex h-full flex-col p-2 sm:p-3 lg:p-4">
+    <div className="flex h-full min-h-0 flex-col p-2 sm:p-3 lg:p-4">
       <div className="mb-3 flex flex-shrink-0 items-center gap-3">
         <SidebarToggleButton />
         <h1 className="text-xl font-semibold text-[#1E1B4B] sm:text-2xl">Payments</h1>
@@ -122,7 +122,77 @@ export function PaymentsClient({ projects, initialSearch, initialStatus }: Payme
               />
             </div>
           ) : (
-            <table className="w-full">
+            <>
+            <ul className="list-none space-y-3 p-3 md:hidden" aria-label="Payment projects list">
+              {projects.map((row) => (
+                <li key={row.id}>
+                  <article
+                    className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors active:bg-slate-50/80"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleRowClick(row.id)}
+                      className="flex w-full items-start gap-3 text-left"
+                    >
+                      {row.logo_url ? (
+                        <span className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-50 ring-1 ring-slate-200/80 shadow-sm">
+                          <Image
+                            src={row.logo_url}
+                            alt=""
+                            fill
+                            className="object-contain p-0.5"
+                            sizes="40px"
+                          />
+                        </span>
+                      ) : (
+                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 text-sm font-bold text-white shadow-sm ring-2 ring-white">
+                          {row.name?.trim()[0]?.toUpperCase() ?? 'P'}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-base font-semibold text-gray-900 leading-snug">{row.name}</h3>
+                        <p className="mt-0.5 text-sm text-slate-600">
+                          {row.client_name || row.client_company_name || '—'}
+                        </p>
+                        <dl className="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
+                          <div className="rounded-lg bg-slate-50 px-3 py-2">
+                            <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Total</dt>
+                            <dd className="font-semibold text-[#1E1B4B]">{formatCurrency(row.total_amount)}</dd>
+                          </div>
+                          <div className="rounded-lg bg-amber-50/80 px-3 py-2">
+                            <dt className="text-[10px] font-semibold uppercase tracking-wide text-amber-800">Pending</dt>
+                            <dd className="font-semibold text-amber-800">{formatCurrency(row.pending_amount)}</dd>
+                          </div>
+                          <div className="rounded-lg bg-emerald-50/80 px-3 py-2">
+                            <dt className="text-[10px] font-semibold uppercase tracking-wide text-emerald-800">Received</dt>
+                            <dd className="font-semibold text-emerald-800">{formatCurrency(row.received_amount)}</dd>
+                          </div>
+                        </dl>
+                      </div>
+                    </button>
+                    <div className="mt-3 flex justify-end border-t border-slate-100 pt-3">
+                      <Tooltip content="Add Payment">
+                        <button
+                          type="button"
+                          onClick={(e) => handlePayNow(e, row)}
+                          disabled={row.pending_amount <= 0}
+                          className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          aria-label="Pay now"
+                        >
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                          </svg>
+                          Add payment
+                        </button>
+                      </Tooltip>
+                    </div>
+                  </article>
+                </li>
+              ))}
+            </ul>
+
+            <div className="hidden md:block overflow-x-auto">
+            <table className="w-full min-w-[640px]">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50">
                   <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">Project</th>
@@ -198,6 +268,8 @@ export function PaymentsClient({ projects, initialSearch, initialStatus }: Payme
                 ))}
               </tbody>
             </table>
+            </div>
+            </>
           )}
         </div>
       </div>

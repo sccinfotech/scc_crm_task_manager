@@ -262,6 +262,63 @@ export function ProductClientsSection({
           </div>
         ) : (
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <ul className="list-none divide-y divide-slate-100 md:hidden" aria-label="Connected clients list">
+              {subscriptions.map((sub) => {
+                const { status, label, isActive } = getStatusAndRemaining(sub.renew_date)
+                return (
+                  <li key={sub.id} className="p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-slate-900">{sub.client_name}</p>
+                        <p className="text-sm text-slate-500">{sub.client_company_name || '—'}</p>
+                      </div>
+                      <span
+                        className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                          isActive
+                            ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-500/20'
+                            : 'bg-rose-50 text-rose-700 ring-1 ring-rose-500/20'
+                        }`}
+                      >
+                        {status}
+                      </span>
+                    </div>
+                    {product.is_annual_subscription && (
+                      <p className="mt-2 text-sm text-slate-700">
+                        <span className="text-slate-500">Renew: </span>
+                        {sub.renew_date}
+                      </p>
+                    )}
+                    <p className="mt-1 text-sm font-medium text-slate-800">Remaining: {label}</p>
+                    <div className="mt-3 flex justify-end gap-2 border-t border-slate-100 pt-3">
+                      {product.is_annual_subscription && (
+                        <Tooltip content="Renew subscription" position="top">
+                          <button
+                            type="button"
+                            disabled={!canWrite}
+                            onClick={() => handleOpenRenew(sub)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-800 hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            Renew
+                          </button>
+                        </Tooltip>
+                      )}
+                      <Tooltip content="Remove client" position="top">
+                        <button
+                          type="button"
+                          disabled={removingId === sub.client_id || !canWrite}
+                          onClick={() => handleOpenRemoveConfirm(sub.client_id, sub.client_name)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-800 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Remove
+                        </button>
+                      </Tooltip>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+
+            <div className="hidden md:block">
             <table className="w-full table-auto text-xs">
               <thead className="bg-slate-50/80">
                 <tr className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
@@ -387,6 +444,7 @@ export function ProductClientsSection({
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </div>

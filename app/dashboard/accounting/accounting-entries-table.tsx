@@ -33,7 +33,101 @@ export function AccountingEntriesTable({ entries, canWrite, onEdit, onDelete }: 
   }
 
   return (
-    <div className="overflow-x-auto">
+    <>
+      <ul className="list-none space-y-3 p-3 md:hidden" aria-label="Accounting entries list">
+        {entries.map((row) => {
+          const isClientPayment = row.category_name === 'Client Payment'
+          return (
+            <li key={row.id}>
+              <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm font-medium text-[#1E1B4B]">{formatDate(row.entry_date)}</span>
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                      row.entry_type === 'income'
+                        ? 'bg-[rgba(22,163,74,0.08)] text-[#15803D] border-[rgba(22,163,74,0.4)]'
+                        : 'bg-[rgba(220,38,38,0.06)] text-[#B91C1C] border-[rgba(220,38,38,0.4)]'
+                    }`}
+                  >
+                    {row.entry_type === 'income' ? 'Income' : 'Expense'}
+                  </span>
+                </div>
+                <p
+                  className={`mt-2 text-lg font-semibold ${
+                    row.entry_type === 'income' ? 'text-[#15803D]' : 'text-[#B91C1C]'
+                  }`}
+                >
+                  {formatAmount(row.amount, row.entry_type)}
+                </p>
+                <dl className="mt-3 space-y-1.5 text-sm text-slate-700">
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-slate-500">Account</dt>
+                    <dd className="text-right font-medium text-[#1E1B4B]">{row.account_name}</dd>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-slate-500">Category</dt>
+                    <dd className="text-right font-medium">{row.category_name}</dd>
+                  </div>
+                  {row.project_name && (
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-slate-500">Project</dt>
+                      <dd className="text-right">{row.project_name}</dd>
+                    </div>
+                  )}
+                  <div className="pt-1">
+                    <dt className="text-slate-500">Remarks</dt>
+                    <dd className="mt-0.5 text-slate-700">{row.remarks ?? '—'}</dd>
+                  </div>
+                </dl>
+                {canWrite && (
+                  <div className="mt-3 flex justify-end gap-1 border-t border-slate-100 pt-3">
+                    {isClientPayment ? (
+                      <span className="text-xs italic text-slate-400">Linked payment</span>
+                    ) : (
+                      <>
+                        <Tooltip content="Edit entry" position="top">
+                          <button
+                            type="button"
+                            onClick={() => onEdit(row)}
+                            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+                            aria-label="Edit entry"
+                          >
+                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                              />
+                            </svg>
+                          </button>
+                        </Tooltip>
+                        <Tooltip content="Delete entry" position="top">
+                          <button
+                            type="button"
+                            onClick={() => onDelete(row.id)}
+                            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                            aria-label="Delete entry"
+                          >
+                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              />
+                            </svg>
+                          </button>
+                        </Tooltip>
+                      </>
+                    )}
+                  </div>
+                )}
+              </article>
+            </li>
+          )
+        })}
+      </ul>
+
+      <div className="hidden md:block overflow-x-auto">
       <table className="w-full">
         <thead>
           <tr className="border-b border-gray-200 bg-gray-50">
@@ -128,6 +222,7 @@ export function AccountingEntriesTable({ entries, canWrite, onEdit, onDelete }: 
           )})}
         </tbody>
       </table>
-    </div>
+      </div>
+    </>
   )
 }

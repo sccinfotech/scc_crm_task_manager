@@ -135,7 +135,6 @@ export const UsersTable = memo(function UsersTable({ users, canWrite, onRowClick
             </div>
 
             <p className="mt-2 text-sm font-medium text-slate-600">
-              Mobile:{' '}
               {user.personal_mobile_no ? (
                 <a
                   href={`tel:${user.personal_mobile_no}`}

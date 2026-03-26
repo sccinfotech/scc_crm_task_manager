@@ -44,7 +44,7 @@ function resolveProjectDetailTab(
 
 interface ProjectDetailPageProps {
   params: Promise<{ project_id: string }>
-  searchParams: Promise<{ tab?: string; detailsTab?: string; from?: string; userId?: string; returnTo?: string }>
+  searchParams: Promise<{ tab?: string; detailsTab?: string; from?: string; userId?: string; returnTo?: string; taskId?: string }>
 }
 
 function sanitizeDashboardPath(value: string | undefined): string | null {
@@ -100,8 +100,13 @@ export default async function ProjectDetailPage({ params, searchParams }: Projec
     showRequirementsAndPayments,
     taskTabOnlyAccess,
   })
+  let tabParam = parseProjectDetailTab(query.tab)
+  if (!tabParam && query.taskId) {
+    tabParam = 'tasks'
+  }
+
   const initialResolvedTab = resolveProjectDetailTab(
-    parseProjectDetailTab(query.tab),
+    tabParam,
     visibleTabs
   )
 

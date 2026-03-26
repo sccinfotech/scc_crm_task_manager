@@ -329,6 +329,105 @@ export const LeadsTable = memo(function LeadsTable({
 
   return (
     <div className="h-full w-full bg-white">
+      <ul className="list-none space-y-3 p-3 md:hidden" aria-label="Leads list">
+        {leads.map((lead) => {
+          const formattedCreatedAt = formatDate(lead.created_at)
+          const formattedFollowUpDate = formatFollowUpDate(lead.follow_up_date)
+          const followUpDateColor = getFollowUpDateColor(lead.follow_up_date)
+          return (
+            <li key={lead.id}>
+              <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <Link
+                  href={`/dashboard/leads/${lead.id}`}
+                  prefetch
+                  className="flex items-center gap-3 no-underline text-inherit"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 text-sm font-bold text-white shadow-sm ring-2 ring-white">
+                    {getInitials(lead.name)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-gray-900">{lead.name}</p>
+                    {lead.company_name && (
+                      <p className="truncate text-sm text-gray-500">{lead.company_name}</p>
+                    )}
+                  </div>
+                </Link>
+                <div className="mt-2 text-sm">
+                  {lead.phone ? (
+                    <a
+                      href={`tel:${lead.phone}`}
+                      className="font-medium text-indigo-600 hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {lead.phone}
+                    </a>
+                  ) : (
+                    <span className="text-gray-500">—</span>
+                  )}
+                </div>
+                {lead.notes && (
+                  <p className="mt-2 line-clamp-3 text-sm text-gray-600">{lead.notes}</p>
+                )}
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <Link href={`/dashboard/leads/${lead.id}`} prefetch className="no-underline">
+                    <StatusPill status={lead.status} />
+                  </Link>
+                  {lead.follow_up_date && (
+                    <span className={`text-sm ${followUpDateColor}`}>Follow-up: {formattedFollowUpDate}</span>
+                  )}
+                </div>
+                <p className="mt-2 text-xs text-gray-500">Created {formattedCreatedAt}</p>
+                <div className="mt-3 flex flex-wrap justify-end gap-1 border-t border-slate-100 pt-3">
+                  {canConvert && onConvert && lead.status !== 'converted' && (
+                    <Tooltip content="Convert to client" position="top">
+                      <button
+                        type="button"
+                        onClick={() => onConvert(lead.id)}
+                        className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600"
+                        aria-label="Convert to client"
+                      >
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </button>
+                    </Tooltip>
+                  )}
+                  {canWrite && (
+                    <Tooltip content="Edit lead details" position="top">
+                      <button
+                        type="button"
+                        onClick={() => onEdit(lead.id)}
+                        className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+                        aria-label="Edit lead"
+                      >
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                    </Tooltip>
+                  )}
+                  {canWrite && (
+                    <Tooltip content="Remove lead record" position="top">
+                      <button
+                        type="button"
+                        onClick={() => onDelete(lead.id, lead.name)}
+                        className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                        aria-label="Delete lead"
+                      >
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </Tooltip>
+                  )}
+                </div>
+              </article>
+            </li>
+          )
+        })}
+      </ul>
+
+      <div className="hidden md:block overflow-x-auto">
       <table className="w-full table-fixed divide-y divide-gray-100">
         <thead className="sticky top-0 z-10 bg-white">
           <tr className="bg-gray-50/50">
@@ -405,6 +504,7 @@ export const LeadsTable = memo(function LeadsTable({
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   )
 })

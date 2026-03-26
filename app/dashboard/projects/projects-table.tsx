@@ -309,6 +309,179 @@ export const ProjectsTable = memo(function ProjectsTable({
 
   return (
     <div className="h-full w-full bg-white">
+      <ul className="list-none space-y-3 p-3 md:hidden" aria-label="Projects list">
+        {projects.map((project) => {
+          const canEdit = canWrite
+          const canDelete = canWrite
+          const clientLabel = project.client_name || project.client_company_name || '--'
+          const projectHref = buildProjectHref
+            ? buildProjectHref(project.id)
+            : `/dashboard/projects/${project.id}?tab=tasks`
+          return (
+            <li key={project.id}>
+              <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <Link href={projectHref} prefetch className="flex items-start gap-3 no-underline text-inherit">
+                  {project.logo_url ? (
+                    <span className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-50 ring-1 ring-slate-200/80 shadow-sm">
+                      <Image
+                        src={project.logo_url}
+                        alt=""
+                        fill
+                        className="object-contain p-0.5"
+                        sizes="40px"
+                      />
+                    </span>
+                  ) : (
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 text-sm font-bold text-white shadow-sm ring-2 ring-white">
+                      {getInitials(project.name)}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-base font-semibold text-gray-900 leading-snug">{project.name}</h3>
+                    {showClientColumn && <p className="mt-0.5 text-sm text-slate-600">{clientLabel}</p>}
+                  </div>
+                </Link>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <Link href={projectHref} prefetch className="no-underline">
+                    <StatusPill status={project.status} />
+                  </Link>
+                  {showWorkingStatusColumn &&
+                    (() => {
+                      const statusLabel = getWorkingStatusLabel?.(project)
+                      if (!statusLabel) return null
+                      return (
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ring-1 ring-inset ${getWorkingStatusBadgeClasses(statusLabel)}`}
+                        >
+                          {statusLabel}
+                        </span>
+                      )
+                    })()}
+                </div>
+                <dl className="mt-2 space-y-1 text-xs text-slate-600">
+                  <div>
+                    <span className="text-slate-500">Client deadline: </span>
+                    {project.client_deadline_date ? formatDate(project.client_deadline_date) : '—'}
+                  </div>
+                  <div className={project.follow_up_date ? getFollowUpDateColor(project.follow_up_date) : ''}>
+                    <span className="text-slate-500">Follow-up: </span>
+                    {project.follow_up_date ? formatFollowUpDate(project.follow_up_date) : '—'}
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Created: </span>
+                    {formatDate(project.created_at)}
+                  </div>
+                </dl>
+                {project.technology_tools_display && (
+                  <p className="mt-2 line-clamp-2 text-xs text-slate-500">{project.technology_tools_display}</p>
+                )}
+                {showWorkActions && (
+                  <div className="mt-3 border-t border-slate-100 pt-3">
+                    {project.my_work_status != null ? (
+                      <div className="flex flex-wrap items-center gap-1">
+                        {project.my_work_status === 'not_started' && (
+                          <WorkActionButton
+                            label="Start"
+                            tone="emerald"
+                            disabled={workActionProjectId === project.id}
+                            isLoading={workActionProjectId === project.id}
+                            onClick={() => handleWorkAction(project.id, 'start')}
+                            icon={<WorkActionIcon action="start" />}
+                          />
+                        )}
+                        {project.my_work_status === 'start' && (
+                          <>
+                            <WorkActionButton
+                              label="Hold"
+                              tone="amber"
+                              disabled={workActionProjectId === project.id}
+                              isLoading={workActionProjectId === project.id}
+                              onClick={() => handleWorkAction(project.id, 'hold')}
+                              icon={<WorkActionIcon action="hold" />}
+                            />
+                            <WorkActionButton
+                              label="End session"
+                              tone="slate"
+                              disabled={workActionProjectId === project.id}
+                              isLoading={false}
+                              onClick={() => setEndWorkProject({ id: project.id, name: project.name })}
+                              icon={<WorkActionIcon action="end" />}
+                            />
+                          </>
+                        )}
+                        {project.my_work_status === 'hold' && (
+                          <>
+                            <WorkActionButton
+                              label="Resume"
+                              tone="cyan"
+                              disabled={workActionProjectId === project.id}
+                              isLoading={workActionProjectId === project.id}
+                              onClick={() => handleWorkAction(project.id, 'resume')}
+                              icon={<WorkActionIcon action="resume" />}
+                            />
+                            <WorkActionButton
+                              label="End session"
+                              tone="slate"
+                              disabled={workActionProjectId === project.id}
+                              isLoading={false}
+                              onClick={() => setEndWorkProject({ id: project.id, name: project.name })}
+                              icon={<WorkActionIcon action="end" />}
+                            />
+                          </>
+                        )}
+                        {project.my_work_status === 'end' && (
+                          <WorkActionButton
+                            label="Start again"
+                            tone="emerald"
+                            disabled={workActionProjectId === project.id}
+                            isLoading={workActionProjectId === project.id}
+                            onClick={() => handleWorkAction(project.id, 'start')}
+                            icon={<WorkActionIcon action="start" />}
+                          />
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-slate-400">—</span>
+                    )}
+                  </div>
+                )}
+                <div className="mt-3 flex justify-end gap-1 border-t border-slate-100 pt-3">
+                  {canEdit && (
+                    <Tooltip content="Edit project" position="top">
+                      <button
+                        type="button"
+                        onClick={() => onEdit(project.id)}
+                        className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+                        aria-label="Edit project"
+                      >
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                    </Tooltip>
+                  )}
+                  {canDelete && (
+                    <Tooltip content="Remove project" position="top">
+                      <button
+                        type="button"
+                        onClick={() => onDelete(project.id, project.name)}
+                        className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                        aria-label="Delete project"
+                      >
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </Tooltip>
+                  )}
+                </div>
+              </article>
+            </li>
+          )
+        })}
+      </ul>
+
+      <div className="hidden md:block overflow-x-auto">
       <table className="w-full table-fixed divide-y divide-gray-100">
         <thead className="sticky top-0 z-10 bg-white">
           <tr className="bg-gray-50/50">
@@ -593,6 +766,7 @@ export const ProjectsTable = memo(function ProjectsTable({
           })}
         </tbody>
       </table>
+      </div>
 
       <EndWorkModal
         isOpen={endWorkProject != null}

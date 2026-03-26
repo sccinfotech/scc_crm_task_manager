@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import type { ClientSelectOption } from '@/lib/clients/actions'
 import type { ProductFormData, ProductListItem } from '@/lib/products/actions'
@@ -45,15 +45,6 @@ export function ProductsClient({
   const [deleteProductName, setDeleteProductName] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [deleting, setDeleting] = useState(false)
-
-  const [mobileProducts, setMobileProducts] = useState<ProductListItem[]>(products)
-  const [mobilePage, setMobilePage] = useState(page)
-  const [loadingMore, setLoadingMore] = useState(false)
-
-  useEffect(() => {
-    setMobileProducts(products)
-    setMobilePage(page)
-  }, [products, page, initialSearch])
 
   const buildSearchParams = useCallback(
     (updates: { search?: string; page?: number }) => {
@@ -174,16 +165,6 @@ export function ProductsClient({
     router.refresh()
   }
 
-  const handleLoadMore = useCallback(async () => {
-    if (loadingMore || mobileProducts.length >= totalCount) return
-    setLoadingMore(true)
-    // Reuse server page route by pushing next page; for mobile infinite scroll we simply rely on server pagination
-    const nextPage = mobilePage + 1
-    const q = buildSearchParams({ page: nextPage })
-    router.push(`${pathname}${q ? `?${q}` : ''}`)
-    setLoadingMore(false)
-  }, [loadingMore, mobileProducts.length, totalCount, mobilePage, buildSearchParams, pathname, router])
-
   const getInitialEditData = (): ProductFormData | undefined => {
     if (!selectedProductId) return undefined
     const product = products.find((p) => p.id === selectedProductId)
@@ -199,13 +180,13 @@ export function ProductsClient({
 
   return (
     <>
-      <div className="flex h-full flex-col p-2 sm:p-3 lg:p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+      <div className="flex h-full min-h-0 flex-col p-2 sm:p-3 lg:p-4">
+        <div className="mb-3 flex flex-shrink-0 flex-wrap items-center justify-between gap-2 sm:gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <SidebarToggleButton />
-            <h1 className="text-2xl font-semibold text-[#1E1B4B]">Products</h1>
+            <h1 className="text-xl font-semibold text-[#1E1B4B] sm:text-2xl">Products</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-shrink-0 items-center gap-2">
             <button
               type="button"
               onClick={handleRefresh}
@@ -227,7 +208,7 @@ export function ProductsClient({
           </div>
         </div>
 
-        <div className="flex-1 overflow-hidden rounded-lg bg-white shadow-sm flex flex-col">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg bg-white shadow-sm">
           <ProductsFilters
             searchQuery={initialSearch}
             onSearchChange={(q) => handleFilterChange({ search: q })}
@@ -239,8 +220,8 @@ export function ProductsClient({
               <p className="text-sm text-blue-800">Loading...</p>
             </div>
           )}
-          <div className="flex-1 overflow-y-auto">
-            <div className="h-full">
+          <div className="min-h-0 flex-1 overflow-auto">
+            <div className="min-h-full min-w-0">
               <ProductsTable
                 products={products}
                 onManageClients={handleManageClients}
@@ -255,7 +236,7 @@ export function ProductsClient({
             totalCount={totalCount}
             pageSize={pageSize}
             onPageChange={handlePageChange}
-            className="hidden md:flex"
+            className="flex-shrink-0"
           />
         </div>
       </div>
