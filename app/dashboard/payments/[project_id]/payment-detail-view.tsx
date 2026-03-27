@@ -174,7 +174,34 @@ export function PaymentDetailView({ detail }: PaymentDetailViewProps) {
               {requirements.length === 0 ? (
                 <p className="text-sm text-slate-500">No requirements recorded.</p>
               ) : (
-                <div className="overflow-x-auto">
+                <>
+                  <ul className="mb-3 list-none space-y-3 md:hidden" aria-label="Requirements list">
+                    {requirements.map((req: ProjectRequirement, index: number) => {
+                      const desc = (req.description || '').trim() || 'No description'
+                      return (
+                        <li key={req.id}>
+                          <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                            <div className="flex items-center justify-between gap-2 text-xs text-slate-600">
+                              <span className="font-semibold text-slate-800">#{index + 1}</span>
+                              <span>{req.requirement_type === 'addon' ? 'Add-on' : 'Initial'}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setDescriptionModalText(desc)}
+                              className="mt-2 w-full rounded-lg border border-slate-100 bg-slate-50/80 px-2 py-2 text-left text-sm text-slate-800"
+                              aria-label="View full description"
+                            >
+                              <span className="line-clamp-3 whitespace-pre-line break-words">{desc}</span>
+                            </button>
+                            <p className="mt-3 text-right text-base font-semibold text-cyan-700">
+                              {formatCurrency(req.amount ?? 0)}
+                            </p>
+                          </article>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                <div className="hidden overflow-x-auto md:block">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-gray-200 bg-gray-50">
@@ -210,6 +237,7 @@ export function PaymentDetailView({ detail }: PaymentDetailViewProps) {
                     </tbody>
                   </table>
                 </div>
+                </>
               )}
             </>
           )}
@@ -224,7 +252,45 @@ export function PaymentDetailView({ detail }: PaymentDetailViewProps) {
                   />
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <>
+                  <ul className="mb-3 list-none space-y-3 md:hidden" aria-label="Payment history list">
+                    {paymentHistory.map((entry) => (
+                      <li key={entry.id}>
+                        <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="text-sm font-medium text-slate-800">{formatDate(entry.entry_date)}</p>
+                              <p className="mt-0.5 text-sm text-slate-600">{entry.account_name}</p>
+                              <p className="mt-2 text-lg font-semibold text-emerald-700">{formatCurrency(entry.amount)}</p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-0.5">
+                              <button
+                                type="button"
+                                onClick={() => setEditingEntry(entry)}
+                                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+                                aria-label="Edit payment"
+                              >
+                                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEntryToDelete(entry)}
+                                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                                aria-label="Delete payment"
+                              >
+                                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        </article>
+                      </li>
+                    ))}
+                  </ul>
+                <div className="hidden overflow-x-auto md:block">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-gray-200 bg-gray-50">
@@ -269,6 +335,7 @@ export function PaymentDetailView({ detail }: PaymentDetailViewProps) {
                     </tbody>
                   </table>
                 </div>
+                </>
               )}
             </>
           )}

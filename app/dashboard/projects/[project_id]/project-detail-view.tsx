@@ -608,10 +608,16 @@ export function ProjectDetailView({
 
   /** Keep tab in sync with URL (handles refresh/back-forward/manual query edits). */
   useEffect(() => {
-    const nextTab = resolveProjectDetailTab(
-      parseProjectDetailTab(searchParams.get('tab')),
-      visibleTabIds
-    )
+    const rawTabParam = searchParams.get('tab')
+    const taskIdParam = searchParams.get('taskId')
+    
+    // If taskId is provided but no tab is specified, default to tasks
+    let parsedTabParam = parseProjectDetailTab(rawTabParam)
+    if (!parsedTabParam && taskIdParam) {
+      parsedTabParam = 'tasks'
+    }
+
+    const nextTab = resolveProjectDetailTab(parsedTabParam, visibleTabIds)
     setActiveTab((currentTab) => (currentTab === nextTab ? currentTab : nextTab))
   }, [searchParams, visibleTabIds])
 

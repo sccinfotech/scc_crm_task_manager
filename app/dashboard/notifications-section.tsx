@@ -69,7 +69,39 @@ export function NotificationsSection({ notifications: initialNotifications }: No
           </button>
         )}
       </div>
-      <div className="overflow-x-auto min-h-0 flex-1 -mx-px sm:mx-0">
+      <div className="min-h-0 flex-1 overflow-y-auto -mx-px sm:mx-0">
+        <ul className="list-none space-y-2 p-3 md:hidden" aria-label="Notifications list">
+          {initialNotifications.map((notification) => (
+            <li key={notification.id}>
+              <button
+                type="button"
+                onClick={() => handleRowClick(notification)}
+                className={`flex w-full rounded-xl border border-slate-200 p-3 text-left shadow-sm transition-colors hover:bg-slate-50/80 ${
+                  notification.is_read ? 'bg-white' : 'bg-cyan-50/50 border-cyan-100'
+                }`}
+              >
+                <div
+                  className={`mr-3 mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+                    notification.is_read ? 'bg-transparent' : 'bg-cyan-500'
+                  }`}
+                  aria-hidden
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-slate-800">{notification.title}</p>
+                  {notification.project_id && notification.project_title && (
+                    <p className="mt-0.5 text-xs text-slate-500 line-clamp-1">
+                      Project: {notification.project_title}
+                    </p>
+                  )}
+                  <p className="mt-1 text-sm text-slate-600 line-clamp-3">{notification.body || '—'}</p>
+                  <p className="mt-2 text-xs text-slate-500">{formatRelativeTime(notification.created_at)}</p>
+                </div>
+              </button>
+            </li>
+          ))}
+        </ul>
+
+        <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-sm min-w-[360px]">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/50">
@@ -119,6 +151,7 @@ export function NotificationsSection({ notifications: initialNotifications }: No
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </section>
   )

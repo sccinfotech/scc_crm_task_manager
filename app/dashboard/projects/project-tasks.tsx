@@ -3,7 +3,7 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, useId, type ReactElement } from 'react'
 import { createPortal } from 'react-dom'
 import Image from 'next/image'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useToast } from '@/app/components/ui/toast-context'
 import { Tooltip } from '@/app/components/ui/tooltip'
 import { StaffAvatar } from '@/app/components/ui/staff-avatar'
@@ -513,9 +513,13 @@ export function ProjectTasks({
     task_type: 'all',
     mine_only: false,
   })
+  const searchParams = useSearchParams()
+  const pathname = usePathname()
   const [tasks, setTasks] = useState<ProjectTaskListItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(() => {
+    return searchParams.get('taskId') ?? null
+  })
   const [taskDetail, setTaskDetail] = useState<ProjectTaskDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [createModalDefaultStatus, setCreateModalDefaultStatus] = useState<TaskStatus | null>(null)
@@ -554,6 +558,41 @@ export function ProjectTasks({
     handleViewportChange()
     mediaQuery.addEventListener('change', handleViewportChange)
     return () => mediaQuery.removeEventListener('change', handleViewportChange)
+  }, [])
+
+  /** Keep URL in sync with selectedTaskId for deep linking without triggering RSC. */
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    // We don't want the CREATE_TASK_SENTINEL in the URL as it's a transient state
+    const targetTaskId = selectedTaskId === CREATE_TASK_SENTINEL ? null : selectedTaskId
+    const params = new URLSearchParams(window.location.search)
+    const urlTaskId = params.get('taskId')
+
+    if (targetTaskId !== urlTaskId) {
+      if (targetTaskId) {
+        params.set('taskId', targetTaskId)
+      } else {
+        params.delete('taskId')
+      }
+      const query = params.toString()
+      const nextUrl = query ? `${pathname}?${query}` : pathname
+      window.history.replaceState(null, '', nextUrl)
+    }
+  }, [selectedTaskId, pathname])
+
+  /** Handle browser back/forward buttons: sync state when URL changes externally. */
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search)
+      const urlTaskId = params.get('taskId')
+      setSelectedTaskId(urlTaskId)
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
   }, [])
 
   const loadTasks = useCallback(async () => {

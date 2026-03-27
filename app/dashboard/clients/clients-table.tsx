@@ -113,6 +113,146 @@ export function ClientsTable({
 
   return (
     <div className="h-full w-full bg-white">
+      <ul className="list-none space-y-3 p-3 md:hidden" aria-label="Clients list">
+        {clients.map((client) => {
+          const canEdit = canWrite
+          const canDelete = canWrite
+          return (
+            <li key={client.id}>
+              <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <Link
+                  href={`/dashboard/clients/${client.id}`}
+                  prefetch
+                  className="flex items-center gap-3 no-underline text-inherit"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 text-sm font-bold text-white shadow-sm ring-2 ring-white">
+                    {getInitials(client.name)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold text-gray-900">{client.name}</p>
+                      <span
+                        className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                          client.status === 'active'
+                            ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-500/20'
+                            : 'bg-slate-100 text-slate-600 ring-1 ring-slate-300/40'
+                        }`}
+                      >
+                        {client.status === 'active' ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                    {client.email && <p className="truncate text-xs text-gray-500">{client.email}</p>}
+                  </div>
+                </Link>
+                {client.company_name && (
+                  <p className="mt-2 text-sm text-slate-600">
+                    <span className="text-slate-500">Company: </span>
+                    {client.company_name}
+                  </p>
+                )}
+                <p className="mt-1 text-sm">
+                  {client.phone ? (
+                    <a href={`tel:${client.phone}`} className="font-medium text-indigo-600 hover:underline">
+                      {client.phone}
+                    </a>
+                  ) : (
+                    <span className="text-gray-500">No phone</span>
+                  )}
+                </p>
+                {client.remark && (
+                  <p className="mt-2 line-clamp-2 text-sm text-gray-500">{client.remark}</p>
+                )}
+                {showProductsColumn && client.products && client.products.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {client.products.map((product) => (
+                      <span
+                        key={product.id}
+                        className="inline-flex rounded-full bg-cyan-50 px-2 py-0.5 text-[11px] font-medium text-cyan-700 ring-1 ring-cyan-500/15"
+                      >
+                        {product.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div
+                  className="mt-3 flex flex-wrap justify-end gap-1 border-t border-slate-100 pt-3"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {canManageInternalNotes && onOpenInternalNotes && (
+                    <Tooltip content="Internal notes" position="top">
+                      <button
+                        type="button"
+                        onClick={() => onOpenInternalNotes(client.id, client.name)}
+                        className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-cyan-50 hover:text-cyan-600"
+                        aria-label="Internal notes"
+                      >
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h8m-8 4h8m-8 4h6M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H9l-4 4V7a2 2 0 012-2z" />
+                        </svg>
+                      </button>
+                    </Tooltip>
+                  )}
+                  {canEdit && (
+                    <Tooltip content="Edit client details" position="top">
+                      <button
+                        type="button"
+                        onClick={() => onEdit(client.id)}
+                        className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+                        aria-label="Edit client"
+                      >
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                    </Tooltip>
+                  )}
+                  {canDelete && (
+                    <Tooltip content="Remove client record" position="top">
+                      <button
+                        type="button"
+                        onClick={() => onDelete(client.id, client.name)}
+                        className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                        aria-label="Delete client"
+                      >
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </Tooltip>
+                  )}
+                  {canEdit && (
+                    <Tooltip content={client.status === 'active' ? 'Set Inactive' : 'Set Active'} position="top">
+                      <button
+                        type="button"
+                        onClick={() => onToggleStatus(client.id, client.name, client.status)}
+                        className={`rounded-lg p-2 transition-colors ${
+                          client.status === 'active'
+                            ? 'text-emerald-600 hover:bg-emerald-50'
+                            : 'text-rose-600 hover:bg-rose-50'
+                        }`}
+                        aria-label={client.status === 'active' ? 'Set inactive' : 'Set active'}
+                      >
+                        {client.status === 'active' ? (
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        ) : (
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <circle cx="12" cy="12" r="9" />
+                            <path strokeLinecap="round" d="M6 6l12 12" />
+                          </svg>
+                        )}
+                      </button>
+                    </Tooltip>
+                  )}
+                </div>
+              </article>
+            </li>
+          )
+        })}
+      </ul>
+
+      <div className="hidden md:block overflow-x-auto">
       <table className="w-full table-fixed divide-y divide-gray-100">
         <thead className="sticky top-0 z-10 bg-white">
           <tr className="bg-gray-50/50">
@@ -319,6 +459,7 @@ export function ClientsTable({
           })}
         </tbody>
       </table>
+      </div>
     </div>
   )
 }
