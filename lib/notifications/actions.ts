@@ -53,12 +53,12 @@ export async function getNotifications(limit = 30): Promise<ActionResult<Notific
   if (projectIds.length > 0) {
     const { data: projects, error: projectsError } = await (supabase as any)
       .from('projects')
-      .select('id, title')
+      .select('id, name')
       .in('id', projectIds)
 
     if (!projectsError && projects) {
       projectTitleMap = new Map(
-        (projects as Array<{ id: string; title: string | null }>).map((p) => [p.id, p.title])
+        (projects as Array<{ id: string; name: string | null }>).map((p) => [p.id, p.name])
       )
     }
   }

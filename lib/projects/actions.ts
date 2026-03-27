@@ -290,6 +290,33 @@ function normalizeTeamMember(row: any): ProjectTeamMember | null {
   }
 }
 
+async function insertProjectNotifications(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  notifications: Array<{
+    user_id: string
+    project_id: string
+    type: string
+    title: string
+    body?: string | null
+    meta?: Record<string, any> | null
+    created_by: string
+  }>
+) {
+  if (notifications.length === 0) return
+
+  await (supabase as any).from('notifications').insert(
+    notifications.map((note) => ({
+      user_id: note.user_id,
+      project_id: note.project_id,
+      type: note.type,
+      title: note.title,
+      body: note.body ?? null,
+      meta: note.meta ?? null,
+      created_by: note.created_by,
+    }))
+  )
+}
+
 async function isUserAssignedToProject(
   supabase: Awaited<ReturnType<typeof createClient>>,
   projectId: string,
@@ -1017,6 +1044,21 @@ export async function createProject(formData: ProjectFormData): Promise<ProjectA
       await supabase.from('projects').delete().eq('id', (data as { id: string }).id)
       return { data: null, error: teamError.message || 'Failed to save project team members' }
     }
+
+    await insertProjectNotifications(
+      supabase,
+      teamMemberIds
+        .filter((memberId) => memberId !== currentUser.id)
+        .map((memberId) => ({
+          user_id: memberId,
+          project_id: (data as { id: string }).id,
+          type: 'project_assigned',
+          title: 'New project assigned',
+          body: formData.name.trim(),
+          meta: { project_name: formData.name.trim() },
+          created_by: currentUser.id,
+        }))
+    )
   }
 
   await createActivityLogEntry({
@@ -1191,6 +1233,21 @@ export async function updateProject(projectId: string, formData: ProjectFormData
         console.error('Error adding project team members:', teamError)
         return { data: null, error: teamError.message || 'Failed to update project team members' }
       }
+
+      await insertProjectNotifications(
+        supabase,
+        teamMemberIdsToInsert
+          .filter((memberId) => memberId !== currentUser.id)
+          .map((memberId) => ({
+            user_id: memberId,
+            project_id: projectId,
+            type: 'project_assigned',
+            title: 'New project assigned',
+            body: formData.name.trim(),
+            meta: { project_name: formData.name.trim() },
+            created_by: currentUser.id,
+          }))
+      )
     }
   }
 
