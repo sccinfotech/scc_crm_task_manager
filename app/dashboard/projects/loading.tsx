@@ -6,11 +6,19 @@ export default function ProjectsLoading() {
         <div className="h-10 w-32 animate-pulse rounded-lg bg-gray-200" />
       </div>
       <div className="flex-1 overflow-hidden rounded-lg bg-white shadow-sm flex flex-col">
-        <div className="border-b border-gray-200 bg-white px-4 py-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <div className="h-10 flex-1 max-w-xs animate-pulse rounded-lg bg-gray-200" />
-            <div className="h-10 w-40 animate-pulse rounded-lg bg-gray-200" />
-            <div className="h-10 w-48 animate-pulse rounded-lg bg-gray-200" />
+        <div className="border-b border-gray-200 bg-white px-4 py-2.5">
+          <div className="overflow-x-auto scrollbar-hide">
+            <div className="flex min-w-max items-center gap-2">
+              <div className="h-8 w-12 animate-pulse rounded bg-gray-200" />
+              <div className="h-8 w-16 animate-pulse rounded bg-gray-200" />
+              <div className="h-8 w-24 animate-pulse rounded bg-gray-200" />
+              <div className="h-8 w-12 animate-pulse rounded bg-gray-200" />
+              <div className="h-8 w-20 animate-pulse rounded bg-gray-200" />
+              <div className="ml-3 h-8 w-48 animate-pulse rounded-md bg-gray-200" />
+              <div className="h-8 w-36 animate-pulse rounded-md bg-gray-200" />
+              <div className="h-8 w-36 animate-pulse rounded-md bg-gray-200" />
+              <div className="h-8 w-8 animate-pulse rounded-md bg-gray-200" />
+            </div>
           </div>
         </div>
         <div className="flex-1 overflow-x-auto">

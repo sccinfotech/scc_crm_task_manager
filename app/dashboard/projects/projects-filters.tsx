@@ -1,6 +1,5 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { ProjectStatus } from '@/lib/projects/actions'
 import type { StaffSelectOption } from '@/lib/users/actions'
 import { ListboxDropdown } from '@/app/components/ui/listbox-dropdown'
@@ -29,8 +28,8 @@ interface ProjectsFiltersProps {
   onClearFilters: () => void
 }
 
-const STATUS_OPTIONS: { value: ProjectStatus | 'all'; label: string }[] = [
-  { value: 'all', label: 'All Status' },
+const STATUS_TAB_OPTIONS: { value: ProjectStatus | 'all'; label: string }[] = [
+  { value: 'all', label: 'All' },
   { value: 'pending', label: 'Pending' },
   { value: 'in_progress', label: 'In Progress' },
   { value: 'hold', label: 'Hold' },
@@ -56,54 +55,90 @@ export function ProjectsFilters({
   onTechnologyChange,
   onClearFilters,
 }: ProjectsFiltersProps) {
-  // Debounced search logic removed as handled by SearchInput component
+  const normalizedTechnologyToolId = selectedTechnologyToolId ?? ''
+  const normalizedStaffWorkStatus = staffWorkStatusFilter ?? 'all'
 
   const hasStaffWorkStatusFilter =
-    typeof staffWorkStatusFilter === 'string' &&
-    staffWorkStatusFilter.trim() !== '' &&
-    staffWorkStatusFilter !== 'all'
+    normalizedStaffWorkStatus.trim() !== '' &&
+    normalizedStaffWorkStatus !== 'all'
   const hasActiveFilters =
     statusFilter !== 'all' ||
     searchQuery.trim() !== '' ||
     selectedStaffId !== '' ||
-    selectedTechnologyToolId !== '' ||
+    normalizedTechnologyToolId !== '' ||
     hasStaffWorkStatusFilter
 
   const paddingClasses = compact
-    ? 'px-3 py-2.5 sm:px-4 sm:py-3'
-    : 'px-3 py-3 sm:px-4 sm:py-4 lg:px-6'
-  const gapClasses = compact ? 'gap-3' : 'gap-4'
+    ? 'px-3 py-1.5 sm:px-4 sm:py-2'
+    : 'px-3 py-2 sm:px-4 sm:py-2.5 lg:px-6'
+  const toolbarGapClasses = compact ? 'gap-1.5' : 'gap-2'
+  const denseControlClasses = compact
+    ? 'min-h-8 rounded-md px-2 text-[13px]'
+    : 'min-h-[34px] rounded-md px-2 text-[13px]'
+  const searchWidthClasses = compact
+    ? 'w-[10.5rem]'
+    : 'w-[12rem] lg:w-[13rem]'
+  const standardFilterWidthClasses = compact ? 'w-[8.5rem]' : 'w-[9.5rem]'
+  const technologyFilterWidthClasses = compact ? 'w-[8.5rem]' : 'w-[9.5rem]'
 
   return (
     <div className={`border-b border-slate-200 bg-white ${paddingClasses}`}>
-      <div className={`flex flex-col sm:flex-row sm:items-center sm:justify-between ${gapClasses}`}>
-        <div className={`flex flex-1 flex-col sm:flex-row sm:items-center ${gapClasses}`}>
+      <div className={`flex min-w-0 flex-nowrap items-center ${toolbarGapClasses}`}>
+        <div className={`flex min-w-0 flex-1 items-center ${toolbarGapClasses}`}>
           {title ? (
-            <h2 className="text-lg font-semibold text-slate-900 sm:mr-2 sm:whitespace-nowrap">{title}</h2>
+            <p className="whitespace-nowrap text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">{title}</p>
           ) : null}
 
-          {/* Search Input */}
-          <div className={`flex-1 ${compact ? 'sm:max-w-[13rem]' : 'sm:max-w-xs'}`}>
+          <div className="min-w-0 flex-1 overflow-x-auto scrollbar-hide">
+            <div className="flex min-w-max items-stretch" aria-label="Project status filters">
+              {STATUS_TAB_OPTIONS.map((option, index) => {
+                const isActive = statusFilter === option.value
+                const isLast = index === STATUS_TAB_OPTIONS.length - 1
+
+                return (
+                  <div key={option.value} className="flex items-stretch">
+                    <button
+                      type="button"
+                      aria-pressed={isActive}
+                      onClick={() => onStatusChange(option.value)}
+                      className={`
+                        relative whitespace-nowrap border-b-2 px-2 pb-1.5 pt-1 text-[13px] font-semibold transition-colors duration-200
+                        focus:outline-none focus-visible:ring-2 focus-visible:ring-[#06B6D4] focus-visible:ring-offset-2 focus-visible:ring-offset-white
+                        ${
+                          isActive
+                            ? 'border-[#06B6D4] text-[#06B6D4]'
+                            : 'border-transparent text-slate-600 hover:text-slate-800'
+                        }
+                      `}
+                    >
+                      {option.label}
+                    </button>
+                    {!isLast && (
+                      <span
+                        aria-hidden="true"
+                        className="mx-2 w-px self-stretch bg-gradient-to-b from-slate-200/0 via-slate-200/70 to-slate-200/0 sm:mx-3"
+                      />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className={`flex flex-shrink-0 items-center ${toolbarGapClasses}`}>
+          <div className={searchWidthClasses}>
             <SearchInput
               value={searchQuery}
               onChange={onSearchChange}
-              placeholder="Search by project, client, or technology & tools..."
+              placeholder="Search projects..."
               debounceMs={SEARCH_DEBOUNCE_MS}
-            />
-          </div>
-
-          {/* Status Filter */}
-          <div className={`${compact ? 'sm:w-40' : 'sm:w-52'}`}>
-            <ListboxDropdown
-              value={statusFilter}
-              options={STATUS_OPTIONS}
-              onChange={(v) => onStatusChange(v as ProjectStatus | 'all')}
-              ariaLabel="Filter by status"
+              inputClassName="min-h-8 rounded-md py-1.5 pl-9 pr-3 text-[13px]"
             />
           </div>
 
           {showStaffFilter && (
-            <div className="sm:w-56">
+            <div className={standardFilterWidthClasses}>
               <ListboxDropdown
                 value={selectedStaffId}
                 options={[
@@ -115,14 +150,15 @@ export function ProjectsFilters({
                 ]}
                 onChange={onStaffChange}
                 ariaLabel="Filter by staff"
+                className={denseControlClasses}
               />
             </div>
           )}
 
-          {technologyTools && onTechnologyChange && (
-            <div className={`${compact ? 'sm:w-48' : 'sm:w-64'}`}>
+          {technologyTools && onTechnologyChange ? (
+            <div className={technologyFilterWidthClasses}>
               <ListboxDropdown
-                value={selectedTechnologyToolId ?? ''}
+                value={normalizedTechnologyToolId}
                 options={[
                   { value: '', label: 'All Technology' },
                   ...technologyTools.map((tool) => ({
@@ -133,31 +169,37 @@ export function ProjectsFilters({
                 onChange={onTechnologyChange}
                 ariaLabel="Filter by technology"
                 searchable={true}
-              />
-            </div>
-          )}
-
-          {staffWorkStatusOptions && staffWorkStatusOptions.length > 0 && onStaffWorkStatusChange ? (
-            <div className={`${compact ? 'sm:w-40' : 'sm:w-56'}`}>
-              <ListboxDropdown
-                value={staffWorkStatusFilter ?? 'all'}
-                options={staffWorkStatusOptions}
-                onChange={onStaffWorkStatusChange}
-                ariaLabel="Filter by staff work status"
+                className={denseControlClasses}
               />
             </div>
           ) : null}
-        </div>
 
-        {/* Clear Filters Button */}
-        {hasActiveFilters && (
-          <button
-            onClick={onClearFilters}
-            className={`w-full rounded-lg text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 whitespace-nowrap sm:w-auto ${compact ? 'px-3 py-1.5' : 'px-4 py-2'}`}
-          >
-            Clear Filters
-          </button>
-        )}
+          {staffWorkStatusOptions && staffWorkStatusOptions.length > 0 && onStaffWorkStatusChange ? (
+            <div className={standardFilterWidthClasses}>
+              <ListboxDropdown
+                value={normalizedStaffWorkStatus}
+                options={staffWorkStatusOptions}
+                onChange={onStaffWorkStatusChange}
+                ariaLabel="Filter by staff work status"
+                className={denseControlClasses}
+              />
+            </div>
+          ) : null}
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={onClearFilters}
+              aria-label="Clear filters"
+              title="Clear filters"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 shadow-[0_1px_2px_rgba(15,23,42,0.05)] transition-colors hover:bg-slate-50 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#06B6D4]/20"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )

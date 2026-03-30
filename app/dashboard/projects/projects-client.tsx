@@ -95,7 +95,7 @@ export function ProjectsClient({
   useEffect(() => {
     setMobileProjects(projects)
     setMobilePage(page)
-  }, [projects, page, initialSearch, initialStatus, initialStaffUserId, initialSortField, initialSortDirection])
+  }, [projects, page, initialSearch, initialStatus, initialStaffUserId, initialSortField, initialSortDirection, initialTechnologyToolId])
 
   const canCreate = canWrite
 
@@ -128,7 +128,7 @@ export function ProjectsClient({
       if (pageNum > 1) params.set('page', String(pageNum))
       return params.toString()
     },
-    [initialSearch, initialStatus, initialStaffUserId, initialSortField, initialSortDirection, page]
+    [initialSearch, initialStatus, initialStaffUserId, initialSortField, initialSortDirection, initialTechnologyToolId, page]
   )
 
   const handleSort = (field: ProjectSortField | null) => {
@@ -305,6 +305,7 @@ export function ProjectsClient({
     setLoadingMore(true)
     const result = await getProjectsPage({
       search: initialSearch || undefined,
+      status: initialStatus,
       staffUserId: initialStaffUserId || undefined,
       technologyToolId: initialTechnologyToolId || undefined,
       sortField: initialSortField ?? undefined,
@@ -317,7 +318,7 @@ export function ProjectsClient({
       setMobileProjects((prev) => [...prev, ...result.data])
       setMobilePage((prev) => prev + 1)
     }
-  }, [loadingMore, mobileProjects.length, totalCount, initialSearch, initialStatus, initialStaffUserId, initialSortField, initialSortDirection, mobilePage, pageSize])
+  }, [loadingMore, mobileProjects.length, totalCount, initialSearch, initialStatus, initialStaffUserId, initialSortField, initialSortDirection, initialTechnologyToolId, mobilePage, pageSize])
 
   return (
     <>
@@ -387,7 +388,12 @@ export function ProjectsClient({
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onWorkUpdated={() => router.refresh()}
-                isFiltered={initialStatus !== 'all' || initialSearch.trim() !== '' || Boolean(initialStaffUserId)}
+                isFiltered={
+                  initialStatus !== 'all' ||
+                  initialSearch.trim() !== '' ||
+                  Boolean(initialStaffUserId) ||
+                  Boolean(initialTechnologyToolId)
+                }
                 hasMore={mobileProjects.length < totalCount}
                 loadingMore={loadingMore}
                 onLoadMore={handleLoadMore}
@@ -407,7 +413,12 @@ export function ProjectsClient({
                 sortField={initialSortField}
                 sortDirection={initialSortField ? initialSortDirection : undefined}
                 onSort={handleSort}
-                isFiltered={initialStatus !== 'all' || initialSearch.trim() !== '' || Boolean(initialStaffUserId)}
+                isFiltered={
+                  initialStatus !== 'all' ||
+                  initialSearch.trim() !== '' ||
+                  Boolean(initialStaffUserId) ||
+                  Boolean(initialTechnologyToolId)
+                }
               />
             </div>
           </div>
