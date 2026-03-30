@@ -23,6 +23,7 @@ import {
   getProjectTeamTalkMessages,
   getProjectTeamTalkUploadSignature,
   updateProjectTeamTalkMessage,
+  type ProjectTeamTalkAttachment,
   type ProjectTeamTalkMessage,
   type ProjectTeamTalkAttachmentInput,
 } from '@/lib/projects/team-talk-actions'
@@ -90,6 +91,7 @@ function getFileExtension(name: string) {
 const maxSizeMB = TEAM_TALK_MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024)
 const acceptedExtensions = TEAM_TALK_ALLOWED_EXTENSIONS.map((ext) => `.${ext}`).join(',')
 const urlRegex = /((https?:\/\/[^\s<]+)|((www\.)[^\s<]+))/gi
+const imageExtensions = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif'])
 
 function isEdited(message: ProjectTeamTalkMessage): boolean {
   const createdAt = new Date(message.created_at).getTime()
@@ -132,6 +134,219 @@ function renderMessageText(text: string, linkClassName: string) {
 
   return parts.map((part, index) =>
     typeof part === 'string' ? <span key={`text-${index}`}>{part}</span> : part
+  )
+}
+
+function isImageAttachment(attachment: ProjectTeamTalkAttachment) {
+  const mimeType = attachment.mime_type?.toLowerCase() || ''
+  if (mimeType.startsWith('image/')) return true
+  return imageExtensions.has(getFileExtension(attachment.file_name))
+}
+
+function getAttachmentTypeLabel(attachment: ProjectTeamTalkAttachment) {
+  const extension = getFileExtension(attachment.file_name)
+  return extension ? extension.toUpperCase() : 'FILE'
+}
+
+function getImageTileClasses(count: number, index: number) {
+  if (count === 1) return 'col-span-2 aspect-[16/7.6]'
+  if (count === 2) return 'aspect-[4/2.7]'
+  if (count === 3) return index === 0 ? 'col-span-2 aspect-[16/7.1]' : 'aspect-[4/2.85]'
+  return index === 0 ? 'col-span-2 aspect-[16/7]' : 'aspect-[4/2.85]'
+}
+
+function getImageAttachmentSizes(count: number) {
+  if (count === 1) return '(max-width: 640px) 88vw, 30rem'
+  return '(max-width: 640px) 44vw, 15rem'
+}
+
+function AttachmentDeleteButton({
+  label,
+  className = '',
+  onDelete,
+}: {
+  label: string
+  className?: string
+  onDelete: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        onDelete()
+      }}
+      className={`rounded-full bg-rose-500 p-1.5 text-white shadow-sm transition-colors hover:bg-rose-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 ${className}`}
+      aria-label={label}
+      title={label}
+    >
+      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+  )
+}
+
+function MessageImageAttachmentGallery({
+  attachments,
+  canManage,
+  onPreview,
+  onDelete,
+}: {
+  attachments: ProjectTeamTalkAttachment[]
+  canManage: boolean
+  onPreview: (attachment: ProjectTeamTalkAttachment) => void
+  onDelete: (attachment: ProjectTeamTalkAttachment) => void
+}) {
+  const imageCount = attachments.length
+
+  return (
+    <div className="space-y-2.5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 ring-1 ring-slate-200">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.8}
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2 1.586-1.586a2 2 0 012.828 0L20 14m-6-8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Photos
+            </p>
+            <p className="truncate text-[11px] text-slate-400">Tap any image to preview it</p>
+          </div>
+        </div>
+        <span className="flex h-7 min-w-[1.75rem] items-center justify-center rounded-full border border-slate-200 bg-slate-50 px-2 text-[11px] font-semibold text-slate-600">
+          {imageCount}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2.5">
+        {attachments.map((attachment, index) => (
+          <div
+            key={attachment.id}
+            className={`group relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-sm ${getImageTileClasses(
+              imageCount,
+              index
+            )}`}
+          >
+            <button
+              type="button"
+              onClick={() => onPreview(attachment)}
+              className="relative block h-full w-full overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-inset"
+            >
+              <Image
+                src={attachment.cloudinary_url}
+                alt={attachment.file_name}
+                fill
+                sizes={getImageAttachmentSizes(imageCount)}
+                unoptimized={attachment.mime_type === 'image/svg+xml'}
+                className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+              />
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/85 via-slate-950/35 to-transparent px-3 py-3 text-left">
+                <p className="truncate text-xs font-semibold text-white">{attachment.file_name}</p>
+                <p className="text-[10px] text-white/80">
+                  {formatFileSize(attachment.size_bytes)} · Preview
+                </p>
+              </div>
+              <div className="pointer-events-none absolute left-2 top-2 rounded-full bg-white/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-700 shadow-sm">
+                {getAttachmentTypeLabel(attachment)}
+              </div>
+            </button>
+
+            {canManage && (
+              <AttachmentDeleteButton
+                label={`Delete ${attachment.file_name}`}
+                className="absolute right-2 top-2"
+                onDelete={() => onDelete(attachment)}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function MessageFileAttachmentList({
+  attachments,
+  canManage,
+  onPreview,
+  onDelete,
+}: {
+  attachments: ProjectTeamTalkAttachment[]
+  canManage: boolean
+  onPreview: (attachment: ProjectTeamTalkAttachment) => void
+  onDelete: (attachment: ProjectTeamTalkAttachment) => void
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 ring-1 ring-slate-200">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.8}
+                d="M7 7V3h8l4 4v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2h4m0 0v4h4"
+              />
+            </svg>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Files
+            </p>
+            <p className="truncate text-[11px] text-slate-400">Documents shared in this update</p>
+          </div>
+        </div>
+        <span className="flex h-7 min-w-[1.75rem] items-center justify-center rounded-full border border-slate-200 bg-slate-50 px-2 text-[11px] font-semibold text-slate-600">
+          {attachments.length}
+        </span>
+      </div>
+
+      <div className="space-y-2">
+        {attachments.map((attachment) => (
+          <div
+            key={attachment.id}
+            className="group flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/90 px-3 py-3 transition-colors duration-200 hover:border-slate-300 hover:bg-slate-100/90"
+          >
+            <button
+              type="button"
+              onClick={() => onPreview(attachment)}
+              className="flex min-w-0 flex-1 items-center gap-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2"
+            >
+              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-white text-[10px] font-bold uppercase tracking-[0.18em] text-slate-600 shadow-sm ring-1 ring-slate-200">
+                {getAttachmentTypeLabel(attachment)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-slate-800">{attachment.file_name}</p>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  {formatFileSize(attachment.size_bytes)} · Preview available
+                </p>
+              </div>
+              <span className="hidden rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 sm:inline-flex">
+                Open
+              </span>
+            </button>
+
+            {canManage && (
+              <AttachmentDeleteButton
+                label={`Delete ${attachment.file_name}`}
+                className="shrink-0"
+                onDelete={() => onDelete(attachment)}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -808,8 +1023,9 @@ export function ProjectTeamTalk({
               const edited = isEdited(message)
               const hasText = message.message_text.trim().length > 0
               const attachments = message.attachments || []
-              const imageAttachments = attachments.filter((attachment) => attachment.mime_type.startsWith('image/'))
-              const fileAttachments = attachments.filter((attachment) => !attachment.mime_type.startsWith('image/'))
+              const imageAttachments = attachments.filter(isImageAttachment)
+              const fileAttachments = attachments.filter((attachment) => !isImageAttachment(attachment))
+              const hasAttachments = attachments.length > 0
               const canManageMessage = isMine
 
               return (
@@ -885,7 +1101,9 @@ export function ProjectTeamTalk({
                   </div>
                   <div
                     data-message-card={message.id}
-                    className={`w-fit min-w-0 max-w-[92%] rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-[0_1px_3px_0_rgba(0,0,0,0.06)] transition-colors duration-200 sm:min-w-[14rem] sm:max-w-[85%] ${
+                    className={`min-w-0 max-w-[92%] rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-[0_1px_3px_0_rgba(0,0,0,0.06)] transition-colors duration-200 ${
+                      hasAttachments ? 'w-full sm:max-w-[30rem]' : 'w-fit sm:min-w-[14rem] sm:max-w-[85%]'
+                    } ${
                       isMine ? 'border-l-2 border-l-slate-300' : 'border-l-2 border-l-slate-200'
                     }`}
                     style={
@@ -941,84 +1159,41 @@ export function ProjectTeamTalk({
                         </p>
                       )
                     )}
-                    {imageAttachments.length > 0 && (
-                      <div className={`grid grid-cols-2 gap-2 ${hasText ? 'mt-2' : 'mt-0'}`}>
-                        {imageAttachments.map((attachment) => (
-                          <div key={attachment.id} className="relative">
-                            <button
-                              type="button"
-                              onClick={() => setPreviewAttachment({ url: attachment.cloudinary_url, fileName: attachment.file_name, mimeType: attachment.mime_type })}
-                              className="block overflow-hidden rounded-lg border border-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 relative h-24"
-                            >
-                              <Image
-                                src={attachment.cloudinary_url}
-                                alt={attachment.file_name}
-                                fill
-                                sizes="(max-width: 640px) 50vw, 200px"
-                                className="object-cover"
-                              />
-                            </button>
-                            {canManageMessage && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault()
-                                  e.stopPropagation()
-                                  handleDeleteAttachmentClick(attachment.id, message.id, attachment.file_name)
-                                }}
-                                className="absolute right-1 top-1 rounded-full bg-rose-500 p-1 text-white shadow-sm hover:bg-rose-600"
-                                aria-label="Delete attachment"
-                                title="Delete attachment"
-                              >
-                                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {fileAttachments.length > 0 && (
-                      <div className={`space-y-1.5 ${hasText || imageAttachments.length > 0 ? 'mt-2' : 'mt-0'}`}>
-                        {fileAttachments.map((attachment) => (
-                          <div
-                            key={attachment.id}
-                            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-700 transition-colors duration-200 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1"
-                          >
-                            <button
-                              type="button"
-                              onClick={() => setPreviewAttachment({ url: attachment.cloudinary_url, fileName: attachment.file_name, mimeType: attachment.mime_type })}
-                              className="flex items-center gap-2 flex-1 min-w-0"
-                            >
-                              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded bg-slate-200 text-slate-600" aria-hidden>
-                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m-6-8h6M7 20h10a2 2 0 002-2V8l-6-6H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                </svg>
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate font-medium text-slate-700">{attachment.file_name}</p>
-                                <p className="text-[10px] font-normal text-slate-500">{formatFileSize(attachment.size_bytes)}</p>
-                              </div>
-                            </button>
-                            {canManageMessage && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleDeleteAttachmentClick(attachment.id, message.id, attachment.file_name)
-                                }}
-                                className="rounded p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                                aria-label="Delete attachment"
-                                title="Delete attachment"
-                              >
-                                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                              </button>
-                            )}
-                          </div>
-                        ))}
+                    {hasAttachments && (
+                      <div className={`space-y-3 ${hasText ? 'mt-3 border-t border-slate-100 pt-3' : 'mt-0'}`}>
+                        {imageAttachments.length > 0 && (
+                          <MessageImageAttachmentGallery
+                            attachments={imageAttachments}
+                            canManage={canManageMessage}
+                            onPreview={(attachment) =>
+                              setPreviewAttachment({
+                                url: attachment.cloudinary_url,
+                                fileName: attachment.file_name,
+                                mimeType: attachment.mime_type,
+                              })
+                            }
+                            onDelete={(attachment) =>
+                              handleDeleteAttachmentClick(attachment.id, message.id, attachment.file_name)
+                            }
+                          />
+                        )}
+
+                        {fileAttachments.length > 0 && (
+                          <MessageFileAttachmentList
+                            attachments={fileAttachments}
+                            canManage={canManageMessage}
+                            onPreview={(attachment) =>
+                              setPreviewAttachment({
+                                url: attachment.cloudinary_url,
+                                fileName: attachment.file_name,
+                                mimeType: attachment.mime_type,
+                              })
+                            }
+                            onDelete={(attachment) =>
+                              handleDeleteAttachmentClick(attachment.id, message.id, attachment.file_name)
+                            }
+                          />
+                        )}
                       </div>
                     )}
                   </div>
