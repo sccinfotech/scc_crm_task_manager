@@ -4,6 +4,7 @@ import { after } from 'next/server'
 import { cache } from 'react'
 import crypto from 'crypto'
 import { revalidatePath } from 'next/cache'
+import { insertNotificationsWithFallback } from '@/lib/notifications/insert'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser, hasPermission } from '@/lib/auth/utils'
 import { MODULE_PERMISSION_IDS } from '@/lib/permissions'
@@ -311,18 +312,16 @@ async function insertNotifications(
   }>
 ) {
   if (notifications.length === 0) return
-  await (supabase as any).from('notifications').insert(
-    notifications.map((note) => ({
-      user_id: note.user_id,
-      project_id: note.project_id ?? null,
-      task_id: note.task_id ?? null,
-      type: note.type,
-      title: note.title,
-      body: note.body ?? null,
-      meta: note.meta ?? null,
-      created_by: note.created_by,
-    }))
-  )
+
+  const result = await insertNotificationsWithFallback({
+    notifications,
+    source: 'project_tasks',
+    fallbackClient: supabase,
+  })
+
+  if (result.error) {
+    console.error('Error inserting task notifications:', result.error)
+  }
 }
 
 function buildAssigneeList(rows: Array<{ user_id: string; users?: { full_name: string | null; email: string | null; role: string | null; photo_url?: string | null } | null }>) {

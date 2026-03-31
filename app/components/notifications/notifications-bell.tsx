@@ -21,6 +21,16 @@ function formatRelativeTime(dateString: string) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+function enrichNotification(notification: NotificationItem): NotificationItem {
+  const projectName = notification.meta?.project_name
+  return {
+    ...notification,
+    project_title:
+      notification.project_title ??
+      (typeof projectName === 'string' && projectName.trim().length > 0 ? projectName.trim() : null),
+  }
+}
+
 export function NotificationsBell({ userId }: { userId?: string }) {
   const { info } = useToast()
   const [open, setOpen] = useState(false)
@@ -37,7 +47,7 @@ export function NotificationsBell({ userId }: { userId?: string }) {
     setLoading(true)
     const result = await getNotifications(40)
     if (!result.error && result.data) {
-      setNotifications(result.data)
+      setNotifications(result.data.map((notification) => enrichNotification(notification)))
     }
     setLoading(false)
   }
@@ -62,9 +72,32 @@ export function NotificationsBell({ userId }: { userId?: string }) {
             filter: `user_id=eq.${userId}`,
           },
           (payload) => {
-            const next = payload.new as NotificationItem
-            setNotifications((prev) => [next, ...prev])
+            const next = enrichNotification(payload.new as NotificationItem)
+            setNotifications((prev) => [next, ...prev.filter((item) => item.id !== next.id)])
             info(next.title, next.body || 'You have a new notification')
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${userId}`,
+          },
+          (payload) => {
+            const next = enrichNotification(payload.new as NotificationItem)
+            setNotifications((prev) =>
+              prev.map((item) =>
+                item.id === next.id
+                  ? {
+                      ...item,
+                      ...next,
+                      project_title: next.project_title ?? item.project_title ?? null,
+                    }
+                  : item
+              )
+            )
           }
         )
         .subscribe()
