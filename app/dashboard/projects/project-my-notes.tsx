@@ -22,6 +22,7 @@ import {
   getProjectMyNotes,
   getProjectMyNotesUploadSignature,
   updateProjectMyNote,
+  type ProjectMyNoteAttachment,
   type ProjectMyNote,
   type ProjectMyNoteAttachmentInput,
 } from '@/lib/projects/my-notes-actions'
@@ -52,6 +53,7 @@ function formatDateTime(dateString: string) {
 
 const maxSizeMB = PROJECT_NOTE_MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024)
 const acceptedExtensions = PROJECT_NOTE_ALLOWED_EXTENSIONS.map((ext) => `.${ext}`).join(',') + ',image/*'
+const imageExtensions = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif'])
 
 function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
@@ -122,6 +124,206 @@ function isEdited(note: ProjectMyNote): boolean {
   const createdAt = new Date(note.created_at).getTime()
   const updatedAt = new Date(note.updated_at).getTime()
   return updatedAt - createdAt > 1000
+}
+
+function isImageAttachment(attachment: ProjectMyNoteAttachment) {
+  const mimeType = attachment.mime_type?.toLowerCase() || ''
+  if (mimeType.startsWith('image/')) return true
+  return imageExtensions.has(getFileExtension(attachment.file_name))
+}
+
+function getAttachmentTypeLabel(attachment: ProjectMyNoteAttachment) {
+  const extension = getFileExtension(attachment.file_name)
+  return extension ? extension.toUpperCase() : 'FILE'
+}
+
+function getMyNoteImageTileClasses(count: number, index: number) {
+  if (count === 1) return 'col-span-2 aspect-[16/7.8]'
+  if (count === 2) return 'aspect-[4/2.9]'
+  if (count === 3) return index === 0 ? 'col-span-2 aspect-[16/7.25]' : 'aspect-[4/3]'
+  return index === 0 ? 'col-span-2 aspect-[16/7.1]' : 'aspect-[4/3]'
+}
+
+function getMyNoteImageSizes(count: number) {
+  if (count === 1) return '(max-width: 640px) 84vw, 27rem'
+  return '(max-width: 640px) 42vw, 13rem'
+}
+
+function MyNoteAttachmentDeleteButton({
+  label,
+  className = '',
+  onDelete,
+}: {
+  label: string
+  className?: string
+  onDelete: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        onDelete()
+      }}
+      className={`rounded-full bg-rose-500 p-1.5 text-white shadow-sm transition-colors hover:bg-rose-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 ${className}`}
+      aria-label={label}
+      title={label}
+    >
+      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+  )
+}
+
+function MyNoteImageAttachmentGallery({
+  attachments,
+  onPreview,
+  onDelete,
+}: {
+  attachments: ProjectMyNoteAttachment[]
+  onPreview: (attachment: ProjectMyNoteAttachment) => void
+  onDelete: (attachment: ProjectMyNoteAttachment) => void
+}) {
+  const imageCount = attachments.length
+
+  return (
+    <div className="max-w-[27rem] space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.8}
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2 1.586-1.586a2 2 0 012.828 0L20 14m-6-8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Photos
+            </p>
+            <p className="truncate text-[10px] text-slate-400">Compact preview in notes</p>
+          </div>
+        </div>
+        <span className="flex h-6 min-w-6 items-center justify-center rounded-full border border-slate-200 bg-white px-2 text-[10px] font-semibold text-slate-600">
+          {imageCount}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        {attachments.map((attachment, index) => (
+          <div
+            key={attachment.id}
+            className={`group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-100 shadow-sm ${getMyNoteImageTileClasses(
+              imageCount,
+              index
+            )}`}
+          >
+            <button
+              type="button"
+              onClick={() => onPreview(attachment)}
+              className="relative block h-full w-full overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-inset"
+            >
+              <Image
+                src={attachment.cloudinary_url}
+                alt={attachment.file_name}
+                fill
+                sizes={getMyNoteImageSizes(imageCount)}
+                unoptimized={attachment.mime_type === 'image/svg+xml'}
+                className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+              />
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/85 via-slate-950/25 to-transparent px-2.5 py-2 text-left">
+                <p className="truncate text-[11px] font-semibold text-white">{attachment.file_name}</p>
+                <p className="text-[9px] text-white/80">
+                  {formatFileSize(attachment.size_bytes)} · Preview
+                </p>
+              </div>
+            </button>
+
+            <div className="pointer-events-none absolute left-2 top-2 rounded-full bg-white/90 px-2 py-1 text-[9px] font-semibold uppercase tracking-wide text-slate-700 shadow-sm">
+              {getAttachmentTypeLabel(attachment)}
+            </div>
+
+            <MyNoteAttachmentDeleteButton
+              label={`Delete ${attachment.file_name}`}
+              className="absolute right-2 top-2"
+              onDelete={() => onDelete(attachment)}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function MyNoteFileAttachmentList({
+  attachments,
+  onPreview,
+  onDelete,
+}: {
+  attachments: ProjectMyNoteAttachment[]
+  onPreview: (attachment: ProjectMyNoteAttachment) => void
+  onDelete: (attachment: ProjectMyNoteAttachment) => void
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.8}
+                d="M7 7V3h8l4 4v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2h4m0 0v4h4"
+              />
+            </svg>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Files
+            </p>
+            <p className="truncate text-[10px] text-slate-400">Documents attached to this note</p>
+          </div>
+        </div>
+        <span className="flex h-6 min-w-6 items-center justify-center rounded-full border border-slate-200 bg-white px-2 text-[10px] font-semibold text-slate-600">
+          {attachments.length}
+        </span>
+      </div>
+
+      <div className="space-y-1.5">
+        {attachments.map((attachment) => (
+          <div
+            key={attachment.id}
+            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 transition-colors hover:border-cyan-200 hover:bg-cyan-50"
+          >
+            <button
+              type="button"
+              onClick={() => onPreview(attachment)}
+              className="flex items-center gap-2.5 flex-1 min-w-0 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2"
+            >
+              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-white text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600 shadow-sm ring-1 ring-slate-200">
+                {getAttachmentTypeLabel(attachment)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-slate-700">{attachment.file_name}</p>
+                <p className="text-[10px] text-slate-400">{formatFileSize(attachment.size_bytes)}</p>
+              </div>
+            </button>
+
+            <MyNoteAttachmentDeleteButton
+              label={`Delete ${attachment.file_name}`}
+              onDelete={() => onDelete(attachment)}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 function NoteDeleteModal({
@@ -857,60 +1059,35 @@ export function ProjectMyNotes({
 
                     {note.attachments.length > 0 && (
                       <div className="mt-2 pt-2 border-t border-slate-100 space-y-1.5">
-                        <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
-                          Attachments
-                        </p>
-                        <div className="space-y-1">
-                          {note.attachments.map((attachment) => {
-                            const isImage = attachment.mime_type.startsWith('image/')
-                            return (
-                              <div
-                                key={attachment.id}
-                                className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 hover:border-cyan-200 hover:bg-cyan-50 transition-colors"
-                              >
-                                <button
-                                  type="button"
-                                  onClick={() => setPreviewAttachment({ url: attachment.cloudinary_url, fileName: attachment.file_name, mimeType: attachment.mime_type })}
-                                  className="flex items-center gap-2 flex-1 min-w-0"
-                                >
-                                  <div className="relative flex h-8 w-8 items-center justify-center rounded bg-white text-slate-400 flex-shrink-0 overflow-hidden">
-                                    {isImage ? (
-                                      <Image
-                                        src={attachment.cloudinary_url}
-                                        alt={attachment.file_name}
-                                        width={32}
-                                        height={32}
-                                        className="rounded object-cover"
-                                      />
-                                    ) : (
-                                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m-6-8h6M7 20h10a2 2 0 002-2V8l-6-6H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                      </svg>
-                                    )}
-                                  </div>
-                                  <div className="min-w-0 flex-1">
-                                    <p className="truncate text-sm font-semibold text-slate-700">{attachment.file_name}</p>
-                                    <p className="text-[10px] text-slate-400">{formatFileSize(attachment.size_bytes)}</p>
-                                  </div>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleDeleteAttachmentClick(attachment.id, attachment.file_name)
-                                  }}
-                                  className="flex-shrink-0 rounded p-1 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-500 cursor-pointer"
-                                  aria-label="Delete attachment"
-                                  title="Delete attachment"
-                                >
-                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
-                                </button>
-                              </div>
-                            )
-                          })}
-                        </div>
+                        {note.attachments.every(isImageAttachment) ? (
+                          <MyNoteImageAttachmentGallery
+                            attachments={note.attachments}
+                            onPreview={(attachment) =>
+                              setPreviewAttachment({
+                                url: attachment.cloudinary_url,
+                                fileName: attachment.file_name,
+                                mimeType: attachment.mime_type,
+                              })
+                            }
+                            onDelete={(attachment) =>
+                              handleDeleteAttachmentClick(attachment.id, attachment.file_name)
+                            }
+                          />
+                        ) : (
+                          <MyNoteFileAttachmentList
+                            attachments={note.attachments}
+                            onPreview={(attachment) =>
+                              setPreviewAttachment({
+                                url: attachment.cloudinary_url,
+                                fileName: attachment.file_name,
+                                mimeType: attachment.mime_type,
+                              })
+                            }
+                            onDelete={(attachment) =>
+                              handleDeleteAttachmentClick(attachment.id, attachment.file_name)
+                            }
+                          />
+                        )}
                       </div>
                     )}
                   </div>

@@ -2929,7 +2929,7 @@ function TaskDetailPanel({
   const [mentionAnchorIndex, setMentionAnchorIndex] = useState(-1)
   const [mentionHighlightIndex, setMentionHighlightIndex] = useState(0)
   const [commentFiles, setCommentFiles] = useState<File[]>([])
-  const [commentFilePreviews, setCommentFilePreviews] = useState<Array<{ isImage: boolean; previewUrl: string | null }>>([])
+  const [commentFilePreviews, setCommentFilePreviews] = useState<Array<{ isImage: boolean; previewUrl: string | null; mimeType: string | null }>>([])
   const [commentSubmitting, setCommentSubmitting] = useState(false)
   const [attachmentMenuOpenId, setAttachmentMenuOpenId] = useState<string | null>(null)
   const [previewAttachment, setPreviewAttachment] = useState<{ url: string; name: string; mimeType?: string | null } | null>(null)
@@ -3164,11 +3164,11 @@ function TaskDetailPanel({
     if (commentSubmitting || files.length === 0) return
     if (!validateSelectedAttachmentFiles(files)) return
     const previews = files.map((file) => {
-      const mimeType = resolveTaskAttachmentMimeType(file) || ''
-      const isImage = mimeType.startsWith('image/')
-      const previewUrl = isImage ? URL.createObjectURL(file) : null
+      const mimeType = resolveTaskAttachmentMimeType(file)
+      const isImage = mimeType?.startsWith('image/') ?? false
+      const previewUrl = URL.createObjectURL(file)
       if (previewUrl) commentPreviewUrlsRef.current.add(previewUrl)
-      return { isImage, previewUrl }
+      return { isImage, previewUrl, mimeType }
     })
     setCommentFiles((prev) => [...prev, ...files])
     setCommentFilePreviews((prev) => [...prev, ...previews])
@@ -3791,21 +3791,29 @@ function TaskDetailPanel({
                   }`}
                 >
                   <div className="aspect-[4/3] bg-slate-100 relative">
-                    {isImageAttachment(a) ? (
-                      <Image
-                        src={a.cloudinary_url}
-                        alt={a.file_name}
-                        fill
-                        sizes="(max-width: 640px) 100vw, 320px"
-                        className="object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <svg className="h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                      </div>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setPreviewAttachment({ url: a.cloudinary_url, name: a.file_name, mimeType: a.mime_type })}
+                      className="absolute inset-0 block w-full cursor-zoom-in overflow-hidden"
+                      aria-label={`View ${a.file_name}`}
+                      title={a.file_name}
+                    >
+                      {isImageAttachment(a) ? (
+                        <Image
+                          src={a.cloudinary_url}
+                          alt={a.file_name}
+                          fill
+                          sizes="(max-width: 640px) 100vw, 320px"
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center">
+                          <svg className="h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </div>
+                      )}
+                    </button>
                     {/* More button: top-right, visible on hover (or when menu is open) */}
                     <div className={`absolute top-2 right-2 transition-opacity ${attachmentMenuOpenId === a.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                       <button
@@ -3823,22 +3831,6 @@ function TaskDetailPanel({
                       </button>
                       {attachmentMenuOpenId === a.id && (
                         <div className="absolute top-full right-0 mt-1 w-44 rounded-lg border border-slate-200 bg-white shadow-lg py-1 z-50">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPreviewAttachment({ url: a.cloudinary_url, name: a.file_name, mimeType: a.mime_type })
-                              setAttachmentMenuOpenId(null)
-                            }}
-                            className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                            aria-label="View attachment"
-                            title="View attachment"
-                          >
-                            <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7C7.523 19 3.732 16.057 2.458 12z" />
-                            </svg>
-                            View
-                          </button>
                           <a
                             href={a.cloudinary_url}
                             download={a.file_name}
@@ -3859,13 +3851,13 @@ function TaskDetailPanel({
                               type="button"
                               onClick={() => { onRemoveAttachment(a.id); setAttachmentMenuOpenId(null) }}
                               className="flex w-full items-center gap-2 px-3 py-2 text-sm text-rose-600 hover:bg-rose-50"
-                              aria-label="Remove attachment"
-                              title="Remove attachment"
+                              aria-label="Delete attachment"
+                              title="Delete attachment"
                             >
                               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                               </svg>
-                              Remove
+                              Delete
                             </button>
                           )}
                         </div>
@@ -4006,6 +3998,7 @@ function TaskDetailPanel({
                           const preview = commentFilePreviews[index]
                           const isImage = preview?.isImage ?? false
                           const objectUrl = preview?.previewUrl ?? null
+                          const mimeType = preview?.mimeType ?? resolveTaskAttachmentMimeType(file)
                           const extension = getTaskAttachmentFileExtension(file.name)
                           const isPdf = extension === 'pdf'
 
@@ -4014,52 +4007,61 @@ function TaskDetailPanel({
                               key={`${file.name}-${index}`}
                               className="relative w-[148px] flex-shrink-0"
                             >
-                              <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm ring-1 ring-slate-100">
-                                <div className="h-20 w-full bg-slate-100">
-                                  {isImage && objectUrl ? (
-                                    <img
-                                      src={objectUrl}
-                                      alt={file.name}
-                                      className="h-full w-full object-cover"
-                                    />
-                                  ) : (
-                                    <div className="flex h-full w-full flex-col items-center justify-center gap-1 p-2">
-                                      <svg
-                                        className={`h-8 w-8 ${isPdf ? 'text-red-500' : 'text-slate-500'}`}
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                        strokeWidth={2}
-                                        aria-hidden
-                                      >
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m-6-8h6M7 20h10a2 2 0 002-2V8l-6-6H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                      </svg>
-                                      {extension ? (
-                                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase ${isPdf ? 'bg-rose-50 text-rose-600' : 'bg-slate-200 text-slate-600'}`}>
-                                          {extension}
-                                        </span>
-                                      ) : null}
-                                    </div>
-                                  )}
+                              <button
+                                type="button"
+                                onClick={() => objectUrl && setPreviewAttachment({ url: objectUrl, name: file.name, mimeType })}
+                                className="block w-full cursor-zoom-in text-left disabled:cursor-default"
+                                disabled={!objectUrl}
+                                aria-label={`View ${file.name}`}
+                                title={file.name}
+                              >
+                                <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm ring-1 ring-slate-100 transition-shadow hover:shadow-md">
+                                  <div className="h-20 w-full bg-slate-100">
+                                    {isImage && objectUrl ? (
+                                      <img
+                                        src={objectUrl}
+                                        alt={file.name}
+                                        className="h-full w-full object-cover"
+                                      />
+                                    ) : (
+                                      <div className="flex h-full w-full flex-col items-center justify-center gap-1 p-2">
+                                        <svg
+                                          className={`h-8 w-8 ${isPdf ? 'text-red-500' : 'text-slate-500'}`}
+                                          fill="none"
+                                          viewBox="0 0 24 24"
+                                          stroke="currentColor"
+                                          strokeWidth={2}
+                                          aria-hidden
+                                        >
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m-6-8h6M7 20h10a2 2 0 002-2V8l-6-6H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                        </svg>
+                                        {extension ? (
+                                          <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase ${isPdf ? 'bg-rose-50 text-rose-600' : 'bg-slate-200 text-slate-600'}`}>
+                                            {extension}
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="border-t border-slate-200/80 bg-white px-2 py-1.5">
+                                    <p className="truncate text-xs font-medium text-slate-700" title={file.name}>
+                                      {file.name}
+                                    </p>
+                                  </div>
                                 </div>
-                                <div className="border-t border-slate-200/80 bg-white px-2 py-1.5">
-                                  <p className="truncate text-xs font-medium text-slate-700" title={file.name}>
-                                    {file.name}
-                                  </p>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => handleCommentAttachmentRemove(index)}
-                                  disabled={commentSubmitting}
-                                  className="absolute right-1.5 top-1.5 z-10 inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/90 bg-white text-rose-600 shadow-md transition-colors hover:bg-rose-50 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:ring-offset-1 disabled:opacity-50"
-                                  aria-label={`Remove ${file.name}`}
-                                  title="Remove attachment"
-                                >
-                                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.4}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                  </svg>
-                                </button>
-                              </div>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleCommentAttachmentRemove(index)}
+                                disabled={commentSubmitting}
+                                className="absolute right-1.5 top-1.5 z-10 inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/90 bg-white text-rose-600 shadow-md transition-colors hover:bg-rose-50 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:ring-offset-1 disabled:opacity-50"
+                                aria-label={`Remove ${file.name}`}
+                                title="Remove attachment"
+                              >
+                                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.4}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
                             </div>
                           )
                         })}
@@ -4841,7 +4843,7 @@ function CommentRow({
                 </p>
               ) : null}
               {comment.attachments.length > 0 && (
-                <div className={`${hasText ? 'mt-1' : 'mt-0.5'} grid grid-cols-2 gap-1 sm:grid-cols-3`}>
+                <div className={`${hasText ? 'mt-1.5' : 'mt-1'} grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3`}>
                   {comment.attachments.map((attachment) => {
                     const isImage = isImageAttachment(attachment)
                     const extension = getTaskAttachmentFileExtension(attachment.file_name)
@@ -4852,22 +4854,22 @@ function CommentRow({
                       <div
                         key={attachment.id}
                         data-comment-attachment-menu-id={attachment.id}
-                        className="group relative"
+                        className="group relative min-w-0"
                       >
                         <button
                           type="button"
                           onClick={() => setPreviewAttachment({ url: attachment.cloudinary_url, name: attachment.file_name, mimeType: attachment.mime_type })}
-                          className="block overflow-hidden rounded-lg border border-slate-200 bg-slate-50/50"
+                          className="block w-full min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-50/50 text-left shadow-sm transition-shadow hover:shadow-md"
                           aria-label={attachment.file_name}
                           title={attachment.file_name}
                         >
-                          <div className="h-24 bg-slate-100 relative">
+                          <div className="h-28 bg-slate-100 relative">
                             {isImage ? (
                               <Image
                                 src={attachment.cloudinary_url}
                                 alt={attachment.file_name}
                                 fill
-                                sizes="96px"
+                                sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 320px"
                                 className="object-cover"
                               />
                             ) : (
@@ -4883,7 +4885,7 @@ function CommentRow({
                               </div>
                             )}
                           </div>
-                          <div className="border-t border-slate-200/80 bg-white px-2 py-1.5">
+                          <div className="min-w-0 border-t border-slate-200/80 bg-white px-2.5 py-2">
                             <p className="truncate text-xs font-medium text-slate-700" title={attachment.file_name}>
                               {attachment.file_name}
                             </p>
@@ -5037,6 +5039,13 @@ function CommentRow({
           </div>
         </div>
       )}
+      <MediaViewerModal
+        isOpen={Boolean(previewAttachment)}
+        mediaUrl={previewAttachment?.url ?? null}
+        fileName={previewAttachment?.name ?? null}
+        mimeType={previewAttachment?.mimeType ?? null}
+        onClose={() => setPreviewAttachment(null)}
+      />
     </div>
   )
 }

@@ -363,9 +363,19 @@ export async function createProjectMyNote(
     return { data: null, error: error.message || 'Failed to create note.' }
   }
 
+  const noteRow = data as {
+    id: string
+    project_id: string
+    user_id: string
+    note_text: string
+    created_at: string
+    updated_at: string
+  }
+
+  let savedAttachments: ProjectMyNoteAttachment[] = []
+
   if (attachments.length > 0) {
-    const noteRow = data as { id: string; project_id: string; user_id: string; note_text: string; created_at: string; updated_at: string }
-    const { error: attachmentError } = await supabase
+    const { data: insertedAttachments, error: attachmentError } = await supabase
       .from('project_note_attachments')
       .insert(
         attachments.map((attachment) => ({
@@ -379,6 +389,9 @@ export async function createProjectMyNote(
           resource_type: attachment.resource_type,
           created_by: currentUser.id,
         })) as never
+      )
+      .select(
+        'id, note_id, project_id, file_name, mime_type, size_bytes, cloudinary_url, cloudinary_public_id, resource_type, created_at'
       )
 
     if (attachmentError) {
@@ -395,11 +408,53 @@ export async function createProjectMyNote(
         error: attachmentError.message || 'Failed to attach files to note',
       }
     }
+
+    type InsertedAttachmentRow = {
+      id: string
+      note_id: string
+      project_id: string
+      file_name: string
+      mime_type: string
+      size_bytes: number
+      cloudinary_url: string
+      cloudinary_public_id: string
+      resource_type: string
+      created_at: string
+    }
+
+    savedAttachments = ((insertedAttachments as InsertedAttachmentRow[] | null) ?? []).map(
+      (attachment) => ({
+        id: attachment.id,
+        note_id: attachment.note_id,
+        project_id: attachment.project_id,
+        file_name: attachment.file_name,
+        mime_type: attachment.mime_type,
+        size_bytes: attachment.size_bytes,
+        cloudinary_url: attachment.cloudinary_url,
+        cloudinary_public_id: attachment.cloudinary_public_id,
+        resource_type: attachment.resource_type,
+        created_at: attachment.created_at,
+      })
+    )
+
+    if (savedAttachments.length === 0) {
+      savedAttachments = attachments.map((attachment, index) => ({
+        id: `temp-${noteRow.id}-${index}`,
+        note_id: noteRow.id,
+        project_id: projectId,
+        file_name: attachment.file_name,
+        mime_type: attachment.mime_type,
+        size_bytes: attachment.size_bytes,
+        cloudinary_url: attachment.cloudinary_url,
+        cloudinary_public_id: attachment.cloudinary_public_id,
+        resource_type: attachment.resource_type,
+        created_at: noteRow.created_at,
+      }))
+    }
   }
 
   revalidatePath(`/dashboard/projects/${projectId}`)
   revalidatePath('/dashboard/projects')
-  const noteRow = data as { id: string; project_id: string; user_id: string; note_text: string; created_at: string; updated_at: string }
   return {
     data: {
       id: noteRow.id,
@@ -408,7 +463,7 @@ export async function createProjectMyNote(
       note_text: noteRow.note_text,
       created_at: noteRow.created_at,
       updated_at: noteRow.updated_at,
-      attachments: [],
+      attachments: savedAttachments,
     },
     error: null,
   }

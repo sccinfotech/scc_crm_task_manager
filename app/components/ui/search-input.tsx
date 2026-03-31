@@ -7,6 +7,7 @@ interface SearchInputProps {
     onChange: (value: string) => void
     placeholder?: string
     className?: string
+    inputClassName?: string
     debounceMs?: number
     minLength?: number
 }
@@ -16,6 +17,7 @@ export function SearchInput({
     onChange,
     placeholder = 'Search...',
     className = '',
+    inputClassName = '',
     debounceMs = 350,
     minLength = 0,
 }: SearchInputProps) {
@@ -76,7 +78,7 @@ export function SearchInput({
                 value={localValue}
                 onChange={(e) => setLocalValue(e.target.value)}
                 placeholder={placeholder}
-                className="block w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 py-2 text-sm text-[#1E1B4B] placeholder-slate-400 shadow-[0_1px_2px_rgba(15,23,42,0.05)] transition-all duration-200 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/20 min-h-9"
+                className={`block w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 py-2 text-sm text-[#1E1B4B] placeholder-slate-400 shadow-[0_1px_2px_rgba(15,23,42,0.05)] transition-all duration-200 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/20 min-h-9 ${inputClassName}`}
             />
         </div>
     )
