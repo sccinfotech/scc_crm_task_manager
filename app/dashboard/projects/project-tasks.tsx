@@ -1,6 +1,11 @@
 'use client'
 
-import { useState, useEffect, useLayoutEffect, useCallback, useRef, useId, type ReactElement } from 'react'
+import { useState, useEffect, useCallback, useRef, useId, type ReactElement } from 'react'
+import {
+  TaskCommentComposerEditor,
+  type TaskCommentComposerEditorHandle,
+  type TaskCommentMentionSession,
+} from './task-comment-composer-editor'
 import { createPortal } from 'react-dom'
 import Image from 'next/image'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
@@ -968,7 +973,11 @@ export function ProjectTasks({
     files: File[] = []
   ): Promise<boolean> => {
     const trimmed = commentText.trim()
-    if (!trimmed && files.length === 0) {
+    const plain = trimmed
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+    if (!plain && files.length === 0) {
       showError('Comment required', 'Add a comment or at least one attachment before posting.')
       return false
     }
@@ -2922,11 +2931,9 @@ function TaskDetailPanel({
   const [createSaving, setCreateSaving] = useState(false)
   const [createDescriptionError, setCreateDescriptionError] = useState<string | null>(null)
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false)
-  const [commentText, setCommentText] = useState('')
+  const [commentHtml, setCommentHtml] = useState('')
   const [mentionIds, setMentionIds] = useState<string[]>([])
-  const [showMentionPicker, setShowMentionPicker] = useState(false)
-  const [mentionSearch, setMentionSearch] = useState('')
-  const [mentionAnchorIndex, setMentionAnchorIndex] = useState(-1)
+  const [mentionSession, setMentionSession] = useState<TaskCommentMentionSession | null>(null)
   const [mentionHighlightIndex, setMentionHighlightIndex] = useState(0)
   const [commentFiles, setCommentFiles] = useState<File[]>([])
   const [commentFilePreviews, setCommentFilePreviews] = useState<Array<{ isImage: boolean; previewUrl: string | null; mimeType: string | null }>>([])
@@ -2938,8 +2945,7 @@ function TaskDetailPanel({
   const [detailDropdownRect, setDetailDropdownRect] = useState<{ top: number; left: number } | null>(null)
   const [isMobileViewport, setIsMobileViewport] = useState(false)
   const [mobileDetailTab, setMobileDetailTab] = useState<'details' | 'comments'>('details')
-  const commentTextareaRef = useRef<HTMLTextAreaElement>(null)
-  const commentPreviewRef = useRef<HTMLDivElement>(null)
+  const commentComposerRef = useRef<TaskCommentComposerEditorHandle | null>(null)
   const commentPreviewUrlsRef = useRef<Set<string>>(new Set())
   const detailStatusRef = useRef<HTMLButtonElement>(null)
   const detailAssigneeRef = useRef<HTMLButtonElement>(null)
@@ -2959,34 +2965,6 @@ function TaskDetailPanel({
             : detailTypeRef
     return ref.current?.getBoundingClientRect() ?? null
   }
-
-  const syncCommentComposerLayout = useCallback(() => {
-    const textarea = commentTextareaRef.current
-    if (!textarea) return
-
-    textarea.style.height = 'auto'
-    const nextHeight = Math.min(
-      Math.max(textarea.scrollHeight, COMMENT_INPUT_MIN_HEIGHT_PX),
-      COMMENT_INPUT_MAX_HEIGHT_PX
-    )
-    textarea.style.height = `${nextHeight}px`
-    textarea.style.overflowY =
-      textarea.scrollHeight > COMMENT_INPUT_MAX_HEIGHT_PX ? 'auto' : 'hidden'
-
-    if (textarea.value.length === 0) {
-      textarea.scrollTop = 0
-      textarea.scrollLeft = 0
-    }
-
-    if (commentPreviewRef.current) {
-      commentPreviewRef.current.scrollTop = textarea.scrollTop
-      commentPreviewRef.current.scrollLeft = textarea.scrollLeft
-    }
-  }, [])
-
-  useLayoutEffect(() => {
-    syncCommentComposerLayout()
-  }, [commentText, syncCommentComposerLayout])
 
   useEffect(() => {
     if (!detailDropdownOpen) {
@@ -3113,9 +3091,20 @@ function TaskDetailPanel({
 
   const filteredMentionUsers = mentionableUsers.filter((u) => {
     const name = getUserName(u).toLowerCase()
-    const search = mentionSearch.toLowerCase()
+    const search = (mentionSession?.query ?? '').toLowerCase()
     return name.includes(search)
   }).slice(0, 8)
+
+  const mentionPickerVisible = Boolean(mentionSession && filteredMentionUsers.length > 0)
+
+  const commentPlainTrimmed = commentHtml
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  useEffect(() => {
+    setMentionHighlightIndex(0)
+  }, [mentionSession?.query])
 
   const validateSelectedAttachmentFiles = (files: File[]) => {
     for (const file of files) {
@@ -3207,37 +3196,13 @@ function TaskDetailPanel({
     })
   }
 
-  const handleCommentTextChange = (value: string) => {
-    setCommentText(value)
-    const lastAt = value.lastIndexOf('@')
-    if (lastAt >= 0) {
-      const after = value.slice(lastAt + 1)
-      if (!/\s/.test(after)) {
-        setShowMentionPicker(true)
-        setMentionSearch(after)
-        setMentionAnchorIndex(lastAt)
-        setMentionHighlightIndex(0)
-      } else {
-        setShowMentionPicker(false)
-      }
-    } else {
-      setShowMentionPicker(false)
-    }
-  }
-
   const handleMentionSelect = (user: TaskAssignee) => {
-    const name = getUserName(user)
-    const before = mentionAnchorIndex > 0 ? commentText.slice(0, mentionAnchorIndex) : ''
-    const after = commentText.slice(mentionAnchorIndex + 1 + mentionSearch.length)
-    setCommentText(before + '@' + name + ' ' + after)
-    setMentionIds((prev) => (prev.includes(user.id) ? prev : [...prev, user.id]))
-    setShowMentionPicker(false)
-    setMentionSearch('')
+    commentComposerRef.current?.applyMention(user)
   }
 
   const handleCommentSubmit = async () => {
-    const trimmed = commentText.trim()
-    if (!trimmed && commentFiles.length === 0) {
+    const trimmed = commentHtml.trim()
+    if (!commentPlainTrimmed && commentFiles.length === 0) {
       showError('Comment required', 'Add a comment or at least one attachment before posting.')
       return
     }
@@ -3256,10 +3221,10 @@ function TaskDetailPanel({
     setCommentSubmitting(false)
     if (!ok) return
 
-    setCommentText('')
+    commentComposerRef.current?.clear()
+    setCommentHtml('')
     setMentionIds([])
-    setShowMentionPicker(false)
-    setMentionSearch('')
+    setMentionSession(null)
     clearSelectedCommentFiles()
   }
 
@@ -3947,47 +3912,32 @@ function TaskDetailPanel({
                     : 'border-slate-200 bg-white'
                 }`}
               >
-                  {/* Typing area */}
+                  {/* Typing area — TipTap + bubble menu for selection formatting */}
                   <div className="relative flex-1 min-h-[72px] overflow-hidden rounded-t-xl">
-                    <div
-                      ref={commentPreviewRef}
-                      className="absolute inset-0 overflow-auto scrollbar-hide px-2.5 pt-2 pb-1.5 text-sm leading-5 whitespace-pre-wrap break-words pointer-events-none"
-                      aria-hidden
-                    >
-                      {commentText ? (
-                        <span className="text-slate-700">
-                          {renderCommentWithMentions(commentText, mentionableUsers.filter((u) => mentionIds.includes(u.id)))}
-                        </span>
-                      ) : null}
-                    </div>
-                    <textarea
-                      ref={commentTextareaRef}
-                      value={commentText}
-                      onChange={(e) => handleCommentTextChange(e.target.value)}
-                      onScroll={syncCommentComposerLayout}
-                      onKeyDown={(e) => {
-                        if (showMentionPicker && filteredMentionUsers.length > 0) {
-                          if (e.key === 'Enter') {
-                            e.preventDefault()
-                            handleMentionSelect(filteredMentionUsers[mentionHighlightIndex])
-                            return
-                          }
-                          if (e.key === 'ArrowDown') {
-                            e.preventDefault()
-                            setMentionHighlightIndex((i) => (i + 1) % filteredMentionUsers.length)
-                            return
-                          }
-                          if (e.key === 'ArrowUp') {
-                            e.preventDefault()
-                            setMentionHighlightIndex((i) => (i - 1 + filteredMentionUsers.length) % filteredMentionUsers.length)
-                            return
-                          }
-                        }
-                        if (e.key === 'Escape') setShowMentionPicker(false)
+                    <TaskCommentComposerEditor
+                      ref={commentComposerRef}
+                      value={commentHtml}
+                      onChange={setCommentHtml}
+                      disabled={commentSubmitting}
+                      minHeightPx={COMMENT_INPUT_MIN_HEIGHT_PX}
+                      maxHeightPx={COMMENT_INPUT_MAX_HEIGHT_PX}
+                      onMentionSessionChange={setMentionSession}
+                      mentionListActive={mentionPickerVisible}
+                      onMentionListNavigate={(dir) => {
+                        const n = filteredMentionUsers.length
+                        if (n === 0) return
+                        setMentionHighlightIndex((i) =>
+                          dir === 'down' ? (i + 1) % n : (i - 1 + n) % n
+                        )
                       }}
-                      placeholder="Add a comment… Type @ to mention"
-                      className="relative z-10 block w-full min-h-[72px] max-h-[200px] overflow-y-auto scrollbar-hide border-0 bg-transparent px-2.5 pt-2 pb-1.5 text-sm leading-5 focus:outline-none focus:ring-0 resize-none text-transparent caret-slate-800 placeholder:text-slate-400"
-                      rows={3}
+                      onMentionListPick={() => {
+                        const pick = filteredMentionUsers[mentionHighlightIndex]
+                        if (pick) handleMentionSelect(pick)
+                      }}
+                      onMentionListClose={() => commentComposerRef.current?.cancelMention()}
+                      onMentionApplied={(user) => {
+                        setMentionIds((prev) => (prev.includes(user.id) ? prev : [...prev, user.id]))
+                      }}
                     />
                   </div>
                   <input {...commentAttachmentDropzone.inputProps} className="sr-only" />
@@ -4095,7 +4045,7 @@ function TaskDetailPanel({
                       content={
                         commentSubmitting
                           ? 'Posting comment…'
-                          : commentText.trim() || commentFiles.length > 0
+                          : commentPlainTrimmed || commentFiles.length > 0
                             ? 'Post comment'
                             : 'Type a comment or attach a file to post'
                       }
@@ -4103,9 +4053,9 @@ function TaskDetailPanel({
                       <button
                         type="button"
                         onClick={handleCommentSubmit}
-                        disabled={commentSubmitting || (!commentText.trim() && commentFiles.length === 0)}
+                        disabled={commentSubmitting || (!commentPlainTrimmed && commentFiles.length === 0)}
                         className={`flex-shrink-0 rounded-lg p-1.5 focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/30 disabled:opacity-50 disabled:hover:bg-transparent ${
-                          commentText.trim() || commentFiles.length > 0
+                          commentPlainTrimmed || commentFiles.length > 0
                             ? 'text-[#06B6D4] hover:bg-cyan-50'
                             : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200/60'
                         }`}
@@ -4126,7 +4076,7 @@ function TaskDetailPanel({
                     </Tooltip>
                   </div>
               </div>
-              {showMentionPicker && filteredMentionUsers.length > 0 && (
+              {mentionPickerVisible && (
                 <div className="absolute bottom-full left-0 right-0 mb-1 rounded-xl border border-slate-200 bg-white shadow-xl py-1 max-h-48 overflow-y-auto z-10">
                   {filteredMentionUsers.map((u, idx) => (
                     <button
@@ -4358,6 +4308,28 @@ function TaskDetailPanel({
       </div>
     </div>
   )
+}
+
+function stripCommentScripts(html: string) {
+  return html.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
+}
+
+function taskCommentLooksLikeHtml(s: string) {
+  const t = s.trim()
+  return t.startsWith('<') && /<\/[a-z][\s\w-]*/i.test(t)
+}
+
+function renderCommentBody(commentText: string, mentionedUsers: TaskAssignee[] = []) {
+  if (taskCommentLooksLikeHtml(commentText)) {
+    const safe = stripCommentScripts(commentText)
+    return (
+      <div
+        className="prose prose-sm max-w-none break-words text-slate-700 [&_a]:text-cyan-600 [&_pre]:whitespace-pre-wrap [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-5 [&_ol]:pl-5 [&_li]:my-0.5 [&_p]:my-0.5"
+        dangerouslySetInnerHTML={{ __html: safe || '' }}
+      />
+    )
+  }
+  return renderCommentWithMentions(commentText, mentionedUsers)
 }
 
 function renderCommentWithMentions(commentText: string, mentionedUsers: TaskAssignee[] = []) {
@@ -4838,9 +4810,9 @@ function CommentRow({
           ) : (
             <>
               {hasText ? (
-                <p className="mt-0.5 text-sm text-slate-700">
-                  {renderCommentWithMentions(comment.comment_text, comment.mentioned_users)}
-                </p>
+                <div className="mt-0.5 text-sm text-slate-700">
+                  {renderCommentBody(comment.comment_text, comment.mentioned_users)}
+                </div>
               ) : null}
               {comment.attachments.length > 0 && (
                 <div className={`${hasText ? 'mt-1.5' : 'mt-1'} grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3`}>
