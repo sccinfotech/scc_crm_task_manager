@@ -18,6 +18,7 @@ import Link from '@tiptap/extension-link'
 import Underline from '@tiptap/extension-underline'
 import Highlight from '@tiptap/extension-highlight'
 import { TextStyle, Color } from '@tiptap/extension-text-style'
+import type { Placement } from '@floating-ui/dom'
 import { normalizeChecklistHtml } from './checklist-html'
 import type { TaskAssignee } from '@/lib/projects/tasks-actions'
 
@@ -227,7 +228,7 @@ export const TaskCommentComposerEditor = forwardRef<
       offset: 10,
       flip: {
         padding: 12,
-        fallbackPlacements: ['bottom', 'top', 'left', 'right'],
+        fallbackPlacements: ['bottom', 'top', 'left', 'right'] as Placement[],
       },
       shift: { padding: 12, crossAxis: true },
       scrollTarget: bubbleScrollTarget ?? (typeof window !== 'undefined' ? window : undefined),
