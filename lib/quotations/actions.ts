@@ -283,7 +283,11 @@ export async function getQuotationsPage(
   if (searchTerm) {
     query = query.or(`quotation_number.ilike.%${searchTerm}%,reference.ilike.%${searchTerm}%`)
   }
-  if (options.status && options.status !== 'all') {
+  // Treat "all" as "all *non-converted*" for the normal list view.
+  // Converted quotations are accessed via the explicit Converted filter.
+  if (!options.status || options.status === 'all') {
+    query = query.neq('status', 'converted')
+  } else {
     query = query.eq('status', options.status)
   }
   if (options.source_type && options.source_type !== 'all') {
