@@ -24,6 +24,12 @@ import {
   type RequirementSummary,
   type RequirementType,
 } from "@/lib/projects/requirements-actions"
+import { RequirementDescriptionEditor } from "./requirement-description-editor"
+import {
+  normalizeChecklistHtml,
+  isHtmlContentEmpty,
+  htmlToPlainText,
+} from "./checklist-html"
 
 interface ProjectRequirementsProps {
   projectId: string
@@ -90,6 +96,38 @@ function getFileExtension(name: string) {
 }
 
 const maxAttachmentSizeMB = PROJECT_REQUIREMENT_MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024)
+
+function looksLikeRichHtml(s: string) {
+  const t = s.trim()
+  return /^<\/?[a-z]/i.test(t)
+}
+
+/** Renders stored requirement description: rich HTML or legacy plain text. */
+function RequirementDescriptionView({
+  html,
+  className = "",
+}: {
+  html: string | null | undefined
+  className?: string
+}) {
+  const trimmed = (html ?? "").trim()
+  if (!trimmed) return null
+  if (looksLikeRichHtml(trimmed)) {
+    return (
+      <div
+        className={`prose prose-sm max-w-none rounded-xl border border-slate-200 bg-slate-50/30 min-h-[72px] text-slate-700 rich-editor-render px-2.5 pt-2 pb-1.5 text-sm leading-5 [&_p]:my-0 [&_p+p]:mt-2 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-5 [&_ol]:pl-5 [&_li]:my-0.5 ${className}`}
+        dangerouslySetInnerHTML={{ __html: normalizeChecklistHtml(trimmed) }}
+      />
+    )
+  }
+  return (
+    <p
+      className={`rounded-xl border border-slate-200 bg-slate-50/30 min-h-[72px] text-slate-700 whitespace-pre-line px-2.5 pt-2 pb-1.5 text-sm leading-5 ${className}`}
+    >
+      {trimmed}
+    </p>
+  )
+}
 
 function computeSummary(requirements: ProjectRequirement[]): RequirementSummary {
   let initialAmount = 0
@@ -192,11 +230,7 @@ function MilestoneRequirementCard({
             <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
               Description
             </p>
-            {req.description && (
-              <p className="text-sm text-slate-600 whitespace-pre-line leading-relaxed">
-                {req.description}
-              </p>
-            )}
+            <RequirementDescriptionView html={req.description} />
             {req.attachment_url && (
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
@@ -303,7 +337,7 @@ function RequirementDeleteModal({
         <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Requirement</p>
           <p className="text-sm font-semibold text-slate-700">
-            {(requirement.description || "").trim() || "Untitled requirement"}
+            {htmlToPlainText(requirement.description) || "Untitled requirement"}
           </p>
         </div>
         <div className="mt-6 flex justify-end gap-2">
@@ -647,7 +681,7 @@ function RequirementModal({
     const payload: ProjectRequirementFormData = {
       requirement_type: requirementType,
       pricing_type: pricingType,
-      description: description.trim() || null,
+      description: isHtmlContentEmpty(description) ? null : description.trim(),
       attachment_url: finalAttachmentUrl,
       estimated_hours: pricingType === "hourly" ? estimated : null,
       hourly_rate: canViewAmount && pricingType === "hourly" ? rate : undefined,
@@ -751,12 +785,15 @@ function RequirementModal({
 
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">Description</label>
-            <textarea
+            <p className="text-xs text-slate-500 mb-2">
+              Select text to format. Supports bold, lists, links, and colors — same as task comments.
+            </p>
+            <RequirementDescriptionEditor
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={5}
+              onChange={setDescription}
               placeholder="Add requirement details, notes, or scope context."
-              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 resize-y"
+              minHeightPx={150}
+              maxHeightPx={320}
             />
           </div>
 
@@ -1321,9 +1358,7 @@ export function ProjectRequirements({
                   <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[1.6fr,1fr]">
                     <>
                         <div className="space-y-3">
-                          {req.description && (
-                            <p className="text-sm text-slate-600 whitespace-pre-line">{req.description}</p>
-                          )}
+                          <RequirementDescriptionView html={req.description} />
                           {req.attachment_url && (
                             <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
                               <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
