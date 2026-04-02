@@ -596,6 +596,167 @@ function splitLines(value: string | null | undefined): string[] {
     .filter(Boolean)
 }
 
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(Number(dec)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+}
+
+type InlineSeg = { text: string; bold?: boolean; italic?: boolean }
+
+function parseInlineMarkers(value: string): InlineSeg[] {
+  // Supports **bold** and _italic_ markers (non-nested, best-effort).
+  const segs: InlineSeg[] = []
+  let i = 0
+  let bold = false
+  let italic = false
+
+  const push = (text: string) => {
+    if (!text) return
+    const last = segs[segs.length - 1]
+    if (last && Boolean(last.bold) === bold && Boolean(last.italic) === italic) {
+      last.text += text
+    } else {
+      segs.push({ text, bold: bold || undefined, italic: italic || undefined })
+    }
+  }
+
+  while (i < value.length) {
+    if (value.startsWith('**', i)) {
+      bold = !bold
+      i += 2
+      continue
+    }
+    if (value[i] === '_') {
+      italic = !italic
+      i += 1
+      continue
+    }
+    push(value[i]!)
+    i += 1
+  }
+
+  return segs
+}
+
+type DescLine =
+  | { kind: 'bullet'; depth: number; segs: InlineSeg[] }
+  | { kind: 'number'; depth: number; n: number; segs: InlineSeg[] }
+  | { kind: 'text'; segs: InlineSeg[] }
+
+function splitRequirementDescriptionLines(value: string | null | undefined): DescLine[] {
+  if (!value?.trim()) return []
+  let s = value
+
+  // If TipTap HTML is stored, convert it into readable text lines.
+  if (/<[^>]+>/.test(s)) {
+    s = s
+      // Inline formatting markers (best-effort) for PDF.
+      .replace(/<\s*(strong|b)[^>]*>/gi, '**')
+      .replace(/<\/\s*(strong|b)\s*>/gi, '**')
+      .replace(/<\s*(em|i)[^>]*>/gi, '_')
+      .replace(/<\/\s*(em|i)\s*>/gi, '_')
+      // List structure markers for ordered/unordered lists.
+      // IMPORTANT: use non-HTML tokens so they survive tag stripping.
+      .replace(/<\s*ol[^>]*>/gi, '\n[[OL]]\n')
+      .replace(/<\/\s*ol\s*>/gi, '\n[[/OL]]\n')
+      .replace(/<\s*ul[^>]*>/gi, '\n[[UL]]\n')
+      .replace(/<\/\s*ul\s*>/gi, '\n[[/UL]]\n')
+      .replace(/<\s*li[^>]*>/gi, '\n[[LI]]\n')
+      .replace(/<\/\s*li\s*>/gi, '\n[[/LI]]\n')
+      .replace(/<\s*br\s*\/?>/gi, "\n")
+      .replace(/<\/\s*p\s*>/gi, "\n")
+      .replace(/<\s*p[^>]*>/gi, "")
+      .replace(/<\/?[^>]+>/g, " ")
+
+    s = decodeHtmlEntities(s)
+  }
+
+  // Tokenize by lines and interpret list markers.
+  const tokens = s.split(/\r?\n/).map((t) => t.trim()).filter(Boolean)
+  const out: DescLine[] = []
+
+  const listStack: Array<{ type: 'ol'; n: number } | { type: 'ul' }> = []
+  let inLi = false
+  let liParts: string[] = []
+
+  const flushLi = () => {
+    if (!inLi) return
+    const text = liParts.join(' ').replace(/\s+/g, ' ').trim()
+    liParts = []
+    inLi = false
+    if (!text) return
+
+    const top = listStack[listStack.length - 1]
+    const depth = listStack.length
+    if (top?.type === 'ol') {
+      top.n += 1
+      out.push({ kind: 'number', depth, n: top.n, segs: parseInlineMarkers(text) })
+      return
+    }
+    // Default to bullet when inside UL (or unknown).
+    out.push({ kind: 'bullet', depth: Math.max(depth, 1), segs: parseInlineMarkers(text) })
+  }
+
+  for (const t of tokens) {
+    if (t === '[[OL]]') {
+      flushLi()
+      listStack.push({ type: 'ol', n: 0 })
+      continue
+    }
+    if (t === '[[/OL]]') {
+      flushLi()
+      // pop until matching ol
+      for (let i = listStack.length - 1; i >= 0; i--) {
+        const el = listStack[i]
+        listStack.pop()
+        if (el.type === 'ol') break
+      }
+      continue
+    }
+    if (t === '[[UL]]') {
+      flushLi()
+      listStack.push({ type: 'ul' })
+      continue
+    }
+    if (t === '[[/UL]]') {
+      flushLi()
+      for (let i = listStack.length - 1; i >= 0; i--) {
+        const el = listStack[i]
+        listStack.pop()
+        if (el.type === 'ul') break
+      }
+      continue
+    }
+    if (t === '[[LI]]') {
+      flushLi()
+      inLi = true
+      continue
+    }
+    if (t === '[[/LI]]') {
+      flushLi()
+      continue
+    }
+
+    if (inLi) {
+      liParts.push(t)
+      continue
+    }
+
+    // Non-list text paragraph line.
+    out.push({ kind: 'text', segs: parseInlineMarkers(t) })
+  }
+
+  flushLi()
+  return out
+}
+
 function hasText(value: string | null | undefined): boolean {
   return Boolean(value?.trim())
 }
@@ -622,6 +783,10 @@ function getPricingLabel(type: QuotationRequirement['pricing_type']): string {
   if (type === 'fixed') return 'Fixed'
   if (type === 'milestone') return 'Milestone'
   return 'Hourly'
+}
+
+function getRequirementTypeLabel(type: QuotationRequirement['requirement_type']): string {
+  return type === 'addon' ? 'Add-On Requirement' : 'Initial Requirement'
 }
 
 function getRequirementAmount(req: QuotationRequirement): number | null {
@@ -765,19 +930,93 @@ export function QuotationPdfDocument({
           <View>
             <Text style={S.sectionTitle}>Scope of Work</Text>
             {requirements.map((req, idx) => {
-              const descriptionLines = splitLines(req.description)
+              const descriptionLines = splitRequirementDescriptionLines(req.description)
               return (
                 <View key={req.id} style={S.scopeItem}>
                   <Text style={S.scopeNumber}>{idx + 1}.</Text>
                   <View style={S.scopeContent}>
                     <Text style={S.scopeItemTitle}>
-                      {req.title?.trim() || `Requirement ${idx + 1}`}
+                      {req.title?.trim() || getRequirementTypeLabel(req.requirement_type)}
                     </Text>
-                    {descriptionLines.map((line, lIdx) => (
-                      <Text key={lIdx} style={S.scopeItemDesc}>
-                        {sanitizeText(line)}
-                      </Text>
-                    ))}
+                    {descriptionLines.map((line, lIdx) => {
+                      if (line.kind === 'bullet') {
+                        const indent = Math.max(0, (line.depth - 1) * 10)
+                        return (
+                          <View
+                            key={lIdx}
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'flex-start',
+                              marginTop: 2,
+                              marginLeft: indent,
+                            }}
+                          >
+                            <Text style={[S.scopeItemDesc, { width: 10 }]}>{sanitizeText('-')}</Text>
+                            <Text style={[S.scopeItemDesc, { flex: 1 }]}>
+                              {line.segs.map((seg, sIdx) => (
+                                <Text
+                                  key={sIdx}
+                                  style={{
+                                    fontWeight: seg.bold ? ('bold' as const) : ('normal' as const),
+                                    fontStyle: seg.italic ? ('italic' as const) : ('normal' as const),
+                                  }}
+                                >
+                                  {sanitizeText(seg.text)}
+                                </Text>
+                              ))}
+                            </Text>
+                          </View>
+                        )
+                      }
+
+                      if (line.kind === 'number') {
+                        const indent = Math.max(0, (line.depth - 1) * 10)
+                        return (
+                          <View
+                            key={lIdx}
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'flex-start',
+                              marginTop: 2,
+                              marginLeft: indent,
+                            }}
+                          >
+                            <Text style={[S.scopeItemDesc, { width: 14 }]}>
+                              {sanitizeText(`${line.n}.`)}
+                            </Text>
+                            <Text style={[S.scopeItemDesc, { flex: 1 }]}>
+                              {line.segs.map((seg, sIdx) => (
+                                <Text
+                                  key={sIdx}
+                                  style={{
+                                    fontWeight: seg.bold ? ('bold' as const) : ('normal' as const),
+                                    fontStyle: seg.italic ? ('italic' as const) : ('normal' as const),
+                                  }}
+                                >
+                                  {sanitizeText(seg.text)}
+                                </Text>
+                              ))}
+                            </Text>
+                          </View>
+                        )
+                      }
+
+                      return (
+                        <Text key={lIdx} style={S.scopeItemDesc}>
+                          {line.segs.map((seg, sIdx) => (
+                            <Text
+                              key={sIdx}
+                              style={{
+                                fontWeight: seg.bold ? ('bold' as const) : ('normal' as const),
+                                fontStyle: seg.italic ? ('italic' as const) : ('normal' as const),
+                              }}
+                            >
+                              {sanitizeText(seg.text)}
+                            </Text>
+                          ))}
+                        </Text>
+                      )
+                    })}
                   </View>
                 </View>
               )

@@ -55,6 +55,8 @@ export function QuotationFilters({
     sourceFilter !== 'all' ||
     searchQuery.trim() !== ''
 
+  const isConvertedOnly = statusFilter === 'converted'
+
   return (
     <div className="border-b border-gray-200 bg-white px-6 py-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -67,13 +69,41 @@ export function QuotationFilters({
               debounceMs={SEARCH_DEBOUNCE_MS}
             />
           </div>
-          <div className="sm:w-40">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onStatusChange(isConvertedOnly ? 'all' : 'converted')}
+              aria-pressed={isConvertedOnly}
+              title={isConvertedOnly ? 'Showing Converted (click to show all)' : 'Show only Converted'}
+              className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border text-sm transition-colors ${
+                isConvertedOnly
+                  ? 'border-violet-300 bg-violet-50 text-violet-700'
+                  : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              {/* refresh-like icon to indicate "converted" state */}
+              <svg
+                className="h-5 w-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M21 12a9 9 0 1 1-3.3-6.9" />
+                <path d="M21 3v6h-6" />
+              </svg>
+            </button>
+            <div className="sm:w-40">
             <ListboxDropdown
               value={statusFilter}
               options={STATUS_OPTIONS}
               onChange={(v) => onStatusChange(v as QuotationStatus | 'all')}
               ariaLabel="Filter by status"
             />
+            </div>
           </div>
           <div className="sm:w-36">
             <ListboxDropdown

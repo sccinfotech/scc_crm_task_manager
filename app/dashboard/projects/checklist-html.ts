@@ -200,3 +200,21 @@ export function normalizeChecklistHtml(html: string | null | undefined) {
   normalizeChecklistContainer(documentRef.body)
   return documentRef.body.innerHTML
 }
+
+/** True when HTML has no visible text (e.g. empty `<p></p>`). */
+export function isHtmlContentEmpty(html: string | null | undefined): boolean {
+  if (!html || !String(html).trim()) return true
+  const s = String(html)
+  if (typeof DOMParser === 'undefined') return !s.replace(/<[^>]*>/g, '').trim()
+  const doc = new DOMParser().parseFromString(s, 'text/html')
+  return !(doc.body.textContent || '').trim()
+}
+
+/** One-line plain preview for confirmations, strip tags from rich HTML. */
+export function htmlToPlainText(html: string | null | undefined): string {
+  if (!html || !String(html).trim()) return ''
+  const s = String(html)
+  if (typeof DOMParser === 'undefined') return s.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+  const doc = new DOMParser().parseFromString(normalizeChecklistHtml(s), 'text/html')
+  return (doc.body.textContent || '').replace(/\s+/g, ' ').trim()
+}

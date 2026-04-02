@@ -4,6 +4,7 @@ import { after } from 'next/server'
 import { cache } from 'react'
 import crypto from 'crypto'
 import { revalidatePath } from 'next/cache'
+import { insertNotificationsWithFallback } from '@/lib/notifications/insert'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser, hasPermission } from '@/lib/auth/utils'
 import { MODULE_PERMISSION_IDS } from '@/lib/permissions'
@@ -204,6 +205,16 @@ function sanitizeDescription(html?: string | null) {
   return html.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
 }
 
+function commentHtmlPlainText(html: string) {
+  return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function sanitizeTaskCommentHtml(raw: string) {
+  const trimmed = raw.trim()
+  if (!trimmed) return ''
+  return sanitizeDescription(trimmed) ?? ''
+}
+
 function uniqueIds(ids: string[] = []) {
   return Array.from(new Set(ids.filter(Boolean)))
 }
@@ -311,18 +322,16 @@ async function insertNotifications(
   }>
 ) {
   if (notifications.length === 0) return
-  await (supabase as any).from('notifications').insert(
-    notifications.map((note) => ({
-      user_id: note.user_id,
-      project_id: note.project_id ?? null,
-      task_id: note.task_id ?? null,
-      type: note.type,
-      title: note.title,
-      body: note.body ?? null,
-      meta: note.meta ?? null,
-      created_by: note.created_by,
-    }))
-  )
+
+  const result = await insertNotificationsWithFallback({
+    notifications,
+    source: 'project_tasks',
+    fallbackClient: supabase,
+  })
+
+  if (result.error) {
+    console.error('Error inserting task notifications:', result.error)
+  }
 }
 
 function buildAssigneeList(rows: Array<{ user_id: string; users?: { full_name: string | null; email: string | null; role: string | null; photo_url?: string | null } | null }>) {
@@ -1477,8 +1486,9 @@ export async function createTaskComment(
     return { data: null, error: 'Clients cannot add comments.' }
   }
 
-  const trimmed = commentText.trim()
-  if (!trimmed && attachments.length === 0) {
+  const sanitizedComment = sanitizeTaskCommentHtml(commentText)
+  const commentPlain = commentHtmlPlainText(sanitizedComment)
+  if (!commentPlain && attachments.length === 0) {
     return { data: null, error: 'Please add comment text or at least one attachment.' }
   }
 
@@ -1518,7 +1528,7 @@ export async function createTaskComment(
     .from('project_task_comments')
     .insert({
       task_id: taskId,
-      comment_text: trimmed || '',
+      comment_text: sanitizedComment,
       mentioned_user_ids: mentionList,
       created_by: currentUser.id,
     })
@@ -1577,8 +1587,8 @@ export async function createTaskComment(
   })
 
   if (mentionList.length > 0) {
-    const notificationBody = trimmed
-      ? trimmed.slice(0, 120)
+    const notificationBody = commentPlain
+      ? commentPlain.slice(0, 120)
       : createdAttachments.length > 0
         ? `Added ${createdAttachments.length} attachment${createdAttachments.length > 1 ? 's' : ''}.`
         : null
@@ -1643,8 +1653,9 @@ export async function updateTaskComment(
     return { data: null, error: 'You can only edit your own comments.' }
   }
 
-  const trimmed = commentText.trim()
-  if (!trimmed) {
+  const sanitizedComment = sanitizeTaskCommentHtml(commentText)
+  const commentPlain = commentHtmlPlainText(sanitizedComment)
+  if (!commentPlain) {
     const { count: attachmentCount } = await (supabase as any)
       .from('project_task_comment_attachments')
       .select('*', { count: 'exact', head: true })
@@ -1659,7 +1670,7 @@ export async function updateTaskComment(
 
   const { data: comment, error } = await (supabase as any)
     .from('project_task_comments')
-    .update({ comment_text: trimmed || '', mentioned_user_ids: mentionList })
+    .update({ comment_text: sanitizedComment, mentioned_user_ids: mentionList })
     .eq('id', commentId)
     .select('id, task_id, comment_text, mentioned_user_ids, created_by, created_at, updated_at')
     .single()

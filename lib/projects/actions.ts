@@ -4,6 +4,7 @@ import { cache } from 'react'
 import crypto from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { encryptAmount, decryptAmount } from '@/lib/amount-encryption'
+import { insertNotificationsWithFallback } from '@/lib/notifications/insert'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser, hasPermission } from '@/lib/auth/utils'
 import { MODULE_PERMISSION_IDS } from '@/lib/permissions'
@@ -304,17 +305,15 @@ async function insertProjectNotifications(
 ) {
   if (notifications.length === 0) return
 
-  await (supabase as any).from('notifications').insert(
-    notifications.map((note) => ({
-      user_id: note.user_id,
-      project_id: note.project_id,
-      type: note.type,
-      title: note.title,
-      body: note.body ?? null,
-      meta: note.meta ?? null,
-      created_by: note.created_by,
-    }))
-  )
+  const result = await insertNotificationsWithFallback({
+    notifications,
+    source: 'projects',
+    fallbackClient: supabase,
+  })
+
+  if (result.error) {
+    console.error('Error inserting project notifications:', result.error)
+  }
 }
 
 async function isUserAssignedToProject(

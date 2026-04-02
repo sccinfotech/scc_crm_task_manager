@@ -527,6 +527,8 @@ export function QuotationsClient({
                 lead_id: selectedQuotation.lead_id ?? undefined,
                 client_id: selectedQuotation.client_id ?? undefined,
                 valid_till: selectedQuotation.valid_till ?? undefined,
+                title: selectedQuotation.title ?? undefined,
+                notes: selectedQuotation.notes ?? undefined,
                 reference: selectedQuotation.reference ?? undefined,
                 status: selectedQuotation.status,
                 discount: selectedQuotation.discount,

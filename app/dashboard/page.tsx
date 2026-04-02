@@ -34,7 +34,7 @@ export default async function DashboardPage() {
             />
           </section>
           <section className="min-w-0 flex flex-col lg:min-h-[320px]">
-            <NotificationsSection notifications={notifications} />
+            <NotificationsSection userId={user.id} notifications={notifications} />
           </section>
         </div>
       </div>
