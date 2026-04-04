@@ -72,6 +72,7 @@ export const TASK_PRIORITY_FLAG_COLORS: Record<TaskPriority, string> = {
 }
 
 export const TASK_MAX_ATTACHMENT_SIZE_BYTES = 5 * 1024 * 1024
+export const TASK_VIDEO_MAX_ATTACHMENT_SIZE_BYTES = 50 * 1024 * 1024
 
 export const TASK_ALLOWED_MIME_TYPES = [
   'image/png',
@@ -87,6 +88,7 @@ export const TASK_ALLOWED_MIME_TYPES = [
   'text/rtf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'video/quicktime',
 ] as const
 
 export const TASK_ALLOWED_EXTENSIONS = [
@@ -102,7 +104,14 @@ export const TASK_ALLOWED_EXTENSIONS = [
   'rtf',
   'docx',
   'xlsx',
+  'mov',
 ] as const
+
+export function getTaskAttachmentMaxSizeBytesForMime(mimeType: string): number {
+  return mimeType.startsWith('video/')
+    ? TASK_VIDEO_MAX_ATTACHMENT_SIZE_BYTES
+    : TASK_MAX_ATTACHMENT_SIZE_BYTES
+}
 
 export const TASK_EXTENSION_MIME_MAP: Record<string, string> = {
   png: 'image/png',
@@ -117,6 +126,7 @@ export const TASK_EXTENSION_MIME_MAP: Record<string, string> = {
   rtf: 'application/rtf',
   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  mov: 'video/quicktime',
 }
 
 export const TASK_CLOUDINARY_FOLDER = 'project-tasks'

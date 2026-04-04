@@ -1,10 +1,13 @@
 export const INTERNAL_NOTE_MAX_ATTACHMENTS = 5
 export const INTERNAL_NOTE_MAX_ATTACHMENT_SIZE_BYTES = 2 * 1024 * 1024
+/** Larger cap for QuickTime / video attachments (e.g. short screen recordings). */
+export const INTERNAL_NOTE_VIDEO_MAX_ATTACHMENT_SIZE_BYTES = 50 * 1024 * 1024
 
 // File type categories
 export const FILE_TYPE_CATEGORIES = {
   IMAGE: 'image',
   DOCUMENT: 'document',
+  VIDEO: 'video',
 } as const
 
 // Allowed MIME types
@@ -24,6 +27,8 @@ export const INTERNAL_NOTE_ALLOWED_MIME_TYPES = [
   'text/plain', // .txt
   'application/rtf', // .rtf
   'text/rtf', // some browsers
+  // Video (QuickTime / .mov)
+  'video/quicktime',
 ] as const
 
 // Allowed extensions
@@ -42,6 +47,7 @@ export const INTERNAL_NOTE_ALLOWED_EXTENSIONS = [
   'xlsx',
   'txt',
   'rtf',
+  'mov',
 ] as const
 
 // Extension to MIME type mapping
@@ -60,18 +66,29 @@ export const INTERNAL_NOTE_EXTENSION_MIME_MAP: Record<string, string> = {
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   txt: 'text/plain',
   rtf: 'application/rtf',
+  mov: 'video/quicktime',
+}
+
+export function getInternalNoteAttachmentMaxSizeBytesForMime(mimeType: string): number {
+  return getFileCategoryFromMime(mimeType) === FILE_TYPE_CATEGORIES.VIDEO
+    ? INTERNAL_NOTE_VIDEO_MAX_ATTACHMENT_SIZE_BYTES
+    : INTERNAL_NOTE_MAX_ATTACHMENT_SIZE_BYTES
 }
 
 // Get file category from extension
 export function getFileCategory(extension: string): string | null {
   const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp']
   const documentExtensions = ['pdf', 'docx', 'xlsx', 'txt', 'rtf']
-  
+  const videoExtensions = ['mov']
+
   if (imageExtensions.includes(extension.toLowerCase())) {
     return FILE_TYPE_CATEGORIES.IMAGE
   }
   if (documentExtensions.includes(extension.toLowerCase())) {
     return FILE_TYPE_CATEGORIES.DOCUMENT
+  }
+  if (videoExtensions.includes(extension.toLowerCase())) {
+    return FILE_TYPE_CATEGORIES.VIDEO
   }
   return null
 }
@@ -80,6 +97,9 @@ export function getFileCategory(extension: string): string | null {
 export function getFileCategoryFromMime(mimeType: string): string | null {
   if (mimeType.startsWith('image/')) {
     return FILE_TYPE_CATEGORIES.IMAGE
+  }
+  if (mimeType.startsWith('video/')) {
+    return FILE_TYPE_CATEGORIES.VIDEO
   }
   if (mimeType === 'application/pdf' || 
       mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||

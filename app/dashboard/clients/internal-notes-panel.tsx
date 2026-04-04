@@ -7,9 +7,11 @@ import { useToast } from '@/app/components/ui/toast-context'
 import { useFileDropzone } from '@/app/components/ui/use-file-dropzone'
 import { MediaViewerModal } from '@/app/components/ui/media-viewer-modal'
 import {
+  FILE_TYPE_CATEGORIES,
   INTERNAL_NOTE_ALLOWED_EXTENSIONS,
   INTERNAL_NOTE_EXTENSION_MIME_MAP,
   INTERNAL_NOTE_MAX_ATTACHMENT_SIZE_BYTES,
+  INTERNAL_NOTE_VIDEO_MAX_ATTACHMENT_SIZE_BYTES,
   INTERNAL_NOTE_MAX_ATTACHMENTS,
   getFileCategory,
 } from '@/lib/clients/internal-notes-constants'
@@ -32,7 +34,9 @@ interface InternalNotesPanelProps {
 }
 
 const maxSizeMB = INTERNAL_NOTE_MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024)
-const acceptedExtensions = INTERNAL_NOTE_ALLOWED_EXTENSIONS.map((ext) => `.${ext}`).join(',') + ',image/*'
+const videoMaxMB = INTERNAL_NOTE_VIDEO_MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024)
+const acceptedExtensions =
+  INTERNAL_NOTE_ALLOWED_EXTENSIONS.map((ext) => `.${ext}`).join(',') + ',image/*,video/*'
 
 function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
@@ -199,14 +203,23 @@ export function InternalNotesPanel({
       }
     }
 
-    // Check file size
-    const oversizeFile = combinedFiles.find(
-      (file) => file.size > INTERNAL_NOTE_MAX_ATTACHMENT_SIZE_BYTES
-    )
+    const oversizeFile = combinedFiles.find((file) => {
+      const extension = getFileExtension(file.name)
+      const category = getFileCategory(extension)
+      const maxBytes =
+        category === FILE_TYPE_CATEGORIES.VIDEO
+          ? INTERNAL_NOTE_VIDEO_MAX_ATTACHMENT_SIZE_BYTES
+          : INTERNAL_NOTE_MAX_ATTACHMENT_SIZE_BYTES
+      return file.size > maxBytes
+    })
     if (oversizeFile) {
+      const ext = getFileExtension(oversizeFile.name)
+      const cat = getFileCategory(ext)
+      const limitMb =
+        cat === FILE_TYPE_CATEGORIES.VIDEO ? videoMaxMB : maxSizeMB
       showError(
         'File Too Large',
-        `"${oversizeFile.name}" exceeds ${maxSizeMB} MB limit.`
+        `"${oversizeFile.name}" exceeds ${limitMb} MB limit for this file type.`
       )
       return
     }
@@ -230,10 +243,15 @@ export function InternalNotesPanel({
     })
 
     if (!allSameCategory) {
-      const categoryName = firstFileCategory === 'image' ? 'images' : 'documents'
+      const categoryName =
+        firstFileCategory === 'image'
+          ? 'images'
+          : firstFileCategory === 'video'
+            ? 'videos'
+            : 'documents'
       showError(
         'Mixed File Categories',
-        `You can only select ${categoryName} at a time. Please select all images together or all documents together.`
+        `You can only select ${categoryName} at a time. Please select all images, all documents, or all videos together.`
       )
       return
     }
@@ -320,7 +338,13 @@ export function InternalNotesPanel({
             size_bytes: data.bytes || file.size,
             cloudinary_url: data.secure_url,
             cloudinary_public_id: data.public_id,
-            resource_type: data.resource_type || (mimeType.startsWith('image/') ? 'image' : 'raw'),
+            resource_type:
+              data.resource_type ||
+              (mimeType.startsWith('image/')
+                ? 'image'
+                : mimeType.startsWith('video/')
+                  ? 'video'
+                  : 'raw'),
           })
 
           setUploadProgress({ total: selectedFiles.length, done: i + 1 })
@@ -575,7 +599,10 @@ export function InternalNotesPanel({
                     </p>
                     <div className="space-y-2">
                       {note.attachments.map((attachment) => {
-                        const isImage = attachment.mime_type.startsWith('image/')
+                        const mime = attachment.mime_type?.toLowerCase() || ''
+                        const isImage = mime.startsWith('image/')
+                        const isVideo =
+                          mime.startsWith('video/') || /\.mov$/i.test(attachment.file_name || '')
                         return (
                           <div
                             key={attachment.id}
@@ -595,6 +622,12 @@ export function InternalNotesPanel({
                                     height={40}
                                     className="rounded-lg object-cover"
                                   />
+                                ) : isVideo ? (
+                                  <div className="flex h-full w-full items-center justify-center bg-slate-900 text-white">
+                                    <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                      <path d="M8 5v14l11-7L8 5z" />
+                                    </svg>
+                                  </div>
                                 ) : (
                                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m-6-8h6M7 20h10a2 2 0 002-2V8l-6-6H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -603,7 +636,10 @@ export function InternalNotesPanel({
                               </div>
                               <div className="min-w-0 flex-1">
                                 <p className="truncate font-semibold text-slate-700">{attachment.file_name}</p>
-                                <p className="text-xs text-slate-400">{formatFileSize(attachment.size_bytes)}</p>
+                                <p className="text-xs text-slate-400">
+                                  {formatFileSize(attachment.size_bytes)}
+                                  {isVideo ? ' · Tap to play' : ''}
+                                </p>
                               </div>
                             </button>
                             <button
@@ -646,7 +682,9 @@ export function InternalNotesPanel({
             }`}>
               <span>Max {INTERNAL_NOTE_MAX_ATTACHMENTS}</span>
               <span>•</span>
-              <span>{maxSizeMB}MB</span>
+              <span>
+                {maxSizeMB}MB · {videoMaxMB}MB video
+              </span>
               <span>•</span>
               <span>Same category</span>
               <span>•</span>
@@ -660,13 +698,14 @@ export function InternalNotesPanel({
               <div className="flex gap-2 pb-1">
                 {selectedFiles.map((file, index) => {
                   const isImage = file.type.startsWith('image/')
-                  // Create and store object URL if needed
+                  const isVideo =
+                    file.type.startsWith('video/') || getFileExtension(file.name) === 'mov'
                   if (isImage && !objectUrlsRef.current.has(index)) {
                     const url = URL.createObjectURL(file)
                     objectUrlsRef.current.set(index, url)
                   }
                   const objectUrl = isImage ? objectUrlsRef.current.get(index) : null
-                  
+
                   return (
                     <div key={`${file.name}-${index}`} className="relative flex-shrink-0 group" style={{ paddingTop: '6px' }}>
                       <div className="w-16 h-16 rounded-lg border border-slate-200 bg-slate-50 overflow-hidden shadow-sm">
@@ -676,6 +715,12 @@ export function InternalNotesPanel({
                             alt={file.name}
                             className="w-full h-full object-cover"
                           />
+                        ) : isVideo ? (
+                          <div className="flex h-full w-full items-center justify-center bg-slate-900 text-white">
+                            <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+                              <path d="M8 5v14l11-7L8 5z" />
+                            </svg>
+                          </div>
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
                             <svg className="h-6 w-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">

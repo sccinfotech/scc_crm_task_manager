@@ -7,8 +7,8 @@ import { createClient as createSupabaseClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth/utils'
 import {
   INTERNAL_NOTE_ALLOWED_MIME_TYPES,
-  INTERNAL_NOTE_MAX_ATTACHMENT_SIZE_BYTES,
   INTERNAL_NOTE_MAX_ATTACHMENTS,
+  getInternalNoteAttachmentMaxSizeBytesForMime,
   INTERNAL_NOTE_CLOUDINARY_FOLDER,
   getFileCategoryFromMime,
 } from './internal-notes-constants'
@@ -263,10 +263,11 @@ export async function createClientInternalNote(
           error: 'One or more attachments are not an allowed file type.',
         }
       }
-      if (attachment.size_bytes > INTERNAL_NOTE_MAX_ATTACHMENT_SIZE_BYTES) {
+      const maxForMime = getInternalNoteAttachmentMaxSizeBytesForMime(attachment.mime_type)
+      if (attachment.size_bytes > maxForMime) {
         return {
           data: null,
-          error: 'One or more attachments exceed the 2 MB limit.',
+          error: 'One or more attachments exceed the size limit for their file type.',
         }
       }
     }
@@ -288,7 +289,7 @@ export async function createClientInternalNote(
     if (!allSameCategory) {
       return {
         data: null,
-        error: 'You can only upload files from the same category (all images or all documents) at once.',
+        error: 'You can only upload files from the same category (all images, all documents, or all videos) at once.',
       }
     }
   }

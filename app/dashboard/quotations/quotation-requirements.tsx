@@ -11,6 +11,8 @@ import {
   PROJECT_REQUIREMENT_ALLOWED_EXTENSIONS,
   PROJECT_REQUIREMENT_ALLOWED_MIME_TYPES,
   PROJECT_REQUIREMENT_MAX_ATTACHMENT_SIZE_BYTES,
+  PROJECT_REQUIREMENT_VIDEO_MAX_ATTACHMENT_SIZE_BYTES,
+  getProjectRequirementMaxAttachmentSizeBytes,
 } from "@/lib/projects/requirements-constants"
 import {
   createQuotationRequirement,
@@ -130,6 +132,7 @@ function getFileExtension(name: string) {
 }
 
 const maxAttachmentSizeMB = PROJECT_REQUIREMENT_MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024)
+const maxVideoAttachmentSizeMB = PROJECT_REQUIREMENT_VIDEO_MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024)
 
 function computeSummary(requirements: QuotationRequirement[]): RequirementSummary {
   let initialAmount = 0
@@ -488,11 +491,16 @@ function RequirementModal({
     const isAllowedExtension = PROJECT_REQUIREMENT_ALLOWED_EXTENSIONS.includes(extension as typeof PROJECT_REQUIREMENT_ALLOWED_EXTENSIONS[number])
     const isAllowedMime = PROJECT_REQUIREMENT_ALLOWED_MIME_TYPES.includes(file.type as typeof PROJECT_REQUIREMENT_ALLOWED_MIME_TYPES[number])
     if (!isAllowedExtension && !isAllowedMime) {
-      showError("Unsupported File", "Allowed types: PDF, DOC/DOCX, XLS/XLSX, PNG/JPG, TXT, RTF, ZIP.")
+      showError(
+        "Unsupported File",
+        "Allowed types: PDF, DOC/DOCX, XLS/XLSX, PNG/JPG, TXT, RTF, ZIP, MOV."
+      )
       return false
     }
-    if (file.size > PROJECT_REQUIREMENT_MAX_ATTACHMENT_SIZE_BYTES) {
-      showError("File Too Large", `Max size is ${maxAttachmentSizeMB} MB.`)
+    const maxBytes = getProjectRequirementMaxAttachmentSizeBytes(file.type, extension)
+    if (file.size > maxBytes) {
+      const mb = maxBytes / (1024 * 1024)
+      showError("File Too Large", `Max size is ${mb} MB for this file type.`)
       return false
     }
     return true
@@ -854,7 +862,8 @@ function RequirementModal({
                   or drag and drop a file here.
                 </p>
                 <p className="mt-1 text-xs text-slate-400">
-                  Supported: PDF, DOC/DOCX, XLS/XLSX, PNG/JPG, TXT, RTF, ZIP • Max size {maxAttachmentSizeMB} MB
+                  Supported: PDF, DOC/DOCX, XLS/XLSX, PNG/JPG, TXT, RTF, ZIP, MOV • Max{' '}
+                  {maxAttachmentSizeMB} MB ({maxVideoAttachmentSizeMB} MB for MOV)
                 </p>
               </div>
             </div>

@@ -19,6 +19,8 @@ import {
   PROJECT_REQUIREMENT_ALLOWED_EXTENSIONS,
   PROJECT_REQUIREMENT_ALLOWED_MIME_TYPES,
   PROJECT_REQUIREMENT_MAX_ATTACHMENT_SIZE_BYTES,
+  PROJECT_REQUIREMENT_VIDEO_MAX_ATTACHMENT_SIZE_BYTES,
+  getProjectRequirementMaxAttachmentSizeBytes,
 } from '@/lib/projects/requirements-constants'
 import { useToast } from '@/app/components/ui/toast-context'
 import {
@@ -216,6 +218,7 @@ const inputClasses =
   'block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder-slate-400 shadow-sm transition-all duration-200 focus:border-[#06B6D4] focus:outline-none focus:ring-4 focus:ring-[#06B6D4]/10 sm:text-sm'
 const labelClasses = 'block text-sm font-semibold text-slate-700 mb-1.5'
 const maxAttachmentSizeMB = PROJECT_REQUIREMENT_MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024)
+const maxVideoAttachmentSizeMB = PROJECT_REQUIREMENT_VIDEO_MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024)
 
 function getFileExtension(name: string) {
   const parts = name.split('.')
@@ -262,7 +265,11 @@ export function QuotationForm({
   const toolComboRef = useRef<HTMLDivElement>(null)
   const requirementFileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const [draggingRequirementId, setDraggingRequirementId] = useState<string | null>(null)
-  const [previewAttachment, setPreviewAttachment] = useState<{ url: string; name?: string } | null>(null)
+  const [previewAttachment, setPreviewAttachment] = useState<{
+    url: string
+    name?: string
+    mimeType?: string | null
+  } | null>(null)
   const [requirements, setRequirements] = useState<RequirementDraft[]>(() => {
     if (Array.isArray(initialData?.requirements) && initialData.requirements.length > 0) {
       return initialData.requirements.map(mapFormDataRequirementToDraft)
@@ -451,12 +458,17 @@ export function QuotationForm({
     )
 
     if (!isAllowedExtension && !isAllowedMime) {
-      showToastError('Unsupported File', 'Allowed types: PDF, DOC/DOCX, XLS/XLSX, PNG/JPG, TXT, RTF, ZIP.')
+      showToastError(
+        'Unsupported File',
+        'Allowed types: PDF, DOC/DOCX, XLS/XLSX, PNG/JPG, TXT, RTF, ZIP, MOV.'
+      )
       return false
     }
 
-    if (file.size > PROJECT_REQUIREMENT_MAX_ATTACHMENT_SIZE_BYTES) {
-      showToastError('File Too Large', `Max size is ${maxAttachmentSizeMB} MB.`)
+    const maxBytes = getProjectRequirementMaxAttachmentSizeBytes(file.type, extension)
+    if (file.size > maxBytes) {
+      const mb = maxBytes / (1024 * 1024)
+      showToastError('File Too Large', `Max size is ${mb} MB for this file type.`)
       return false
     }
 
@@ -874,7 +886,14 @@ export function QuotationForm({
                       {requirement.attachment_url && !requirement.attachment_file && (
                         <button
                           type="button"
-                          onClick={() => setPreviewAttachment({ url: requirement.attachment_url!, name: 'Requirement attachment' })}
+                          onClick={() =>
+                            setPreviewAttachment({
+                              url: requirement.attachment_url!,
+                              name:
+                                requirement.attachment_file?.name?.trim() || 'Requirement attachment',
+                              mimeType: requirement.attachment_file?.type || null,
+                            })
+                          }
                           className="text-sm font-semibold text-cyan-700 hover:underline"
                         >
                           View current attachment
@@ -911,7 +930,8 @@ export function QuotationForm({
                           or drag and drop a file here.
                         </p>
                         <p className="mt-1 text-xs text-slate-400">
-                          Supported: PDF, DOC/DOCX, XLS/XLSX, PNG/JPG, TXT, RTF, ZIP • Max size {maxAttachmentSizeMB} MB
+                          Supported: PDF, DOC/DOCX, XLS/XLSX, PNG/JPG, TXT, RTF, ZIP, MOV • Max{' '}
+                          {maxAttachmentSizeMB} MB ({maxVideoAttachmentSizeMB} MB for MOV)
                         </p>
                       </div>
                     </div>
@@ -1091,6 +1111,7 @@ export function QuotationForm({
         isOpen={Boolean(previewAttachment)}
         mediaUrl={previewAttachment?.url ?? null}
         fileName={previewAttachment?.name ?? null}
+        mimeType={previewAttachment?.mimeType ?? null}
         onClose={() => setPreviewAttachment(null)}
       />
     </form>
