@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, useId, type ReactElement } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, useId, type ReactElement } from 'react'
 import {
   TaskCommentComposerEditor,
   type TaskCommentComposerEditorHandle,
@@ -3114,6 +3114,11 @@ function TaskDetailPanel({
 
   const mentionPickerVisible = Boolean(mentionSession && filteredMentionUsers.length > 0)
 
+  const commentMentionHighlightNames = useMemo(
+    () => mentionableUsers.map((u) => getUserName(u)).filter(Boolean),
+    [mentionableUsers]
+  )
+
   const commentPlainTrimmed = commentHtml
     .replace(/<[^>]+>/g, ' ')
     .replace(/\s+/g, ' ')
@@ -3899,6 +3904,7 @@ function TaskDetailPanel({
               comment={c}
               currentUserId={currentUserId}
               taskId={taskId}
+              mentionableUsers={mentionableUsers}
               onUpdateComment={onUpdateComment}
               onDeleteComment={onDeleteComment}
               onToggleCommentReaction={onToggleCommentReaction}
@@ -3938,6 +3944,7 @@ function TaskDetailPanel({
                       ref={commentComposerRef}
                       value={commentHtml}
                       onChange={setCommentHtml}
+                      mentionHighlightNames={commentMentionHighlightNames}
                       disabled={commentSubmitting}
                       minHeightPx={COMMENT_INPUT_MIN_HEIGHT_PX}
                       maxHeightPx={COMMENT_INPUT_MAX_HEIGHT_PX}
@@ -4334,6 +4341,55 @@ function stripCommentScripts(html: string) {
   return html.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
 }
 
+function escapeCommentAttr(s: string) {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+function escapeCommentTextContent(s: string) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+/** Wrap @mentions in HTML comment bodies so they match renderCommentWithMentions styling (TipTap stores plain @name in tags). */
+function wrapMentionsInTaskCommentHtml(html: string, mentionedUsers: TaskAssignee[]) {
+  const safe = stripCommentScripts(html)
+  if (safe.includes('data-task-comment-mention')) return safe
+  if (!mentionedUsers.length) return safe
+
+  const mentions = mentionedUsers
+    .map((u) => ({ name: getUserName(u), displayName: getUserName(u) }))
+    .filter((m) => m.name)
+  if (!mentions.length) return safe
+
+  return safe.replace(/>([^<]*)</g, (full, textSegment: string) => {
+    if (!textSegment.includes('@')) return full
+    let result = ''
+    let remaining = textSegment
+    while (remaining.length > 0) {
+      let best: { index: number; name: string; displayName: string } | null = null
+      for (const m of mentions) {
+        const needle = '@' + m.name
+        const idx = remaining.indexOf(needle)
+        if (idx !== -1 && (best === null || idx < best.index)) {
+          best = { index: idx, name: m.name, displayName: m.displayName }
+        }
+      }
+      if (best === null) {
+        result += remaining
+        break
+      }
+      if (best.index > 0) result += remaining.slice(0, best.index)
+      result += `<span class="font-medium text-cyan-600" title="${escapeCommentAttr(best.displayName)}">@${escapeCommentTextContent(best.displayName)}</span>`
+      remaining = remaining.slice(best.index + ('@' + best.name).length)
+    }
+    return `>${result}<`
+  })
+}
+
 function taskCommentLooksLikeHtml(s: string) {
   const t = s.trim()
   return t.startsWith('<') && /<\/[a-z][\s\w-]*/i.test(t)
@@ -4341,10 +4397,13 @@ function taskCommentLooksLikeHtml(s: string) {
 
 function renderCommentBody(commentText: string, mentionedUsers: TaskAssignee[] = []) {
   if (taskCommentLooksLikeHtml(commentText)) {
-    const safe = stripCommentScripts(commentText)
+    const safe =
+      mentionedUsers.length > 0
+        ? wrapMentionsInTaskCommentHtml(commentText, mentionedUsers)
+        : stripCommentScripts(commentText)
     return (
       <div
-        className="prose prose-sm max-w-none break-words text-slate-700 [&_a]:text-cyan-600 [&_pre]:whitespace-pre-wrap [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-5 [&_ol]:pl-5 [&_li]:my-0.5 [&_p]:my-0.5"
+        className="prose prose-sm max-w-none break-words text-slate-700 [&_a]:text-cyan-600 [&_pre]:whitespace-pre-wrap [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-5 [&_ol]:pl-5 [&_li]:my-0.5 [&_p]:my-0.5 [&_span.font-medium.text-cyan-600]:text-cyan-600"
         dangerouslySetInnerHTML={{ __html: safe || '' }}
       />
     )
@@ -4576,6 +4635,7 @@ function CommentRow({
   comment,
   currentUserId,
   taskId,
+  mentionableUsers,
   onUpdateComment,
   onDeleteComment,
   onToggleCommentReaction,
@@ -4586,6 +4646,7 @@ function CommentRow({
   comment: TaskComment
   currentUserId: string | undefined
   taskId: string
+  mentionableUsers: TaskAssignee[]
   onUpdateComment: (taskId: string, commentId: string, text: string, mentionIds: string[]) => void
   onDeleteComment: (taskId: string, commentId: string) => void
   onToggleCommentReaction: (taskId: string, commentId: string, emoji: string) => Promise<boolean>
@@ -4594,7 +4655,13 @@ function CommentRow({
   canReact: boolean
 }) {
   const [editing, setEditing] = useState(false)
-  const [editText, setEditText] = useState(comment.comment_text)
+  const [editHtml, setEditHtml] = useState(comment.comment_text)
+  const [editMentionIds, setEditMentionIds] = useState<string[]>(() => [
+    ...(comment.mentioned_user_ids ?? []),
+  ])
+  const [editMentionSession, setEditMentionSession] = useState<TaskCommentMentionSession | null>(null)
+  const [editMentionHighlightIndex, setEditMentionHighlightIndex] = useState(0)
+  const commentEditComposerRef = useRef<TaskCommentComposerEditorHandle>(null)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null)
   const [attachmentMenuOpenId, setAttachmentMenuOpenId] = useState<string | null>(null)
@@ -4607,9 +4674,28 @@ function CommentRow({
   const reactionTriggerRef = useRef<HTMLButtonElement>(null)
   const isOwner = currentUserId !== undefined && comment.created_by === currentUserId
   useEffect(() => {
-    setEditText(comment.comment_text)
-    if (!editing) setDeleteConfirm(false)
-  }, [comment.id, comment.comment_text, editing])
+    if (!editing) {
+      setEditHtml(comment.comment_text)
+      setEditMentionIds([...(comment.mentioned_user_ids ?? [])])
+      setDeleteConfirm(false)
+    }
+  }, [comment.id, comment.comment_text, comment.mentioned_user_ids, editing])
+
+  const filteredEditMentionUsers = mentionableUsers.filter((u) => {
+    const name = getUserName(u).toLowerCase()
+    const search = (editMentionSession?.query ?? '').toLowerCase()
+    return name.includes(search)
+  }).slice(0, 8)
+  const editMentionPickerVisible = Boolean(editMentionSession && filteredEditMentionUsers.length > 0)
+
+  useEffect(() => {
+    setEditMentionHighlightIndex(0)
+  }, [editMentionSession?.query])
+
+  const commentEditMentionHighlightNames = useMemo(
+    () => mentionableUsers.map((u) => getUserName(u)).filter(Boolean),
+    [mentionableUsers]
+  )
 
   useEffect(() => {
     if (!attachmentMenuOpenId) return
@@ -4704,9 +4790,10 @@ function CommentRow({
   }, [attachmentMenuOpenId, reactionPickerOpen])
 
   const handleSaveEdit = () => {
-    const trimmed = editText.trim()
-    if (!trimmed && comment.attachments.length === 0) return
-    onUpdateComment(taskId, comment.id, trimmed, comment.mentioned_user_ids ?? [])
+    const trimmed = editHtml.trim()
+    const editPlainTrimmed = trimmed.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+    if (!editPlainTrimmed && comment.attachments.length === 0) return
+    onUpdateComment(taskId, comment.id, trimmed, editMentionIds)
     setEditing(false)
   }
 
@@ -4773,7 +4860,12 @@ function CommentRow({
                     <Tooltip content="Edit comment">
                       <button
                         type="button"
-                        onClick={() => { setEditText(comment.comment_text); setEditing(true) }}
+                        onClick={() => {
+                          setEditHtml(comment.comment_text)
+                          setEditMentionIds([...(comment.mentioned_user_ids ?? [])])
+                          setEditMentionSession(null)
+                          setEditing(true)
+                        }}
                         className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-600 hover:bg-cyan-50"
                         aria-label="Edit comment"
                         title="Edit comment"
@@ -4803,13 +4895,55 @@ function CommentRow({
           </div>
           {editing ? (
             <div className="mt-1 space-y-1">
-              <textarea
-                value={editText}
-                onChange={(e) => setEditText(e.target.value)}
-                className="min-h-[72px] w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500"
-                rows={3}
-                autoFocus
-              />
+              <div className="relative rounded-lg border border-slate-200 bg-white focus-within:ring-2 focus-within:ring-cyan-500/30 focus-within:border-cyan-500 flex flex-col min-h-[88px] max-h-[220px]">
+                <div className="relative flex-1 min-h-[72px] overflow-hidden rounded-t-lg">
+                  <TaskCommentComposerEditor
+                    ref={commentEditComposerRef}
+                    value={editHtml}
+                    onChange={setEditHtml}
+                    mentionHighlightNames={commentEditMentionHighlightNames}
+                    placeholder="Edit comment… Type @ to mention"
+                    minHeightPx={COMMENT_INPUT_MIN_HEIGHT_PX}
+                    maxHeightPx={COMMENT_INPUT_MAX_HEIGHT_PX}
+                    onMentionSessionChange={setEditMentionSession}
+                    mentionListActive={editMentionPickerVisible}
+                    onMentionListNavigate={(dir) => {
+                      const n = filteredEditMentionUsers.length
+                      if (n === 0) return
+                      setEditMentionHighlightIndex((i) =>
+                        dir === 'down' ? (i + 1) % n : (i - 1 + n) % n
+                      )
+                    }}
+                    onMentionListPick={() => {
+                      const pick = filteredEditMentionUsers[editMentionHighlightIndex]
+                      if (pick) commentEditComposerRef.current?.applyMention(pick)
+                    }}
+                    onMentionListClose={() => commentEditComposerRef.current?.cancelMention()}
+                    onMentionApplied={(user) => {
+                      setEditMentionIds((prev) => (prev.includes(user.id) ? prev : [...prev, user.id]))
+                    }}
+                  />
+                </div>
+                {editMentionPickerVisible && (
+                  <div className="absolute bottom-full left-0 right-0 mb-1 rounded-xl border border-slate-200 bg-white shadow-xl py-1 max-h-48 overflow-y-auto z-10">
+                    {filteredEditMentionUsers.map((u, idx) => (
+                      <button
+                        key={u.id}
+                        type="button"
+                        onClick={() => commentEditComposerRef.current?.applyMention(u)}
+                        className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 ${idx === editMentionHighlightIndex ? 'bg-cyan-50 ring-1 ring-cyan-200' : 'hover:bg-slate-50'}`}
+                      >
+                        <span className="h-7 w-7 rounded-full bg-cyan-100 text-cyan-800 flex items-center justify-center text-xs font-semibold">
+                          {getInitials(getUserName(u))}
+                        </span>
+                        <span className="truncate" title={getUserName(u)}>
+                          {getUserName(u)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -4820,7 +4954,12 @@ function CommentRow({
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setEditing(false); setEditText(comment.comment_text) }}
+                  onClick={() => {
+                    setEditing(false)
+                    setEditHtml(comment.comment_text)
+                    setEditMentionIds([...(comment.mentioned_user_ids ?? [])])
+                    setEditMentionSession(null)
+                  }}
                   className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
                 >
                   Cancel
