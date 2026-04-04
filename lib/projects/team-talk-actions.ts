@@ -7,8 +7,8 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth/utils'
 import {
   TEAM_TALK_ALLOWED_MIME_TYPES,
-  TEAM_TALK_MAX_ATTACHMENT_SIZE_BYTES,
   TEAM_TALK_MAX_ATTACHMENTS,
+  getTeamTalkAttachmentMaxSizeBytesForMime,
   TEAM_TALK_CLOUDINARY_FOLDER,
 } from './team-talk-constants'
 
@@ -321,10 +321,11 @@ export async function createProjectTeamTalkMessage(
           error: 'One or more attachments are not an allowed file type.',
         }
       }
-      if (attachment.size_bytes > TEAM_TALK_MAX_ATTACHMENT_SIZE_BYTES) {
+      const maxForMime = getTeamTalkAttachmentMaxSizeBytesForMime(attachment.mime_type)
+      if (attachment.size_bytes > maxForMime) {
         return {
           data: null,
-          error: 'One or more attachments exceed the 10 MB limit.',
+          error: 'One or more attachments exceed the size limit for their file type.',
         }
       }
     }

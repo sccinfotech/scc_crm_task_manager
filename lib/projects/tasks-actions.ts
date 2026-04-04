@@ -13,7 +13,7 @@ import {
   TASK_ALLOWED_MIME_TYPES,
   TASK_CLOUDINARY_FOLDER,
   TASK_COMMENT_REACTION_EMOJIS,
-  TASK_MAX_ATTACHMENT_SIZE_BYTES,
+  getTaskAttachmentMaxSizeBytesForMime,
   TASK_DETAIL_COMMENTS_LIMIT,
   TASK_DETAIL_ACTIVITY_LIMIT,
   TASK_DETAIL_ATTACHMENTS_LIMIT,
@@ -1493,11 +1493,12 @@ export async function createTaskComment(
   }
 
   for (const attachment of attachments) {
-    if (attachment.size_bytes > TASK_MAX_ATTACHMENT_SIZE_BYTES) {
-      return { data: null, error: 'One or more attachments exceed the 5MB limit.' }
-    }
     if (!TASK_ALLOWED_MIME_TYPES.includes(attachment.mime_type as any)) {
       return { data: null, error: 'One or more attachments are not an allowed file type.' }
+    }
+    const maxBytes = getTaskAttachmentMaxSizeBytesForMime(attachment.mime_type)
+    if (attachment.size_bytes > maxBytes) {
+      return { data: null, error: 'One or more attachments exceed the size limit for their file type.' }
     }
   }
 
@@ -2084,11 +2085,12 @@ export async function createTaskAttachments(
   }
 
   for (const attachment of attachments) {
-    if (attachment.size_bytes > TASK_MAX_ATTACHMENT_SIZE_BYTES) {
-      return { data: null, error: 'Attachment exceeds the 5MB limit.' }
-    }
     if (!TASK_ALLOWED_MIME_TYPES.includes(attachment.mime_type as any)) {
       return { data: null, error: 'Attachment type not allowed.' }
+    }
+    const maxBytes = getTaskAttachmentMaxSizeBytesForMime(attachment.mime_type)
+    if (attachment.size_bytes > maxBytes) {
+      return { data: null, error: 'Attachment exceeds the size limit for this file type.' }
     }
   }
 

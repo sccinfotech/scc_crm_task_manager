@@ -36,6 +36,8 @@ import {
   TASK_TYPES,
   TASK_TYPE_LABELS,
   TASK_MAX_ATTACHMENT_SIZE_BYTES,
+  TASK_VIDEO_MAX_ATTACHMENT_SIZE_BYTES,
+  getTaskAttachmentMaxSizeBytesForMime,
   TASK_ALLOWED_MIME_TYPES,
   TASK_ALLOWED_EXTENSIONS,
   TASK_EXTENSION_MIME_MAP,
@@ -80,6 +82,7 @@ import {
 import type { StaffSelectOption } from '@/lib/users/actions'
 
 const MAX_FILE_MB = TASK_MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024)
+const MAX_VIDEO_FILE_MB = TASK_VIDEO_MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024)
 const ACCEPTED_FILE_TYPES = Array.from(
   new Set<string>([
     ...TASK_ALLOWED_MIME_TYPES,
@@ -212,20 +215,22 @@ function resolveTaskAttachmentMimeType(file: Pick<File, 'name' | 'type'>): strin
 }
 
 function validateTaskAttachmentFile(file: File): TaskAttachmentFileValidation {
-  if (file.size > TASK_MAX_ATTACHMENT_SIZE_BYTES) {
-    return {
-      ok: false,
-      title: 'File too large',
-      message: `${file.name} exceeds ${MAX_FILE_MB} MB.`,
-    }
-  }
-
   const mimeType = resolveTaskAttachmentMimeType(file)
   if (!mimeType) {
     return {
       ok: false,
       title: 'File type not allowed',
       message: `${file.name} is not a supported type.`,
+    }
+  }
+
+  const maxBytes = getTaskAttachmentMaxSizeBytesForMime(mimeType)
+  const maxMb = maxBytes / (1024 * 1024)
+  if (file.size > maxBytes) {
+    return {
+      ok: false,
+      title: 'File too large',
+      message: `${file.name} exceeds ${maxMb} MB for this file type.`,
     }
   }
 
@@ -276,7 +281,13 @@ async function uploadTaskFilesToCloudinary(
         size_bytes: file.size,
         cloudinary_url: data.secure_url,
         cloudinary_public_id: data.public_id,
-        resource_type: data.resource_type ?? (mimeType.startsWith('image/') ? 'image' : 'raw'),
+        resource_type:
+          data.resource_type ??
+          (mimeType.startsWith('image/')
+            ? 'image'
+            : mimeType.startsWith('video/')
+              ? 'video'
+              : 'raw'),
       })
     } catch {
       return {
@@ -856,7 +867,13 @@ export function ProjectTasks({
             size_bytes: file.size,
             cloudinary_url: data.secure_url,
             cloudinary_public_id: data.public_id,
-            resource_type: data.resource_type ?? (mimeType.startsWith('image/') ? 'image' : 'raw'),
+            resource_type:
+          data.resource_type ??
+          (mimeType.startsWith('image/')
+            ? 'image'
+            : mimeType.startsWith('video/')
+              ? 'video'
+              : 'raw'),
           })
         } catch {
           showError('Upload failed', `Could not upload ${file.name}.`)
@@ -3711,7 +3728,8 @@ function TaskDetailPanel({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                 </svg>
                 <span className="text-xs text-slate-600 leading-tight">
-                  Drag & drop files here or browse (max {MAX_FILE_MB} MB). Attachments are uploaded when you save the task.
+                  Drag & drop files here or browse (max {MAX_FILE_MB} MB, {MAX_VIDEO_FILE_MB} MB for .mov). Attachments are
+                uploaded when you save the task.
                 </span>
               </label>
               {createInitialFiles.length > 0 && (
@@ -3739,7 +3757,9 @@ function TaskDetailPanel({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
               </svg>
               <span className="text-xs text-slate-600 leading-tight">
-                Drop your files here to upload, or <span className="underline font-medium text-cyan-600">browse</span> (max {MAX_FILE_MB} MB)
+                Drop your files here to upload, or{' '}
+                <span className="underline font-medium text-cyan-600">browse</span> (max {MAX_FILE_MB} MB,{' '}
+                {MAX_VIDEO_FILE_MB} MB for .mov)
               </span>
             </label>
           )}
@@ -5522,7 +5542,7 @@ function TaskFormModal({
           </div>
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-1">Attachments</label>
-            <p className="text-xs text-slate-500 mb-2">Optional. Add files when creating the task (max {MAX_FILE_MB} MB per file).</p>
+            <p className="text-xs text-slate-500 mb-2">Optional. Add files when creating the task (max {MAX_FILE_MB} MB per file, {MAX_VIDEO_FILE_MB} MB for .mov).</p>
             <label
               {...attachmentDropzone.rootProps}
               className={`inline-flex items-center gap-2 rounded-lg border border-dashed px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 cursor-pointer transition-colors ${

@@ -9,9 +9,11 @@ import { EmptyState } from '@/app/components/empty-state'
 import { useFileDropzone } from '@/app/components/ui/use-file-dropzone'
 import { MediaViewerModal } from '@/app/components/ui/media-viewer-modal'
 import {
+  FILE_TYPE_CATEGORIES,
   PROJECT_NOTE_ALLOWED_EXTENSIONS,
   PROJECT_NOTE_EXTENSION_MIME_MAP,
   PROJECT_NOTE_MAX_ATTACHMENT_SIZE_BYTES,
+  PROJECT_NOTE_VIDEO_MAX_ATTACHMENT_SIZE_BYTES,
   PROJECT_NOTE_MAX_ATTACHMENTS,
   getFileCategory,
 } from '@/lib/projects/my-notes-constants'
@@ -52,7 +54,9 @@ function formatDateTime(dateString: string) {
 }
 
 const maxSizeMB = PROJECT_NOTE_MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024)
-const acceptedExtensions = PROJECT_NOTE_ALLOWED_EXTENSIONS.map((ext) => `.${ext}`).join(',') + ',image/*'
+const videoMaxMB = PROJECT_NOTE_VIDEO_MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024)
+const acceptedExtensions =
+  PROJECT_NOTE_ALLOWED_EXTENSIONS.map((ext) => `.${ext}`).join(',') + ',image/*,video/*'
 const imageExtensions = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif'])
 
 function formatFileSize(bytes: number) {
@@ -130,6 +134,13 @@ function isImageAttachment(attachment: ProjectMyNoteAttachment) {
   const mimeType = attachment.mime_type?.toLowerCase() || ''
   if (mimeType.startsWith('image/')) return true
   return imageExtensions.has(getFileExtension(attachment.file_name))
+}
+
+function isVideoAttachment(attachment: ProjectMyNoteAttachment) {
+  const mimeType = attachment.mime_type?.toLowerCase() || ''
+  if (mimeType.startsWith('video/')) return true
+  const ext = getFileExtension(attachment.file_name)
+  return ext === 'mov' || ext === 'mp4' || ext === 'webm' || ext === 'm4v'
 }
 
 function getAttachmentTypeLabel(attachment: ProjectMyNoteAttachment) {
@@ -287,7 +298,7 @@ function MyNoteFileAttachmentList({
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
               Files
             </p>
-            <p className="truncate text-[10px] text-slate-400">Documents attached to this note</p>
+            <p className="truncate text-[10px] text-slate-400">Documents and videos attached to this note</p>
           </div>
         </div>
         <span className="flex h-6 min-w-6 items-center justify-center rounded-full border border-slate-200 bg-white px-2 text-[10px] font-semibold text-slate-600">
@@ -306,12 +317,27 @@ function MyNoteFileAttachmentList({
               onClick={() => onPreview(attachment)}
               className="flex items-center gap-2.5 flex-1 min-w-0 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2"
             >
-              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-white text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600 shadow-sm ring-1 ring-slate-200">
-                {getAttachmentTypeLabel(attachment)}
+              <div
+                className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-[10px] font-bold uppercase tracking-[0.16em] shadow-sm ring-1 ring-slate-200 ${
+                  isVideoAttachment(attachment)
+                    ? 'bg-slate-900 text-white ring-slate-800'
+                    : 'bg-white text-slate-600'
+                }`}
+              >
+                {isVideoAttachment(attachment) ? (
+                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <path d="M8 5v14l11-7L8 5z" />
+                  </svg>
+                ) : (
+                  getAttachmentTypeLabel(attachment)
+                )}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-slate-700">{attachment.file_name}</p>
-                <p className="text-[10px] text-slate-400">{formatFileSize(attachment.size_bytes)}</p>
+                <p className="text-[10px] text-slate-400">
+                  {formatFileSize(attachment.size_bytes)}
+                  {isVideoAttachment(attachment) ? ' · Tap to play' : ''}
+                </p>
               </div>
             </button>
 
@@ -583,13 +609,22 @@ export function ProjectMyNotes({
       }
     }
 
-    const oversizeFile = combinedFiles.find(
-      (file) => file.size > PROJECT_NOTE_MAX_ATTACHMENT_SIZE_BYTES
-    )
+    const oversizeFile = combinedFiles.find((file) => {
+      const extension = getFileExtension(file.name)
+      const category = getFileCategory(extension)
+      const maxBytes =
+        category === FILE_TYPE_CATEGORIES.VIDEO
+          ? PROJECT_NOTE_VIDEO_MAX_ATTACHMENT_SIZE_BYTES
+          : PROJECT_NOTE_MAX_ATTACHMENT_SIZE_BYTES
+      return file.size > maxBytes
+    })
     if (oversizeFile) {
+      const ext = getFileExtension(oversizeFile.name)
+      const cat = getFileCategory(ext)
+      const limitMb = cat === FILE_TYPE_CATEGORIES.VIDEO ? videoMaxMB : maxSizeMB
       showError(
         'File Too Large',
-        `"${oversizeFile.name}" exceeds ${maxSizeMB} MB limit.`
+        `"${oversizeFile.name}" exceeds ${limitMb} MB limit for this file type.`
       )
       return
     }
@@ -611,10 +646,15 @@ export function ProjectMyNotes({
     })
 
     if (!allSameCategory) {
-      const categoryName = firstFileCategory === 'image' ? 'images' : 'documents'
+      const categoryName =
+        firstFileCategory === 'image'
+          ? 'images'
+          : firstFileCategory === 'video'
+            ? 'videos'
+            : 'documents'
       showError(
         'Mixed File Categories',
-        `You can only select ${categoryName} at a time. Please select all images together or all documents together.`
+        `You can only select ${categoryName} at a time. Please select all images, all documents, or all videos together.`
       )
       return
     }
@@ -696,7 +736,13 @@ export function ProjectMyNotes({
             size_bytes: data.bytes || file.size,
             cloudinary_url: data.secure_url,
             cloudinary_public_id: data.public_id,
-            resource_type: data.resource_type || (mimeType.startsWith('image/') ? 'image' : 'raw'),
+            resource_type:
+              data.resource_type ||
+              (mimeType.startsWith('image/')
+                ? 'image'
+                : mimeType.startsWith('video/')
+                  ? 'video'
+                  : 'raw'),
           })
 
           setUploadProgress({ total: selectedFiles.length, done: i + 1 })
@@ -1115,7 +1161,9 @@ export function ProjectMyNotes({
             }`}>
               <span>Max {PROJECT_NOTE_MAX_ATTACHMENTS}</span>
               <span>|</span>
-              <span>{maxSizeMB}MB</span>
+              <span>
+                {maxSizeMB}MB · {videoMaxMB}MB video
+              </span>
               <span>|</span>
               <span>Same category</span>
               <span>|</span>
@@ -1128,6 +1176,8 @@ export function ProjectMyNotes({
               <div className="flex gap-2 pb-1">
                 {selectedFiles.map((file, index) => {
                   const isImage = file.type.startsWith('image/')
+                  const isVideo =
+                    file.type.startsWith('video/') || getFileExtension(file.name) === 'mov'
                   if (isImage && !objectUrlsRef.current.has(index)) {
                     const url = URL.createObjectURL(file)
                     objectUrlsRef.current.set(index, url)
@@ -1143,6 +1193,12 @@ export function ProjectMyNotes({
                             alt={file.name}
                             className="w-full h-full object-cover"
                           />
+                        ) : isVideo ? (
+                          <div className="flex h-full w-full items-center justify-center bg-slate-900 text-white">
+                            <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+                              <path d="M8 5v14l11-7L8 5z" />
+                            </svg>
+                          </div>
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
                             <svg className="h-6 w-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">

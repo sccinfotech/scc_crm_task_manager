@@ -14,7 +14,9 @@ import {
   TEAM_TALK_ALLOWED_MIME_TYPES,
   TEAM_TALK_EXTENSION_MIME_MAP,
   TEAM_TALK_MAX_ATTACHMENT_SIZE_BYTES,
+  TEAM_TALK_VIDEO_MAX_ATTACHMENT_SIZE_BYTES,
   TEAM_TALK_MAX_ATTACHMENTS,
+  getTeamTalkAttachmentMaxSizeBytesForMime,
 } from '@/lib/projects/team-talk-constants'
 import {
   createProjectTeamTalkMessage,
@@ -89,7 +91,9 @@ function getFileExtension(name: string) {
 }
 
 const maxSizeMB = TEAM_TALK_MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024)
-const acceptedExtensions = TEAM_TALK_ALLOWED_EXTENSIONS.map((ext) => `.${ext}`).join(',')
+const videoMaxMB = TEAM_TALK_VIDEO_MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024)
+const acceptedExtensions =
+  TEAM_TALK_ALLOWED_EXTENSIONS.map((ext) => `.${ext}`).join(',') + ',video/*'
 const urlRegex = /((https?:\/\/[^\s<]+)|((www\.)[^\s<]+))/gi
 const imageExtensions = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif'])
 
@@ -141,6 +145,13 @@ function isImageAttachment(attachment: ProjectTeamTalkAttachment) {
   const mimeType = attachment.mime_type?.toLowerCase() || ''
   if (mimeType.startsWith('image/')) return true
   return imageExtensions.has(getFileExtension(attachment.file_name))
+}
+
+function isVideoAttachment(attachment: ProjectTeamTalkAttachment) {
+  const mimeType = attachment.mime_type?.toLowerCase() || ''
+  if (mimeType.startsWith('video/')) return true
+  const ext = getFileExtension(attachment.file_name)
+  return ext === 'mov' || ext === 'mp4' || ext === 'webm' || ext === 'm4v'
 }
 
 function getAttachmentTypeLabel(attachment: ProjectTeamTalkAttachment) {
@@ -303,7 +314,7 @@ function MessageFileAttachmentList({
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
               Files
             </p>
-            <p className="truncate text-[11px] text-slate-400">Documents shared in this update</p>
+            <p className="truncate text-[11px] text-slate-400">Documents and videos shared in this update</p>
           </div>
         </div>
         <span className="flex h-7 min-w-[1.75rem] items-center justify-center rounded-full border border-slate-200 bg-slate-50 px-2 text-[11px] font-semibold text-slate-600">
@@ -322,13 +333,26 @@ function MessageFileAttachmentList({
               onClick={() => onPreview(attachment)}
               className="flex min-w-0 flex-1 items-center gap-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2"
             >
-              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-white text-[10px] font-bold uppercase tracking-[0.18em] text-slate-600 shadow-sm ring-1 ring-slate-200">
-                {getAttachmentTypeLabel(attachment)}
+              <div
+                className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl text-[10px] font-bold uppercase tracking-[0.18em] shadow-sm ring-1 ${
+                  isVideoAttachment(attachment)
+                    ? 'bg-slate-900 text-white ring-slate-800'
+                    : 'bg-white text-slate-600 ring-slate-200'
+                }`}
+              >
+                {isVideoAttachment(attachment) ? (
+                  <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <path d="M8 5v14l11-7L8 5z" />
+                  </svg>
+                ) : (
+                  getAttachmentTypeLabel(attachment)
+                )}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-slate-800">{attachment.file_name}</p>
                 <p className="mt-1 text-[11px] text-slate-500">
-                  {formatFileSize(attachment.size_bytes)} · Preview available
+                  {formatFileSize(attachment.size_bytes)} ·{' '}
+                  {isVideoAttachment(attachment) ? 'Tap to play' : 'Preview available'}
                 </p>
               </div>
               <span className="hidden rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 sm:inline-flex">
@@ -623,8 +647,12 @@ export function ProjectTeamTalk({
         return
       }
 
-      if (file.size > TEAM_TALK_MAX_ATTACHMENT_SIZE_BYTES) {
-        showError('File Too Large', `${file.name} exceeds the ${maxSizeMB}MB limit.`)
+      const effectiveMime =
+        mimeType || TEAM_TALK_EXTENSION_MIME_MAP[extension] || 'application/octet-stream'
+      const maxBytes = getTeamTalkAttachmentMaxSizeBytesForMime(effectiveMime)
+      if (file.size > maxBytes) {
+        const limitMb = maxBytes === TEAM_TALK_VIDEO_MAX_ATTACHMENT_SIZE_BYTES ? videoMaxMB : maxSizeMB
+        showError('File Too Large', `${file.name} exceeds the ${limitMb}MB limit for this file type.`)
         return
       }
     }
@@ -705,7 +733,13 @@ export function ProjectTeamTalk({
             size_bytes: data.bytes || file.size,
             cloudinary_url: data.secure_url,
             cloudinary_public_id: data.public_id,
-            resource_type: data.resource_type || (mimeType.startsWith('image/') ? 'image' : 'raw'),
+            resource_type:
+              data.resource_type ||
+              (mimeType.startsWith('image/')
+                ? 'image'
+                : mimeType.startsWith('video/')
+                  ? 'video'
+                  : 'raw'),
           })
 
           setUploadProgress({ total: selectedFiles.length, done: i + 1 })
@@ -1219,7 +1253,8 @@ export function ProjectTeamTalk({
                 attachmentDropzone.isDragging ? 'text-cyan-600' : 'text-slate-500'
               }`}
             >
-              Up to {TEAM_TALK_MAX_ATTACHMENTS} files · max {maxSizeMB}MB each · {attachmentDropzone.isDragging ? 'drop now' : 'drag & drop'}
+              Up to {TEAM_TALK_MAX_ATTACHMENTS} files · max {maxSizeMB}MB ({videoMaxMB}MB video) ·{' '}
+              {attachmentDropzone.isDragging ? 'drop now' : 'drag & drop'}
             </p>
           </div>
 
@@ -1228,6 +1263,8 @@ export function ProjectTeamTalk({
               <div className="flex gap-2 pb-1">
                 {selectedFiles.map((file, index) => {
                   const isImage = file.type.startsWith('image/')
+                  const isVideo =
+                    file.type.startsWith('video/') || getFileExtension(file.name) === 'mov'
                   if (isImage && !objectUrlsRef.current.has(index)) {
                     const url = URL.createObjectURL(file)
                     objectUrlsRef.current.set(index, url)
@@ -1239,6 +1276,12 @@ export function ProjectTeamTalk({
                       <div className="w-16 h-16 rounded-xl border border-slate-200 bg-slate-50 overflow-hidden shadow-sm">
                         {isImage && objectUrl ? (
                           <img src={objectUrl} alt={file.name} className="w-full h-full object-cover" />
+                        ) : isVideo ? (
+                          <div className="flex h-full w-full items-center justify-center bg-slate-900 text-white">
+                            <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+                              <path d="M8 5v14l11-7L8 5z" />
+                            </svg>
+                          </div>
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
                             <svg className="h-6 w-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
