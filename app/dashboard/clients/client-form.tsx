@@ -45,6 +45,8 @@ export function ClientForm({
         status: formData.get('status') as ClientStatus,
         remark: formData.get('remark') as string,
         lead_id: formData.get('lead_id') as string,
+        gst_number: (formData.get('gst_number') as string) || undefined,
+        billing_state_code: (formData.get('billing_state_code') as string) || undefined,
       }
 
       const result = await onSubmit(clientData)
@@ -154,6 +156,39 @@ export function ClientForm({
               defaultValue={initialData?.email || ''}
               className={inputClasses}
               placeholder="john@example.com"
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-5 md:grid-cols-2">
+          {/* Billing State */}
+          <div>
+            <label htmlFor="billing_state_code" className={labelClasses}>
+              Billing State Code <span className="text-slate-400 font-normal">(e.g. GJ)</span>
+            </label>
+            <input
+              type="text"
+              id="billing_state_code"
+              name="billing_state_code"
+              defaultValue={(initialData as { billing_state_code?: string } | undefined)?.billing_state_code || ''}
+              className={inputClasses}
+              placeholder="GJ"
+              maxLength={2}
+            />
+          </div>
+
+          {/* GST Number */}
+          <div>
+            <label htmlFor="gst_number" className={labelClasses}>
+              GST Number <span className="text-slate-400 font-normal">(optional)</span>
+            </label>
+            <input
+              type="text"
+              id="gst_number"
+              name="gst_number"
+              defaultValue={(initialData as { gst_number?: string } | undefined)?.gst_number || ''}
+              className={inputClasses}
+              placeholder="22AAAAA0000A1Z5"
             />
           </div>
         </div>

@@ -20,6 +20,8 @@ export type ClientFormData = {
   status: ClientStatus
   remark?: string
   lead_id?: string
+  gst_number?: string
+  billing_state_code?: string
 }
 
 export type Client = {
@@ -31,6 +33,8 @@ export type Client = {
   status: ClientStatus
   remark: string | null
   lead_id: string | null
+  gst_number: string | null
+  billing_state_code: string | null
   created_by: string
   created_at: string
   updated_at: string
@@ -57,6 +61,8 @@ export type ClientListItem = {
   email: string | null
   status: ClientStatus
   remark: string | null
+  gst_number?: string | null
+  billing_state_code?: string | null
   created_at: string
   created_by?: string
   products?: { id: string; name: string }[]
@@ -66,6 +72,8 @@ export type ClientSelectOption = {
   id: string
   name: string
   company_name: string | null
+  gst_number?: string | null
+  billing_state_code?: string | null
 }
 
 export async function getClientsPage(options: GetClientsPageOptions = {}) {
@@ -254,7 +262,7 @@ export async function getClientsPage(options: GetClientsPageOptions = {}) {
   // Default: All clients (no product-specific filtering)
   let query = supabase
     .from('clients')
-    .select('id, name, company_name, phone, email, status, remark, created_at, created_by', {
+    .select('id, name, company_name, phone, email, status, remark, gst_number, billing_state_code, created_at, created_by', {
       count: 'exact',
     })
 
@@ -301,7 +309,7 @@ export async function getClientsForSelect(): Promise<{ data: ClientSelectOption[
   const supabase = await createSupabaseClient()
   const { data, error } = await supabase
     .from('clients')
-    .select('id, name, company_name')
+    .select('id, name, company_name, gst_number, billing_state_code')
     .order('name', { ascending: true })
 
   if (error) {
@@ -369,6 +377,8 @@ export async function createClient(formData: ClientFormData): Promise<ClientActi
       status: formData.status,
       remark: formData.remark || null,
       lead_id: formData.lead_id || null,
+      gst_number: formData.gst_number?.trim() || null,
+      billing_state_code: formData.billing_state_code?.trim() || null,
       created_by: currentUser.id,
     } as never)
     .select()
@@ -481,6 +491,8 @@ export async function updateClient(clientId: string, formData: ClientFormData): 
       email,
       status: formData.status,
       remark: formData.remark || null,
+      gst_number: formData.gst_number?.trim() || null,
+      billing_state_code: formData.billing_state_code?.trim() || null,
     } as never)
     .eq('id', clientId)
     .select()
@@ -593,7 +605,7 @@ export async function getClient(clientId: string): Promise<{ data: Client | null
 
   const { data, error } = await supabase
     .from('clients')
-    .select('id, name, company_name, phone, email, status, remark, lead_id, created_by, created_at, updated_at')
+    .select('id, name, company_name, phone, email, status, remark, lead_id, gst_number, billing_state_code, created_by, created_at, updated_at')
     .eq('id', clientId)
     .single()
 

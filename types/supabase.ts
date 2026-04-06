@@ -192,6 +192,8 @@ export interface Database {
           status: string
           remark: string | null
           lead_id: string | null
+          gst_number: string | null
+          billing_state_code: string | null
           created_by: string
           created_at: string
           updated_at: string
@@ -205,6 +207,8 @@ export interface Database {
           status?: string
           remark?: string | null
           lead_id?: string | null
+          gst_number?: string | null
+          billing_state_code?: string | null
           created_by: string
           created_at?: string
           updated_at?: string
@@ -218,6 +222,8 @@ export interface Database {
           status?: string
           remark?: string | null
           lead_id?: string | null
+          gst_number?: string | null
+          billing_state_code?: string | null
           created_by?: string
           created_at?: string
           updated_at?: string
@@ -664,6 +670,109 @@ export interface Database {
           resource_type?: string
           created_by?: string
           created_at?: string
+        }
+      }
+      invoices: {
+        Row: {
+          id: string
+          invoice_number: string
+          invoice_date: string
+          client_id: string
+          invoice_type: string
+          gst_tax_type: string
+          subtotal: number
+          discount: number
+          cgst_rate: number
+          cgst_amount: number
+          sgst_rate: number
+          sgst_amount: number
+          igst_rate: number
+          igst_amount: number
+          total_tax: number
+          grand_total: number
+          terms_and_conditions: string | null
+          payment_status: string
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          invoice_number: string
+          invoice_date?: string
+          client_id: string
+          invoice_type?: string
+          gst_tax_type?: string
+          subtotal?: number
+          discount?: number
+          cgst_rate?: number
+          cgst_amount?: number
+          sgst_rate?: number
+          sgst_amount?: number
+          igst_rate?: number
+          igst_amount?: number
+          total_tax?: number
+          grand_total?: number
+          terms_and_conditions?: string | null
+          payment_status?: string
+          created_by: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          invoice_number?: string
+          invoice_date?: string
+          client_id?: string
+          invoice_type?: string
+          gst_tax_type?: string
+          subtotal?: number
+          discount?: number
+          cgst_rate?: number
+          cgst_amount?: number
+          sgst_rate?: number
+          sgst_amount?: number
+          igst_rate?: number
+          igst_amount?: number
+          total_tax?: number
+          grand_total?: number
+          terms_and_conditions?: string | null
+          payment_status?: string
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      invoice_items: {
+        Row: {
+          id: string
+          invoice_id: string
+          project_id: string | null
+          narration: string | null
+          amount: number
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          invoice_id: string
+          project_id?: string | null
+          narration?: string | null
+          amount?: number
+          created_by: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          invoice_id?: string
+          project_id?: string | null
+          narration?: string | null
+          amount?: number
+          created_by?: string
+          created_at?: string
+          updated_at?: string
         }
       }
       financial_accounts: {
