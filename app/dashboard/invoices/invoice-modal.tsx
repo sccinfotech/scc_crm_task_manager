@@ -10,6 +10,8 @@ interface InvoiceModalProps {
   onClose: () => void
   mode: 'create' | 'edit'
   initialData?: Partial<InvoiceFormData>
+  /** Used to force the form to remount when switching records (e.g. edit A -> edit B). */
+  formKey?: string
   isLoading?: boolean
   onSubmit: (formData: InvoiceFormData) => Promise<{ data: any; error: string | null }>
   clients: ClientSelectOption[]
@@ -21,6 +23,7 @@ export function InvoiceModal({
   onClose,
   mode,
   initialData,
+  formKey,
   isLoading = false,
   onSubmit,
   clients,
@@ -106,6 +109,7 @@ export function InvoiceModal({
 
         <div className="max-h-[calc(100vh-160px)] overflow-y-auto px-6 py-6">
           <InvoiceForm
+            key={formKey ?? mode}
             initialData={initialData}
             onSubmit={onSubmit}
             onSuccess={onClose}

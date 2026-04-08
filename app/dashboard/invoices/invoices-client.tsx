@@ -487,6 +487,7 @@ export function InvoicesClient({
         mode="create"
         onSubmit={handleCreate}
         isLoading={saving}
+        formKey="create"
         clients={clients}
         projects={projects}
       />
@@ -502,6 +503,7 @@ export function InvoicesClient({
         mode="edit"
         onSubmit={handleUpdate}
         isLoading={editLoading || saving}
+        formKey={selectedInvoiceId ?? 'edit'}
         clients={clients}
         projects={projects}
         initialData={

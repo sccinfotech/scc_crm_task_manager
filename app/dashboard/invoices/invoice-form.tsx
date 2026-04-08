@@ -87,7 +87,7 @@ export function InvoiceForm({
     return [{ value: '', label: 'Select client…' }, ...rows]
   }, [clients])
   const projectOptions = useMemo(
-    () => [{ value: '', label: '—' }, ...(projects || []).map((p) => ({ value: p.id, label: p.name }))],
+    () => (projects || []).map((p) => ({ value: p.id, label: p.name })),
     [projects]
   )
 
@@ -249,6 +249,9 @@ export function InvoiceForm({
                         }
                         ariaLabel="Select project"
                         className="min-h-[2.5rem] w-full"
+                        searchable
+                        placeholder="Select project…"
+                        searchPlaceholder="Type to search…"
                       />
                     </div>
                   </td>
