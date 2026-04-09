@@ -258,9 +258,9 @@ export function ProductClientsModal({
   }
 
   return (
-    <div className="flex h-full flex-col px-3 py-3 sm:px-4">
+    <div className="flex h-full flex-col px-2 py-2 sm:px-3 sm:py-3">
       <div className="relative mx-auto flex h-full max-h-full w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-cyan-600">
               Manage Clients
@@ -282,7 +282,7 @@ export function ProductClientsModal({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto bg-slate-50 px-5 py-4">
+        <div className="flex-1 overflow-y-auto bg-slate-50 px-3 py-3 sm:px-4 sm:py-3">
           {loading && (
             <div className="mb-3 rounded-xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm text-cyan-700">
               Loading clients...
@@ -310,7 +310,7 @@ export function ProductClientsModal({
           </div>
 
           {subscriptions.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500">
+            <div className="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-4 text-center text-sm text-slate-500">
               No clients are connected to this product yet.
             </div>
           ) : (

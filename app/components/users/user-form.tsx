@@ -295,7 +295,7 @@ export function UserForm({ initialData, mode, onSubmit, onCancel, readOnly = fal
   const displayPhotoUrl = photoPreviewUrl || photoUrl
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
         <div className="rounded-xl bg-rose-50 border border-rose-100 p-4 animate-fade-in">
           <div className="flex gap-3">
@@ -307,10 +307,10 @@ export function UserForm({ initialData, mode, onSubmit, onCancel, readOnly = fal
         </div>
       )}
 
-      <div className="bg-slate-50/50 rounded-2xl p-5 border border-slate-100 space-y-5">
+      <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100 space-y-3">
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Basic Details</h3>
 
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2">
           <div className="md:col-span-2">
             <label className={labelClasses}>
               Full Name <span className="text-rose-500">*</span>
@@ -505,10 +505,10 @@ export function UserForm({ initialData, mode, onSubmit, onCancel, readOnly = fal
         </div>
       </div>
 
-      <div className="bg-slate-50/50 rounded-2xl p-5 border border-slate-100 space-y-5">
+      <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100 space-y-3">
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Personal Details</h3>
 
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2">
           <div>
             <label className={labelClasses}>Personal Email</label>
             <input

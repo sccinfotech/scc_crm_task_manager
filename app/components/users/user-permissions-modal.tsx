@@ -86,7 +86,7 @@ export function UserPermissionsModal({
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
+      className="fixed inset-0 z-[70] flex items-center justify-center p-2 sm:p-3 bg-slate-900/40 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
     >
@@ -94,9 +94,9 @@ export function UserPermissionsModal({
         className="relative z-10 w-full max-w-2xl rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 flex-shrink-0">
+        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2.5 sm:py-3 flex-shrink-0">
           <div>
-            <h2 className="text-xl font-semibold text-[#1E1B4B]">Set Module Permissions</h2>
+            <h2 className="text-lg font-semibold text-[#1E1B4B] sm:text-xl">Set Module Permissions</h2>
             <p className="text-xs text-slate-500 mt-1">
               {user.full_name || user.email}
             </p>
@@ -111,7 +111,7 @@ export function UserPermissionsModal({
           </button>
         </div>
 
-        <div className="overflow-y-auto p-6 flex-1 space-y-4">
+        <div className="overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 flex-1 space-y-3">
           {error && (
             <div className="rounded-xl bg-rose-50 border border-rose-100 p-3 text-sm text-rose-700">
               {error}
@@ -121,7 +121,7 @@ export function UserPermissionsModal({
           {PERMISSION_MODULES.map((module) => (
             <div
               key={module.id}
-              className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border border-slate-100 rounded-xl p-4"
+              className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border border-slate-100 rounded-xl p-3"
             >
               <span className="text-sm font-semibold text-slate-700">{module.label}</span>
               <div className="flex items-center gap-2 bg-slate-100/80 p-1 rounded-xl">
@@ -144,7 +144,7 @@ export function UserPermissionsModal({
           ))}
         </div>
 
-        <div className="flex justify-end items-center gap-3 border-t border-gray-100 px-6 py-4">
+        <div className="flex justify-end items-center gap-2 border-t border-gray-100 px-4 py-2.5 sm:py-3">
           <button
             type="button"
             onClick={onClose}

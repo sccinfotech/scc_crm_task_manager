@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { InvoiceFormData, InvoiceType } from '@/lib/invoices/actions'
+import type { HsnCodeOption, InvoiceFormData, InvoiceType } from '@/lib/invoices/actions'
 import type { ClientSelectOption } from '@/lib/clients/actions'
 import { InvoiceForm } from './invoice-form'
 
@@ -16,6 +16,7 @@ interface InvoiceModalProps {
   onSubmit: (formData: InvoiceFormData) => Promise<{ data: any; error: string | null }>
   clients: ClientSelectOption[]
   projects: Array<{ id: string; name: string }>
+  hsnCodes: HsnCodeOption[]
 }
 
 export function InvoiceModal({
@@ -28,6 +29,7 @@ export function InvoiceModal({
   onSubmit,
   clients,
   projects,
+  hsnCodes,
 }: InvoiceModalProps) {
   const [headerInvoiceType, setHeaderInvoiceType] = useState<InvoiceType>(() => initialData?.invoice_type ?? 'gst')
 
@@ -48,22 +50,22 @@ export function InvoiceModal({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-3" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
       <div
-        className="relative z-10 w-full max-w-5xl rounded-2xl bg-white shadow-2xl ring-1 ring-black/5"
+        className="relative z-10 w-full max-w-[min(1200px,calc(100vw-1.5rem))] rounded-2xl bg-white shadow-2xl ring-1 ring-black/5"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="grid grid-cols-3 items-center border-b border-gray-200 px-6 py-4">
+        <div className="grid grid-cols-3 items-center border-b border-gray-200 px-4 py-2.5 sm:px-4 sm:py-3">
           <div className="min-w-0">
-            <h2 className="truncate text-xl font-semibold text-[#1E1B4B]">
+            <h2 className="truncate text-lg font-semibold text-[#1E1B4B] sm:text-xl">
               {mode === 'create' ? 'Create New Invoice' : 'Edit Invoice'}
             </h2>
           </div>
 
           <div className="flex justify-center">
             <div
-              className="inline-flex rounded-xl border border-slate-200 bg-white p-1"
+              className="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm"
               role="group"
               aria-label="Invoice type"
             >
@@ -107,7 +109,7 @@ export function InvoiceModal({
           </div>
         </div>
 
-        <div className="max-h-[calc(100vh-160px)] overflow-y-auto px-6 py-6">
+        <div className="max-h-[calc(100dvh-140px)] overflow-y-auto px-3 py-3 sm:max-h-[calc(100vh-200px)] sm:px-4 sm:py-4">
           <InvoiceForm
             key={formKey ?? mode}
             initialData={initialData}
@@ -117,7 +119,9 @@ export function InvoiceModal({
             disabled={isLoading}
             clients={clients}
             projects={projects}
+            hsnCodes={hsnCodes}
             invoiceType={headerInvoiceType}
+            isCreate={mode === 'create'}
           />
         </div>
       </div>

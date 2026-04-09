@@ -58,7 +58,7 @@ export function LeadForm({
   const statusOptions = STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label }))
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form action={formAction} className="space-y-4">
       {state?.error && (
         <div className="rounded-xl bg-rose-50 border border-rose-100 p-4 animate-fade-in">
           <div className="flex gap-3">
@@ -71,10 +71,10 @@ export function LeadForm({
       )}
 
       {/* Info Group */}
-      <div className="bg-slate-50/50 rounded-2xl p-5 border border-slate-100 space-y-5">
+      <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100 space-y-3">
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Lead Information</h3>
 
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2">
           {/* Name */}
           <div className="md:col-span-1">
             <label htmlFor="name" className={labelClasses}>
@@ -109,7 +109,7 @@ export function LeadForm({
           </div>
         </div>
 
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2">
           {/* Phone */}
           <div>
             <label htmlFor="phone" className={labelClasses}>
@@ -145,10 +145,10 @@ export function LeadForm({
       </div>
 
       {/* Status & Follow-up Group */}
-      <div className="bg-slate-50/50 rounded-2xl p-5 border border-slate-100 space-y-5">
+      <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100 space-y-3">
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Status & Strategy</h3>
 
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2">
           {/* Status */}
           <div>
             <label htmlFor="status" className={labelClasses}>

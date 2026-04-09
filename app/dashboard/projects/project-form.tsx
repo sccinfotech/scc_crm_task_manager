@@ -224,7 +224,7 @@ export function ProjectForm({
   const hasLogo = Boolean(displayLogoUrl)
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form action={formAction} className="space-y-4">
       {state?.error && (
         <div className="rounded-xl bg-rose-50 border border-rose-100 p-4 animate-fade-in">
           <div className="flex gap-3">
@@ -237,10 +237,10 @@ export function ProjectForm({
       )}
 
       {/* Project Info */}
-      <div className="bg-slate-50/50 rounded-2xl p-5 border border-slate-100 space-y-5">
+      <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100 space-y-3">
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Project Information</h3>
 
-        <div className="grid gap-5 md:grid-cols-2 md:grid-rows-2 md:items-stretch">
+        <div className="grid gap-3 md:grid-cols-2 md:grid-rows-2 md:items-stretch">
           <div>
             <label htmlFor="name" className={labelClasses}>
               Project Name <span className="text-rose-500">*</span>
@@ -273,7 +273,7 @@ export function ProjectForm({
                 group relative flex flex-1 flex-col items-center justify-center rounded-2xl border-2 border-dashed transition-all duration-200 cursor-pointer
                 min-h-[120px] w-full overflow-hidden
                 ${hasLogo
-                  ? 'border-slate-200 bg-slate-50/50 hover:border-cyan-300 hover:bg-cyan-50/30 p-5 sm:p-6'
+                  ? 'border-slate-200 bg-slate-50/50 hover:border-cyan-300 hover:bg-cyan-50/30 p-4 sm:p-5'
                   : 'border-slate-200 bg-white hover:border-[#06B6D4] hover:bg-[#06B6D4]/5 focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-offset-2 p-4'
                 }
               `}
@@ -355,7 +355,7 @@ export function ProjectForm({
       </div>
 
       {/* Client & Financial */}
-      <div className="bg-slate-50/50 rounded-2xl p-5 border border-slate-100 space-y-5">
+      <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100 space-y-3">
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Client & Financials</h3>
 
         {clientsError && (
@@ -364,7 +364,7 @@ export function ProjectForm({
           </div>
         )}
 
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2">
           <div>
             <div className="flex items-center justify-between gap-2 mb-1.5">
               <label htmlFor="client_id" className={labelClasses}>
@@ -436,10 +436,10 @@ export function ProjectForm({
       </div>
 
       {/* Status & Schedule */}
-      <div className="bg-slate-50/50 rounded-2xl p-5 border border-slate-100 space-y-5">
+      <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100 space-y-3">
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Status & Schedule</h3>
 
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2">
           <div>
             <label htmlFor="client_deadline_date" className={labelClasses}>
               Client Deadline <span className="text-rose-500">*</span>
@@ -463,7 +463,7 @@ export function ProjectForm({
       </div>
 
       {/* Technology & Tools */}
-      <div className="bg-slate-50/50 rounded-2xl p-5 border border-slate-100 space-y-5">
+      <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100 space-y-3">
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Technology & Tools</h3>
 
         {technologyToolsError && (
@@ -472,7 +472,7 @@ export function ProjectForm({
           </div>
         )}
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div>
             <label htmlFor="technology_tool_search" className={labelClasses}>
               Add technology or tool
@@ -595,7 +595,7 @@ export function ProjectForm({
       </div>
 
       {/* Team Members */}
-      <div className="bg-slate-50/50 rounded-2xl p-5 border border-slate-100 space-y-5">
+      <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100 space-y-3">
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Team Members</h3>
 
         {teamMembersError && (
@@ -609,7 +609,7 @@ export function ProjectForm({
             No staff members found. Add staff users to assign them to projects.
           </p>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div>
               <label htmlFor="staff_member_select" className={labelClasses}>
                 Add staff member
@@ -663,10 +663,10 @@ export function ProjectForm({
       </div>
 
       {/* Website & Reference Links */}
-      <div className="bg-slate-50/50 rounded-2xl p-5 border border-slate-100 space-y-5">
+      <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100 space-y-3">
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Links</h3>
         <p className="text-xs text-slate-500">Enter multiple links separated by commas.</p>
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2">
           <div>
             <label htmlFor="website_links" className={labelClasses}>
               Website Links

@@ -1,11 +1,25 @@
 import { requireAuth, hasPermission } from '@/lib/auth/utils'
 import { redirect } from 'next/navigation'
 import { MODULE_PERMISSION_IDS } from '@/lib/permissions'
-import { getInvoicesPage, type InvoicePaymentStatus, getProjectsForInvoiceItemsSelect } from '@/lib/invoices/actions'
+import {
+  getInvoicesPage,
+  type InvoicePaymentStatus,
+  getProjectsForInvoiceItemsSelect,
+  getHsnCodesForSelect,
+} from '@/lib/invoices/actions'
 import { getClientsForSelect } from '@/lib/clients/actions'
 import { InvoicesClient } from './invoices-client'
 
 const PAGE_SIZE = 20
+
+const CLIENT_UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function sanitizeClientQueryParam(raw: string | undefined): string {
+  const s = raw?.trim()
+  if (!s) return ''
+  return CLIENT_UUID_RE.test(s) ? s : ''
+}
 
 export default async function InvoicesPage({
   searchParams,
@@ -13,6 +27,7 @@ export default async function InvoicesPage({
   searchParams: Promise<{
     search?: string
     status?: string
+    client?: string
     sort?: string
     sortDir?: 'asc' | 'desc'
     page?: string
@@ -27,11 +42,13 @@ export default async function InvoicesPage({
   const canWrite = await hasPermission(user, MODULE_PERMISSION_IDS.invoices, 'write')
   const params = await searchParams
   const page = Math.max(1, parseInt(params.page ?? '1', 10) || 1)
+  const clientIdFilter = sanitizeClientQueryParam(params.client)
 
-  const [result, clientsRes, projectsRes] = await Promise.all([
+  const [result, clientsRes, projectsRes, hsnRes] = await Promise.all([
     getInvoicesPage({
       search: params.search,
       status: (params.status as InvoicePaymentStatus | 'all' | undefined) ?? 'all',
+      clientId: clientIdFilter || undefined,
       sortField:
         (params.sort as 'invoice_number' | 'invoice_date' | 'grand_total' | 'payment_status' | 'created_at') ??
         'created_at',
@@ -41,10 +58,12 @@ export default async function InvoicesPage({
     }),
     getClientsForSelect(),
     getProjectsForInvoiceItemsSelect(),
+    getHsnCodesForSelect(),
   ])
 
   const clients = Array.isArray(clientsRes?.data) ? clientsRes.data : []
   const projects = Array.isArray(projectsRes?.data) ? projectsRes.data : []
+  const hsnCodes = Array.isArray(hsnRes?.data) ? hsnRes.data : []
 
   if (result.error) {
     return (
@@ -61,6 +80,7 @@ export default async function InvoicesPage({
       page={page}
       pageSize={PAGE_SIZE}
       initialSearch={params.search ?? ''}
+      initialClientId={clientIdFilter}
       initialStatus={(params.status as InvoicePaymentStatus | 'all') ?? 'all'}
       initialSortField={params.sort ?? 'created_at'}
       initialSortDirection={params.sortDir ?? 'desc'}
@@ -68,6 +88,7 @@ export default async function InvoicesPage({
       isAdmin={user.role === 'admin'}
       clients={clients}
       projects={projects}
+      hsnCodes={hsnCodes}
     />
   )
 }

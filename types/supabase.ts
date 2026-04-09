@@ -672,6 +672,32 @@ export interface Database {
           created_at?: string
         }
       }
+      hsn_codes: {
+        Row: {
+          id: string
+          code: string
+          title: string
+          description: string
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          code: string
+          title: string
+          description: string
+          sort_order?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          code?: string
+          title?: string
+          description?: string
+          sort_order?: number
+          created_at?: string
+        }
+      }
       invoices: {
         Row: {
           id: string
@@ -748,7 +774,10 @@ export interface Database {
           id: string
           invoice_id: string
           project_id: string | null
+          hsn_code_id: string | null
           narration: string | null
+          quantity: number
+          rate: number
           amount: number
           created_by: string
           created_at: string
@@ -758,7 +787,10 @@ export interface Database {
           id?: string
           invoice_id: string
           project_id?: string | null
+          hsn_code_id?: string | null
           narration?: string | null
+          quantity?: number
+          rate?: number
           amount?: number
           created_by: string
           created_at?: string
@@ -768,7 +800,10 @@ export interface Database {
           id?: string
           invoice_id?: string
           project_id?: string | null
+          hsn_code_id?: string | null
           narration?: string | null
+          quantity?: number
+          rate?: number
           amount?: number
           created_by?: string
           created_at?: string

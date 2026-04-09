@@ -214,10 +214,10 @@ export function ProductForm({
   )
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-4 rounded-2xl border border-slate-100 bg-slate-50/40 p-4 sm:p-5">
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-3 rounded-xl border border-slate-100 bg-slate-50/40 p-3 sm:p-4">
         <div className="grid gap-4 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1.2fr)] md:items-stretch">
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div>
               <label className={labelClasses}>
                 Product Name <span className="text-rose-500">*</span>
@@ -283,7 +283,7 @@ export function ProductForm({
                 group relative flex flex-1 flex-col items-center justify-center rounded-2xl border-2 border-dashed transition-all duration-200 cursor-pointer
                 min-h-[120px] w-full overflow-hidden
                 ${hasLogo
-                  ? 'border-slate-200 bg-slate-50/50 hover:border-cyan-300 hover:bg-cyan-50/30 p-4 sm:p-5'
+                  ? 'border-slate-200 bg-slate-50/50 hover:border-cyan-300 hover:bg-cyan-50/30 p-3 sm:p-4'
                   : 'border-slate-200 bg-white hover:border-[#06B6D4] hover:bg-[#06B6D4]/5 focus:outline-none focus:ring-2 focus:ring-[#06B6D4] focus:ring-offset-2 p-3'
                 }
               `}
@@ -348,7 +348,7 @@ export function ProductForm({
       </div>
 
       {mode === 'create' && (
-      <div className="space-y-3 rounded-2xl border border-slate-100 bg-white p-4 sm:p-5">
+      <div className="space-y-3 rounded-xl border border-slate-100 bg-white p-3 sm:p-4">
         <div className="flex items-center justify-between gap-2">
           <div>
             <h3 className="text-sm font-semibold text-[#1E1B4B]">Clients</h3>

@@ -3,12 +3,15 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 
+/** Matches standard form inputs (rounded-xl, padding, focus ring) across dashboard forms. */
 const TRIGGER_BASE_CLASSES =
-  'flex w-full items-center gap-2 text-left rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-medium text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.05)] transition-all duration-200 hover:border-slate-300 focus:border-[#06B6D4] focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/20 min-h-9'
+  'flex w-full items-center gap-2 text-left rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 shadow-sm transition-all duration-200 hover:border-slate-300 focus:border-[#06B6D4] focus:outline-none focus:ring-4 focus:ring-[#06B6D4]/10 min-h-[2.75rem]'
 
 export interface ListboxDropdownOption<T extends string = string> {
   value: T
   label: string
+  /** Optional secondary line (e.g. HSN description); included in search when searchable */
+  detail?: string
 }
 
 interface ListboxDropdownProps<T extends string = string> {
@@ -51,6 +54,10 @@ export function ListboxDropdown<T extends string = string>({
   const searchInputRef = useRef<HTMLInputElement>(null)
   const selectedOption = options.find((opt) => opt.value === value)
   const displayLabel = selectedOption ? selectedOption.label : placeholder
+  const triggerTitle =
+    selectedOption && selectedOption.detail
+      ? `${selectedOption.label}\n${selectedOption.detail}`
+      : selectedOption?.label || undefined
 
   const [panelStyle, setPanelStyle] = useState<React.CSSProperties | null>(null)
   const [portalReady, setPortalReady] = useState(false)
@@ -142,8 +149,12 @@ export function ListboxDropdown<T extends string = string>({
   }, [open, portal, options.length, searchable])
 
   const filteredOptions = useMemo(() => {
-    const q = searchQuery.toLowerCase()
-    return options.filter((option) => (searchable ? option.label.toLowerCase().includes(q) : true))
+    const q = searchQuery.toLowerCase().trim()
+    if (!searchable || !q) return options
+    return options.filter((option) => {
+      const hay = `${option.label} ${option.detail ?? ''}`.toLowerCase()
+      return hay.includes(q)
+    })
   }, [options, searchable, searchQuery])
 
   const panel = (
@@ -179,15 +190,23 @@ export function ListboxDropdown<T extends string = string>({
             <li key={option.value} role="option" aria-selected={isSelected}>
               <button
                 type="button"
+                title={option.detail ? `${option.label}\n${option.detail}` : option.label}
                 onClick={() => {
                   onChange(option.value)
                   setOpen(false)
                 }}
-                className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                className={`flex w-full items-start gap-2 px-3 py-2 text-left text-sm transition-colors ${
                   isSelected ? 'bg-cyan-50/80 font-medium text-cyan-800' : 'text-slate-700 hover:bg-slate-50'
                 }`}
               >
-                <span className="truncate min-w-0">{option.label}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium leading-snug">{option.label}</span>
+                  {option.detail ? (
+                    <span className="mt-0.5 block text-xs font-normal leading-snug text-slate-500 line-clamp-3">
+                      {option.detail}
+                    </span>
+                  ) : null}
+                </span>
                 {isSelected ? (
                   <svg
                     className="ml-auto h-4 w-4 flex-shrink-0 text-cyan-600"
@@ -218,6 +237,7 @@ export function ListboxDropdown<T extends string = string>({
         aria-label={ariaLabel}
         aria-expanded={open}
         aria-haspopup="listbox"
+        title={triggerTitle}
         disabled={disabled}
         onClick={() => !disabled && setOpen((prev) => !prev)}
         className={`${TRIGGER_BASE_CLASSES} ${className} ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
