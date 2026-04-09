@@ -76,7 +76,14 @@ export type Invoice = {
   created_by: string
   created_at: string
   updated_at: string
-  client?: { id: string; name: string; company_name: string | null } | null
+  client?: {
+    id: string
+    name: string
+    company_name: string | null
+    phone?: string | null
+    email?: string | null
+    gst_number?: string | null
+  } | null
   items?: Array<{
     id: string
     invoice_id: string
@@ -433,7 +440,7 @@ export async function getInvoice(id: string): Promise<{ data: Invoice | null; er
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('invoices')
-    .select('*, clients(id,name,company_name)')
+    .select('*, clients(id,name,company_name,phone,email,gst_number)')
     .eq('id', id)
     .single()
 

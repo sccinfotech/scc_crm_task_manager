@@ -21,6 +21,7 @@ import {
 } from '@/lib/invoices/actions'
 import type { ClientSelectOption } from '@/lib/clients/actions'
 import { InvoiceModal } from './invoice-modal'
+import { downloadInvoicePdf } from '@/lib/invoices/pdf-download'
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat('en-IN', {
@@ -100,6 +101,7 @@ export function InvoicesClient({
   })
   const [detailsInvoice, setDetailsInvoice] = useState<Invoice | null>(null)
   const [detailsLoading, setDetailsLoading] = useState(false)
+  const [pdfDownloading, setPdfDownloading] = useState(false)
 
   const [searchQuery, setSearchQuery] = useState(initialSearch)
   const [clientFilter, setClientFilter] = useState<string>(initialClientId)
@@ -350,6 +352,19 @@ export function InvoicesClient({
     }
   }
 
+  const handleDownloadPdf = async (invoiceId: string, invoiceNumber: string) => {
+    if (pdfDownloading) return
+    setPdfDownloading(true)
+    try {
+      const safeName = invoiceNumber.replace(/[^\w.\-()/]+/g, '_')
+      await downloadInvoicePdf(invoiceId, `${safeName}.pdf`)
+    } catch {
+      showError('Download failed', 'Unable to download the invoice PDF right now.')
+    } finally {
+      setPdfDownloading(false)
+    }
+  }
+
   return (
     <>
       <div className="flex h-full flex-col p-2 sm:p-3 lg:p-4">
@@ -490,13 +505,14 @@ export function InvoicesClient({
                                 </svg>
                               </button>
                             </Tooltip>
-                            <Tooltip content="Download PDF (coming soon)">
+                            <Tooltip content="Download PDF">
                               <button
                                 type="button"
-                                onClick={() => showError('Coming soon', 'PDF generation will be added later.')}
+                                onClick={() => void handleDownloadPdf(row.id, row.invoice_number)}
+                                disabled={pdfDownloading}
                                 onMouseDown={(e) => e.stopPropagation()}
                                 onClickCapture={(e) => e.stopPropagation()}
-                                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50"
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-sky-50 hover:border-sky-200 hover:text-sky-800 disabled:opacity-50"
                                 aria-label="Download invoice PDF"
                               >
                                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -615,11 +631,12 @@ export function InvoicesClient({
                                     </svg>
                                   </button>
                                 </Tooltip>
-                                <Tooltip content="Download PDF (coming soon)">
+                                <Tooltip content="Download PDF">
                                   <button
                                     type="button"
-                                    onClick={() => showError('Coming soon', 'PDF generation will be added later.')}
-                                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50"
+                                    onClick={() => void handleDownloadPdf(row.id, row.invoice_number)}
+                                    disabled={pdfDownloading}
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-sky-50 hover:border-sky-200 hover:text-sky-800 disabled:opacity-50"
                                     aria-label="Download invoice PDF"
                                   >
                                     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -716,6 +733,12 @@ export function InvoicesClient({
           handleDetailsClose()
           handleEditOpen(id)
         }}
+        onDownloadPdf={
+          detailsInvoice
+            ? () => void handleDownloadPdf(detailsInvoice.id, detailsInvoice.invoice_number)
+            : undefined
+        }
+        pdfDownloading={pdfDownloading}
         canWrite={canWrite}
       />
 
@@ -774,6 +797,8 @@ function InvoiceDetailsModal({
   loading,
   onClose,
   onEdit,
+  onDownloadPdf,
+  pdfDownloading,
   canWrite,
 }: {
   isOpen: boolean
@@ -781,6 +806,8 @@ function InvoiceDetailsModal({
   loading: boolean
   onClose: () => void
   onEdit: (id: string) => void
+  onDownloadPdf?: () => void
+  pdfDownloading?: boolean
   canWrite: boolean
 }) {
   if (!isOpen) return null
@@ -798,6 +825,22 @@ function InvoiceDetailsModal({
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {onDownloadPdf ? (
+                <Tooltip content={pdfDownloading ? 'Preparing PDF…' : 'Download PDF'}>
+                  <button
+                    type="button"
+                    onClick={onDownloadPdf}
+                    disabled={pdfDownloading || loading}
+                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-sky-50 hover:border-sky-200 hover:text-sky-900 disabled:opacity-50"
+                    aria-label="Download invoice PDF"
+                  >
+                    <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 16v-8m0 8l-3-3m3 3l3-3M4 20h16" />
+                    </svg>
+                    <span className="hidden sm:inline">{pdfDownloading ? 'PDF…' : 'PDF'}</span>
+                  </button>
+                </Tooltip>
+              ) : null}
               <button
                 type="button"
                 onClick={onClose}
@@ -832,9 +875,8 @@ function InvoiceDetailsModal({
                   </div>
                   <div className="p-4 space-y-3">
                     {[1, 2, 3, 4].map((r) => (
-                      <div key={r} className="grid grid-cols-6 gap-3">
+                      <div key={r} className="grid grid-cols-5 gap-3">
                         <div className="col-span-2 h-4 rounded bg-slate-200" />
-                        <div className="col-span-1 h-4 rounded bg-slate-200" />
                         <div className="col-span-1 h-4 rounded bg-slate-200" />
                         <div className="col-span-1 h-4 rounded bg-slate-200" />
                         <div className="col-span-1 h-4 rounded bg-slate-200" />
@@ -901,9 +943,8 @@ function InvoiceDetailsModal({
                     <table className="w-full min-w-[900px] table-fixed">
                       <thead>
                         <tr className="border-b border-slate-200 bg-white text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                          <th className="px-3 py-2 w-[22%]">Project</th>
+                          <th className="px-3 py-2 w-[36%]">Project</th>
                           <th className="px-3 py-2 w-[16%]">HSN</th>
-                          <th className="px-3 py-2 w-[26%]">Narration</th>
                           <th className="px-3 py-2 w-[10%] text-right">Qty</th>
                           <th className="px-3 py-2 w-[13%] text-right">Rate</th>
                           <th className="px-3 py-2 w-[13%] text-right">Amount</th>
@@ -912,8 +953,13 @@ function InvoiceDetailsModal({
                       <tbody className="divide-y divide-slate-100 bg-white">
                         {(invoice.items ?? []).map((it) => (
                           <tr key={it.id} className="text-sm">
-                            <td className="px-3 py-2 text-slate-900 font-semibold truncate" title={it.project_name ?? ''}>
-                              {it.project_name ?? '—'}
+                            <td className="px-3 py-2 text-slate-900 align-top">
+                              <div className="font-semibold">{it.project_name ?? '—'}</div>
+                              {it.narration?.trim() ? (
+                                <div className="mt-1 text-xs font-normal text-slate-600 whitespace-pre-wrap">
+                                  {it.narration}
+                                </div>
+                              ) : null}
                             </td>
                             <td className="px-3 py-2 text-slate-700">
                               {it.hsn_code?.code ? (
@@ -926,9 +972,6 @@ function InvoiceDetailsModal({
                               ) : (
                                 <span className="text-slate-400">—</span>
                               )}
-                            </td>
-                            <td className="px-3 py-2 text-slate-700 truncate" title={it.narration ?? ''}>
-                              {it.narration ?? '—'}
                             </td>
                             <td className="px-3 py-2 text-right tabular-nums text-slate-700">
                               {formatNumber(it.quantity)}
