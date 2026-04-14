@@ -1,12 +1,18 @@
 import React from 'react'
+import { existsSync } from 'node:fs'
 import {
   Document,
+  Font,
   Image,
+  Line,
   Page,
+  Path,
   StyleSheet,
+  Svg,
   Text,
   View,
   type DocumentProps,
+  type TextProps,
 } from '@react-pdf/renderer'
 import type { Invoice } from '@/lib/invoices/actions'
 
@@ -29,6 +35,43 @@ const BANK = {
 
 const LOGO_FS = `${process.cwd()}/public/scc_logo.png`
 
+const PDF_FONT_CANDIDATES = [
+  {
+    regular: '/System/Library/Fonts/Supplemental/Arial Unicode.ttf',
+    bold: '/System/Library/Fonts/Supplemental/Arial Unicode.ttf',
+  },
+  {
+    regular: '/System/Library/Fonts/Supplemental/Arial.ttf',
+    bold: '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
+  },
+  {
+    regular: '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+    bold: '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+  },
+  {
+    regular: '/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf',
+    bold: '/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf',
+  },
+  {
+    regular: '/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf',
+    bold: '/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf',
+  },
+]
+
+const PDF_FONT_FILES =
+  PDF_FONT_CANDIDATES.find((candidate) => existsSync(candidate.regular) && existsSync(candidate.bold)) ?? null
+
+const PDF_FONT_FAMILY = PDF_FONT_FILES ? 'InvoiceSans' : 'Helvetica'
+if (PDF_FONT_FILES) {
+  Font.register({
+    family: PDF_FONT_FAMILY,
+    fonts: [
+      { src: PDF_FONT_FILES.regular, fontWeight: 400 },
+      { src: PDF_FONT_FILES.bold, fontWeight: 700 },
+    ],
+  })
+}
+
 const palette = {
   ink: '#0f172a',
   muted: '#475569',
@@ -45,7 +88,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     color: palette.ink,
     fontSize: 9,
-    fontFamily: 'Helvetica',
+    fontFamily: PDF_FONT_FAMILY,
     lineHeight: 1.4,
   },
   sheet: {
@@ -53,26 +96,33 @@ const styles = StyleSheet.create({
     borderColor: '#000000',
     backgroundColor: '#ffffff',
   },
+  splitSection: {
+    paddingHorizontal: 12,
+  },
   section: {
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
   sectionDivider: {
-    borderTopWidth: 1,
-    borderTopColor: '#000000',
+    height: 1,
+    backgroundColor: '#000000',
   },
   row: {
     flexDirection: 'row',
   },
   companyLeft: {
     flex: 1,
+    paddingVertical: 10,
     paddingRight: 12,
   },
   companyRight: {
     width: 215,
-    borderLeftWidth: 1,
-    borderLeftColor: '#000000',
+    paddingVertical: 10,
     paddingLeft: 12,
+  },
+  splitDivider: {
+    width: 1,
+    backgroundColor: '#000000',
   },
   logoRow: {
     flexDirection: 'row',
@@ -93,9 +143,9 @@ const styles = StyleSheet.create({
   },
   companyName: {
     fontSize: 18,
-    fontFamily: 'Helvetica-Bold',
+    fontWeight: 700,
     color: palette.ink,
-    marginBottom: 6,
+    marginBottom: 10,
   },
   companyLine: {
     fontSize: 8.8,
@@ -104,11 +154,14 @@ const styles = StyleSheet.create({
   },
   boxTitle: {
     fontSize: 8,
-    fontFamily: 'Helvetica-Bold',
+    fontWeight: 700,
     color: palette.ink,
     textTransform: 'uppercase',
     letterSpacing: 0.7,
     marginBottom: 6,
+  },
+  boxTitleAccent: {
+    color: palette.accent,
   },
   labelValueRow: {
     flexDirection: 'row',
@@ -118,7 +171,7 @@ const styles = StyleSheet.create({
   label: {
     width: 70,
     fontSize: 8,
-    fontFamily: 'Helvetica-Bold',
+    fontWeight: 700,
     color: palette.ink,
   },
   value: {
@@ -129,17 +182,17 @@ const styles = StyleSheet.create({
   },
   detailLeft: {
     flex: 1,
+    paddingVertical: 10,
     paddingRight: 12,
   },
   detailRight: {
     width: 215,
-    borderLeftWidth: 1,
-    borderLeftColor: '#000000',
+    paddingVertical: 10,
     paddingLeft: 12,
   },
   billToName: {
     fontSize: 11,
-    fontFamily: 'Helvetica-Bold',
+    fontWeight: 700,
     color: palette.ink,
     marginBottom: 4,
   },
@@ -155,7 +208,7 @@ const styles = StyleSheet.create({
   },
   detailValueStrong: {
     fontSize: 8.6,
-    fontFamily: 'Helvetica-Bold',
+    fontWeight: 700,
     color: palette.ink,
     textAlign: 'right',
     flex: 1,
@@ -165,27 +218,36 @@ const styles = StyleSheet.create({
   },
   tableHead: {
     flexDirection: 'row',
+    alignItems: 'stretch',
     backgroundColor: palette.head,
     borderBottomWidth: 1,
     borderBottomColor: '#000000',
-    paddingVertical: 6,
   },
   tableRow: {
     flexDirection: 'row',
+    alignItems: 'stretch',
     borderBottomWidth: 1,
     borderBottomColor: '#000000',
-    paddingVertical: 7,
-    alignItems: 'flex-start',
   },
   tableRowLast: {
     borderBottomWidth: 0,
   },
   cell: {
     paddingHorizontal: 6,
+    justifyContent: 'flex-start',
+  },
+  cellHead: {
+    paddingVertical: 6,
+  },
+  cellBody: {
+    paddingVertical: 7,
   },
   cellR: {
     borderRightWidth: 1,
     borderRightColor: '#000000',
+  },
+  cellRight: {
+    alignItems: 'flex-end',
   },
   idx: {
     width: '7%',
@@ -213,7 +275,7 @@ const styles = StyleSheet.create({
   },
   th: {
     fontSize: 7.6,
-    fontFamily: 'Helvetica-Bold',
+    fontWeight: 700,
     color: palette.ink,
     textTransform: 'uppercase',
     letterSpacing: 0.2,
@@ -224,7 +286,7 @@ const styles = StyleSheet.create({
   },
   tdStrong: {
     fontSize: 8.6,
-    fontFamily: 'Helvetica-Bold',
+    fontWeight: 700,
     color: palette.ink,
   },
   tdMuted: {
@@ -243,12 +305,12 @@ const styles = StyleSheet.create({
   },
   bottomLeft: {
     flex: 1,
+    paddingVertical: 10,
     paddingRight: 12,
   },
   bottomRight: {
     width: 230,
-    borderLeftWidth: 1,
-    borderLeftColor: '#000000',
+    paddingVertical: 10,
     paddingLeft: 12,
   },
   bankBody: {
@@ -263,15 +325,7 @@ const styles = StyleSheet.create({
     width: 92,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#000000',
-    paddingVertical: 6,
-    paddingHorizontal: 4,
-  },
-  qrLabel: {
-    fontSize: 7.2,
-    color: palette.muted,
-    marginBottom: 4,
+    paddingLeft: 8,
   },
   qrImg: {
     width: 72,
@@ -290,8 +344,20 @@ const styles = StyleSheet.create({
   },
   summaryValue: {
     fontSize: 8.6,
-    fontFamily: 'Helvetica-Bold',
+    fontWeight: 700,
     color: palette.ink,
+  },
+  currencyValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    justifyContent: 'flex-end',
+  },
+  currencyIcon: {
+    marginRight: 2,
+  },
+  summaryBody: {
+    paddingTop: 14,
   },
   grandRow: {
     flexDirection: 'row',
@@ -304,17 +370,17 @@ const styles = StyleSheet.create({
   },
   grandLabel: {
     fontSize: 10,
-    fontFamily: 'Helvetica-Bold',
+    fontWeight: 700,
     color: palette.accent,
   },
   grandValue: {
     fontSize: 10,
-    fontFamily: 'Helvetica-Bold',
+    fontWeight: 700,
     color: palette.accent,
   },
   wordsText: {
     fontSize: 9.4,
-    fontFamily: 'Helvetica-Bold',
+    fontWeight: 700,
     color: palette.ink,
   },
   termsText: {
@@ -341,18 +407,18 @@ const styles = StyleSheet.create({
   },
   signatureText: {
     fontSize: 8.5,
-    fontFamily: 'Helvetica-Bold',
+    fontWeight: 700,
     color: palette.ink,
   },
 })
 
 function formatCurrency(value: number | null | undefined): string {
-  if (value == null || Number.isNaN(value)) return 'Rs. 0.00'
+  if (value == null || Number.isNaN(value)) return '0.00'
   const formatted = new Intl.NumberFormat('en-IN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value)
-  return `Rs. ${formatted}`
+  return formatted
 }
 
 function formatDate(value: string | null | undefined): string {
@@ -514,6 +580,12 @@ type SummaryRowProps = {
   value: string
 }
 
+type CurrencyValueProps = {
+  value: string
+  textStyle: TextProps['style']
+  color?: string
+}
+
 function LabelValue({ label, value, strongValue = false }: LabelValueProps) {
   return (
     <View style={styles.labelValueRow}>
@@ -527,7 +599,27 @@ function SummaryLine({ label, value }: SummaryRowProps) {
   return (
     <View style={styles.summaryRow}>
       <Text style={styles.summaryLabel}>{label}</Text>
-      <Text style={styles.summaryValue}>{value}</Text>
+      <CurrencyValue value={value} textStyle={styles.summaryValue} />
+    </View>
+  )
+}
+
+function CurrencyValue({ value, textStyle, color = palette.ink }: CurrencyValueProps) {
+  return (
+    <View style={styles.currencyValueRow}>
+      <Svg width={10} height={12} style={styles.currencyIcon} viewBox="0 0 10 12">
+        <Line x1="1" y1="1.5" x2="9" y2="1.5" stroke={color} strokeWidth={1.2} strokeLinecap="round" />
+        <Line x1="1" y1="4" x2="8" y2="4" stroke={color} strokeWidth={1.2} strokeLinecap="round" />
+        <Path
+          d="M1 1.5H5C6.7 1.5 7 3.2 5.6 4.2C5 4.7 4.2 5 3.3 5H1"
+          stroke={color}
+          strokeWidth={1.2}
+          strokeLinecap="round"
+          fill="none"
+        />
+        <Line x1="3.2" y1="5.2" x2="8.4" y2="10.5" stroke={color} strokeWidth={1.2} strokeLinecap="round" />
+      </Svg>
+      <Text style={textStyle}>{value}</Text>
     </View>
   )
 }
@@ -548,7 +640,7 @@ export function InvoicePdfDocument({ invoice, logoSrc, qrSrc }: InvoicePdfProps)
     <Document title={`${invoice.invoice_number} Invoice`} author={SELLER.name} subject={getInvoiceHeading()}>
       <Page size="A4" style={styles.page}>
         <View style={styles.sheet}>
-          <View style={[styles.section, styles.row]}>
+          <View style={[styles.splitSection, styles.row]}>
             <View style={styles.companyLeft}>
               <View style={styles.logoRow}>
                 <View style={styles.logoWrap}>
@@ -566,6 +658,7 @@ export function InvoicePdfDocument({ invoice, logoSrc, qrSrc }: InvoicePdfProps)
               </View>
             </View>
 
+            <View style={styles.splitDivider} />
             <View style={styles.companyRight}>
               <LabelValue label="Mob No." value={SELLER.phone} />
               <LabelValue label="Email" value={SELLER.email} />
@@ -575,9 +668,9 @@ export function InvoicePdfDocument({ invoice, logoSrc, qrSrc }: InvoicePdfProps)
 
           <View style={styles.sectionDivider} />
 
-          <View style={[styles.section, styles.row]}>
+          <View style={[styles.splitSection, styles.row]}>
             <View style={styles.detailLeft}>
-              <Text style={styles.boxTitle}>Bill to</Text>
+              <Text style={[styles.boxTitle, styles.boxTitleAccent]}>Bill to</Text>
               <Text style={styles.billToName}>{clientPrimaryName(invoice)}</Text>
               {clientSecondaryName(invoice) ? <Text style={styles.billToCompany}>{clientSecondaryName(invoice)}</Text> : null}
               {client?.phone?.trim() ? <Text style={styles.billToLine}>Mob No.: {safe(client.phone)}</Text> : null}
@@ -587,8 +680,9 @@ export function InvoicePdfDocument({ invoice, logoSrc, qrSrc }: InvoicePdfProps)
               ) : null}
             </View>
 
+            <View style={styles.splitDivider} />
             <View style={styles.detailRight}>
-              <Text style={styles.boxTitle}>{getInvoiceHeading()}</Text>
+              <Text style={[styles.boxTitle, styles.boxTitleAccent]}>{getInvoiceHeading()}</Text>
               <LabelValue label="Invoice No." value={safe(invoice.invoice_number) || '-'} strongValue />
               <LabelValue label="Date" value={formatDate(invoice.invoice_date)} strongValue />
             </View>
@@ -598,14 +692,26 @@ export function InvoicePdfDocument({ invoice, logoSrc, qrSrc }: InvoicePdfProps)
 
           <View style={styles.tableWrap}>
             <View style={styles.tableHead}>
-              <Text style={[styles.th, styles.cell, styles.cellR, styles.idx]}>Sl</Text>
-              <Text style={[styles.th, styles.cell, styles.cellR, isGst ? styles.descGst : styles.descNonGst]}>
-                Description
-              </Text>
-              {isGst ? <Text style={[styles.th, styles.cell, styles.cellR, styles.hsn]}>HSN/SAC</Text> : null}
-              <Text style={[styles.th, styles.cell, styles.cellR, styles.qty]}>Qty</Text>
-              <Text style={[styles.th, styles.cell, styles.cellR, styles.rate]}>Rate</Text>
-              <Text style={[styles.th, styles.cell, styles.amount]}>Amount</Text>
+              <View style={[styles.cell, styles.cellHead, styles.cellR, styles.idx]}>
+                <Text style={styles.th}>Sl</Text>
+              </View>
+              <View style={[styles.cell, styles.cellHead, styles.cellR, isGst ? styles.descGst : styles.descNonGst]}>
+                <Text style={styles.th}>Description</Text>
+              </View>
+              {isGst ? (
+                <View style={[styles.cell, styles.cellHead, styles.cellR, styles.hsn]}>
+                  <Text style={styles.th}>HSN/SAC</Text>
+                </View>
+              ) : null}
+              <View style={[styles.cell, styles.cellHead, styles.cellR, styles.cellRight, styles.qty]}>
+                <Text style={styles.th}>Qty</Text>
+              </View>
+              <View style={[styles.cell, styles.cellHead, styles.cellR, styles.cellRight, styles.rate]}>
+                <Text style={styles.th}>Rate</Text>
+              </View>
+              <View style={[styles.cell, styles.cellHead, styles.cellRight, styles.amount]}>
+                <Text style={styles.th}>Amount</Text>
+              </View>
             </View>
 
             {items.length === 0 ? (
@@ -619,22 +725,30 @@ export function InvoicePdfDocument({ invoice, logoSrc, qrSrc }: InvoicePdfProps)
 
                 return (
                   <View key={item.id} style={last ? [styles.tableRow, styles.tableRowLast] : styles.tableRow}>
-                    <Text style={[styles.tdStrong, styles.cell, styles.cellR, styles.idx]}>{index + 1}</Text>
+                    <View style={[styles.cell, styles.cellBody, styles.cellR, styles.idx]}>
+                      <Text style={styles.tdStrong}>{index + 1}</Text>
+                    </View>
 
-                    <View style={[styles.cell, styles.cellR, isGst ? styles.descGst : styles.descNonGst]}>
+                    <View style={[styles.cell, styles.cellBody, styles.cellR, isGst ? styles.descGst : styles.descNonGst]}>
                       <Text style={styles.tdStrong}>{particularsLabel(item)}</Text>
                       {narration ? <Text style={styles.tdMuted}>{narration}</Text> : null}
                     </View>
 
                     {isGst ? (
-                      <Text style={[styles.td, styles.cell, styles.cellR, styles.hsn]}>
-                        {safe(item.hsn_code?.code) || '-'}
-                      </Text>
+                      <View style={[styles.cell, styles.cellBody, styles.cellR, styles.hsn]}>
+                        <Text style={styles.td}>{safe(item.hsn_code?.code) || '-'}</Text>
+                      </View>
                     ) : null}
 
-                    <Text style={[styles.tdStrong, styles.cell, styles.cellR, styles.qty]}>{formatNumber(item.quantity)}</Text>
-                    <Text style={[styles.tdStrong, styles.cell, styles.cellR, styles.rate]}>{formatCurrency(item.rate)}</Text>
-                    <Text style={[styles.tdStrong, styles.cell, styles.amount]}>{formatCurrency(item.amount)}</Text>
+                    <View style={[styles.cell, styles.cellBody, styles.cellR, styles.cellRight, styles.qty]}>
+                      <Text style={styles.tdStrong}>{formatNumber(item.quantity)}</Text>
+                    </View>
+                    <View style={[styles.cell, styles.cellBody, styles.cellR, styles.cellRight, styles.rate]}>
+                      <CurrencyValue value={formatCurrency(item.rate)} textStyle={styles.tdStrong} />
+                    </View>
+                    <View style={[styles.cell, styles.cellBody, styles.cellRight, styles.amount]}>
+                      <CurrencyValue value={formatCurrency(item.amount)} textStyle={styles.tdStrong} />
+                    </View>
                   </View>
                 )
               })
@@ -643,9 +757,9 @@ export function InvoicePdfDocument({ invoice, logoSrc, qrSrc }: InvoicePdfProps)
 
           <View style={styles.sectionDivider} />
 
-          <View style={[styles.section, styles.row]} wrap={false}>
+          <View style={[styles.splitSection, styles.row]} wrap={false}>
             <View style={styles.bottomLeft}>
-              <Text style={styles.boxTitle}>Bank details</Text>
+              <Text style={[styles.boxTitle, styles.boxTitleAccent]}>Bank details</Text>
 
               <View style={styles.bankBody}>
                 <View style={styles.bankInfo}>
@@ -656,22 +770,23 @@ export function InvoicePdfDocument({ invoice, logoSrc, qrSrc }: InvoicePdfProps)
 
                 {qrSrc ? (
                   <View style={styles.qrBox}>
-                    <Text style={styles.qrLabel}>Scan to pay</Text>
                     <Image src={qrSrc} style={styles.qrImg} />
                   </View>
                 ) : null}
               </View>
             </View>
 
+            <View style={styles.splitDivider} />
             <View style={styles.bottomRight}>
-              <Text style={styles.boxTitle}>Bill summary</Text>
-              <SummaryLine label="Subtotal" value={formatCurrency(invoice.subtotal)} />
-              <SummaryLine label="Discount" value={formatCurrency(invoice.discount)} />
-              {taxRows(invoice)}
+              <View style={styles.summaryBody}>
+                <SummaryLine label="Subtotal" value={formatCurrency(invoice.subtotal)} />
+                <SummaryLine label="Discount" value={formatCurrency(invoice.discount)} />
+                {taxRows(invoice)}
 
-              <View style={styles.grandRow}>
-                <Text style={styles.grandLabel}>Grand Total</Text>
-                <Text style={styles.grandValue}>{formatCurrency(invoice.grand_total)}</Text>
+                <View style={styles.grandRow}>
+                  <Text style={styles.grandLabel}>Grand Total</Text>
+                  <CurrencyValue value={formatCurrency(invoice.grand_total)} textStyle={styles.grandValue} color={palette.accent} />
+                </View>
               </View>
             </View>
           </View>
