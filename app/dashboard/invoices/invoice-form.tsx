@@ -171,6 +171,9 @@ export function InvoiceForm({
   const [discount, setDiscount] = useState<number>(coerceNumber(initialData?.discount, 0))
   const [terms, setTerms] = useState<string>(initialData?.terms_and_conditions ?? '')
   const [items, setItems] = useState<InvoiceItemFormData[]>(() => normalizeInitialItems(initialData?.items ?? null))
+  const infoHeading = invoiceType === 'gst' ? 'Invoice Information' : 'Challan Information'
+  const numberFieldLabel = invoiceType === 'gst' ? 'Invoice number' : 'Challan number'
+  const numberPlaceholder = invoiceType === 'gst' ? 'e.g. SCC/26-27/1' : 'e.g. CHL/26-27/1'
 
   // Preview only: tax type depends on client GST + state; we approximate:
   // - If client has gst_number and billing_state_code === 'GJ' => CGST/SGST else IGST.
@@ -210,7 +213,7 @@ export function InvoiceForm({
     if (invoiceNumberTouchedRef.current) return
     let cancelled = false
     setInvoiceNumberLoading(true)
-    getNextInvoiceNumber(invoiceDate || null).then((res) => {
+    getNextInvoiceNumber(invoiceType, invoiceDate || null).then((res) => {
       if (cancelled) return
       setInvoiceNumberLoading(false)
       if (!res.error && res.data) setInvoiceNumber(res.data)
@@ -220,7 +223,7 @@ export function InvoiceForm({
       cancelled = true
       setInvoiceNumberLoading(false)
     }
-  }, [isCreate, invoiceDate])
+  }, [invoiceDate, invoiceType, isCreate])
 
   const handleAddRow = () => {
     setItems((prev) => [...prev, emptyItemRow()])
@@ -303,12 +306,12 @@ export function InvoiceForm({
       )}
 
       <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100 space-y-3">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Invoice Information</h3>
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">{infoHeading}</h3>
 
         <div className="grid gap-3 md:grid-cols-3">
           <div className="min-w-0">
             <label className={labelClasses}>
-              Invoice number
+              {numberFieldLabel}
               {!isCreate ? <span className="text-rose-500"> *</span> : null}
             </label>
             <input
@@ -324,8 +327,8 @@ export function InvoiceForm({
                 isCreate
                   ? invoiceNumberLoading
                     ? 'Loading next number…'
-                    : 'e.g. SCC/26-27/1'
-                  : 'e.g. SCC/26-27/1'
+                    : numberPlaceholder
+                  : numberPlaceholder
               }
               autoComplete="off"
               aria-busy={isCreate ? invoiceNumberLoading : undefined}
@@ -602,4 +605,3 @@ export function InvoiceForm({
     </div>
   )
 }
-

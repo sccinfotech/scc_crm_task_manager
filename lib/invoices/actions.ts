@@ -71,6 +71,7 @@ export type Invoice = {
   igst_amount: number
   total_tax: number
   grand_total: number
+  paid_amount: number
   terms_and_conditions: string | null
   payment_status: InvoicePaymentStatus
   created_by: string
@@ -110,6 +111,11 @@ export type GetInvoicesPageOptions = {
   pageSize?: number
 }
 
+const INVOICE_NUMBER_PREFIX: Record<InvoiceType, string> = {
+  gst: 'SCC',
+  non_gst: 'CHL',
+}
+
 function roundCurrency(value: number) {
   return Math.round(value * 100) / 100
 }
@@ -145,8 +151,13 @@ function getFinancialYearLabel(d: Date) {
   return `${yy(startYear)}-${yy(endYear)}`
 }
 
-/** Next invoice number for the financial year of `invoiceDate` (or today), without inserting. */
+function getInvoiceNumberPrefix(invoiceType: InvoiceType, financialYear: string): string {
+  return `${INVOICE_NUMBER_PREFIX[invoiceType]}/${financialYear}/`
+}
+
+/** Next invoice/challan number for the financial year of `invoiceDate` (or today), without inserting. */
 export async function getNextInvoiceNumber(
+  invoiceType: InvoiceType = 'gst',
   invoiceDate?: string | null
 ): Promise<{ data: string | null; error: string | null }> {
   const currentUser = await getCurrentUser()
@@ -155,17 +166,18 @@ export async function getNextInvoiceNumber(
   if (!canRead) return { data: null, error: 'You do not have permission to view invoices' }
 
   const supabase = await createClient()
-  const next = await generateInvoiceNumber(supabase, invoiceDate ?? null)
+  const next = await generateInvoiceNumber(supabase, invoiceType, invoiceDate ?? null)
   return { data: next, error: null }
 }
 
 async function generateInvoiceNumber(
   supabase: Awaited<ReturnType<typeof createClient>>,
+  invoiceType: InvoiceType,
   invoiceDate: string | null
 ): Promise<string> {
   const d = invoiceDate ? new Date(`${invoiceDate}T00:00:00.000Z`) : new Date()
   const fy = getFinancialYearLabel(d)
-  const prefix = `SCC/${fy}/`
+  const prefix = getInvoiceNumberPrefix(invoiceType, fy)
 
   const { data, error } = await supabase
     .from('invoices')
@@ -503,6 +515,11 @@ export async function createInvoice(formData: InvoiceFormData): Promise<{ data: 
 
   const supabase = await createClient()
   const invoice_date = formData.invoice_date || null
+  const invoice_type = (formData.invoice_type || 'gst') as InvoiceType
+  if (!['gst', 'non_gst'].includes(invoice_type)) {
+    return { data: null, error: 'Invalid invoice type' }
+  }
+
   const requestedNumber = formData.invoice_number?.trim() ?? ''
   let invoice_number: string
   if (requestedNumber) {
@@ -515,12 +532,7 @@ export async function createInvoice(formData: InvoiceFormData): Promise<{ data: 
     }
     invoice_number = requestedNumber
   } else {
-    invoice_number = await generateInvoiceNumber(supabase, invoice_date)
-  }
-
-  const invoice_type = (formData.invoice_type || 'gst') as InvoiceType
-  if (!['gst', 'non_gst'].includes(invoice_type)) {
-    return { data: null, error: 'Invalid invoice type' }
+    invoice_number = await generateInvoiceNumber(supabase, invoice_type, invoice_date)
   }
 
   const derived = await deriveGstTaxTypeForClient(supabase, formData.client_id, invoice_type)
@@ -875,4 +887,3 @@ export async function getProjectsForInvoiceItemsSelect(): Promise<{
   }
   return { data: (data as Array<{ id: string; name: string }> | null) ?? [], error: null }
 }
-

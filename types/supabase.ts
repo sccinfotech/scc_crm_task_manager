@@ -718,6 +718,7 @@ export interface Database {
           grand_total: number
           terms_and_conditions: string | null
           payment_status: string
+          paid_amount: number
           created_by: string
           created_at: string
           updated_at: string
@@ -741,6 +742,7 @@ export interface Database {
           grand_total?: number
           terms_and_conditions?: string | null
           payment_status?: string
+          paid_amount?: number
           created_by: string
           created_at?: string
           updated_at?: string
@@ -764,9 +766,33 @@ export interface Database {
           grand_total?: number
           terms_and_conditions?: string | null
           payment_status?: string
+          paid_amount?: number
           created_by?: string
           created_at?: string
           updated_at?: string
+        }
+      }
+      invoice_payment_allocations: {
+        Row: {
+          id: string
+          invoice_id: string
+          accounting_entry_id: string
+          amount: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          invoice_id: string
+          accounting_entry_id: string
+          amount?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          invoice_id?: string
+          accounting_entry_id?: string
+          amount?: number
+          created_at?: string
         }
       }
       invoice_items: {

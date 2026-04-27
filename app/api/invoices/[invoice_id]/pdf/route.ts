@@ -30,16 +30,19 @@ export async function GET(request: Request, { params }: RouteContext) {
     )
   }
 
-  const amount = Number(invoiceResult.data.grand_total ?? 0)
-  const am = Number.isFinite(amount) ? amount.toFixed(2) : '0.00'
-  const upi = `upi://pay?pa=scc.infotech86@kotak&pn=SCC%20INFOTECH&mc=0000&mode=02&purpose=00&am=${encodeURIComponent(am)}&cu=INR&orgId=400043`
-  const qrPngDataUrl = await QRCode.toDataURL(upi, {
-    errorCorrectionLevel: 'M',
-    margin: 1,
-    width: 180,
-    type: 'image/png',
-    color: { dark: '#0f172a', light: '#ffffff' },
-  })
+  let qrPngDataUrl: string | undefined
+  if (invoiceResult.data.invoice_type === 'gst') {
+    const amount = Number(invoiceResult.data.grand_total ?? 0)
+    const am = Number.isFinite(amount) ? amount.toFixed(2) : '0.00'
+    const upi = `upi://pay?pa=scc.infotech86@kotak&pn=SCC%20INFOTECH&mc=0000&mode=02&purpose=00&am=${encodeURIComponent(am)}&cu=INR&orgId=400043`
+    qrPngDataUrl = await QRCode.toDataURL(upi, {
+      errorCorrectionLevel: 'M',
+      margin: 1,
+      width: 180,
+      type: 'image/png',
+      color: { dark: '#0f172a', light: '#ffffff' },
+    })
+  }
 
   const pdfBuffer = await renderToBuffer(
     InvoicePdfDocument({

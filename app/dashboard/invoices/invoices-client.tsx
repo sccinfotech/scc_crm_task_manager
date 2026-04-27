@@ -784,7 +784,30 @@ export function InvoicesClient({
 }
 
 function formatDateLabel(isoDate: string) {
-  return isoDate
+  if (!isoDate) return '—'
+
+  const plainDateMatch = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (plainDateMatch) {
+    const [, yearText, monthText, dayText] = plainDateMatch
+    const year = Number(yearText)
+    const month = Number(monthText)
+    const day = Number(dayText)
+    return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString('en-IN', {
+      timeZone: 'UTC',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    })
+  }
+
+  const parsed = new Date(isoDate)
+  if (Number.isNaN(parsed.getTime())) return isoDate
+
+  return parsed.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
 }
 
 function formatNumber(value: number) {
@@ -812,14 +835,19 @@ function InvoiceDetailsModal({
 }) {
   if (!isOpen) return null
 
+  const isNonGst = invoice?.invoice_type === 'non_gst'
+  const documentLabel = isNonGst ? 'Challan' : 'Invoice'
+  const dateLabel = isNonGst ? 'Created date' : 'Invoice date'
+  const dateValue = invoice ? formatDateLabel(isNonGst ? invoice.created_at : invoice.invoice_date) : '—'
+
   return (
-    <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Invoice details">
+    <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label={`${documentLabel} details`}>
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="absolute inset-0 p-3 sm:p-4">
         <div className="relative h-full w-full rounded-2xl bg-white shadow-2xl overflow-hidden border border-slate-200">
           <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
             <div className="min-w-0">
-              <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">Invoice</div>
+              <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">{documentLabel}</div>
               <div className="truncate text-base font-extrabold text-[#1E1B4B]">
                 {invoice?.invoice_number ?? (loading ? 'Loading…' : '—')}
               </div>
@@ -832,7 +860,7 @@ function InvoiceDetailsModal({
                     onClick={onDownloadPdf}
                     disabled={pdfDownloading || loading}
                     className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-sky-50 hover:border-sky-200 hover:text-sky-900 disabled:opacity-50"
-                    aria-label="Download invoice PDF"
+                    aria-label={`Download ${documentLabel.toLowerCase()} PDF`}
                   >
                     <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 16v-8m0 8l-3-3m3 3l3-3M4 20h16" />
@@ -845,7 +873,7 @@ function InvoiceDetailsModal({
                 type="button"
                 onClick={onClose}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100"
-                aria-label="Close invoice details"
+                aria-label={`Close ${documentLabel.toLowerCase()} details`}
                 title="Close"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -913,8 +941,8 @@ function InvoiceDetailsModal({
                     ) : null}
                   </div>
                   <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3">
-                    <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">Invoice date</div>
-                    <div className="mt-1 text-sm font-bold text-slate-900">{formatDateLabel(invoice.invoice_date)}</div>
+                    <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">{dateLabel}</div>
+                    <div className="mt-1 text-sm font-bold text-slate-900">{dateValue}</div>
                   </div>
                   <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3">
                     <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">Payment status</div>
@@ -1041,4 +1069,3 @@ function InvoiceDetailsModal({
     </div>
   )
 }
-

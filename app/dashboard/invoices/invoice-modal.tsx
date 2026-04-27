@@ -32,6 +32,7 @@ export function InvoiceModal({
   hsnCodes,
 }: InvoiceModalProps) {
   const [headerInvoiceType, setHeaderInvoiceType] = useState<InvoiceType>(() => initialData?.invoice_type ?? 'gst')
+  const documentLabel = headerInvoiceType === 'gst' ? 'Invoice' : 'Challan'
 
   useEffect(() => {
     if (isOpen) document.body.style.overflow = 'hidden'
@@ -59,7 +60,7 @@ export function InvoiceModal({
         <div className="grid grid-cols-3 items-center border-b border-gray-200 px-4 py-2.5 sm:px-4 sm:py-3">
           <div className="min-w-0">
             <h2 className="truncate text-lg font-semibold text-[#1E1B4B] sm:text-xl">
-              {mode === 'create' ? 'Create New Invoice' : 'Edit Invoice'}
+              {mode === 'create' ? `Create New ${documentLabel}` : `Edit ${documentLabel}`}
             </h2>
           </div>
 
@@ -115,7 +116,7 @@ export function InvoiceModal({
             initialData={initialData}
             onSubmit={onSubmit}
             onSuccess={onClose}
-            submitLabel={mode === 'create' ? 'Create Invoice' : 'Update Invoice'}
+            submitLabel={mode === 'create' ? `Create ${documentLabel}` : `Update ${documentLabel}`}
             disabled={isLoading}
             clients={clients}
             projects={projects}
@@ -128,4 +129,3 @@ export function InvoiceModal({
     </div>
   )
 }
-
