@@ -48,6 +48,7 @@ export type InvoiceListItem = {
   client_id: string
   client_name: string
   grand_total: number
+  paid_amount: number
   payment_status: InvoicePaymentStatus
   created_at: string
   hsn_code: string | null
@@ -382,7 +383,7 @@ export async function getInvoicesPage(
   let query = supabase
     .from('invoices')
     .select(
-      'id, invoice_number, invoice_date, client_id, grand_total, payment_status, created_at, clients(id,name), invoice_items(hsn_codes(code,title))',
+      'id, invoice_number, invoice_date, client_id, grand_total, paid_amount, payment_status, created_at, clients(id,name), invoice_items(hsn_codes(code,title))',
       {
         count: 'exact',
       }
@@ -416,6 +417,7 @@ export async function getInvoicesPage(
     invoice_date: string
     client_id: string
     grand_total: number
+    paid_amount: number
     payment_status: string
     created_at: string
     invoice_items: Array<{ hsn_codes?: { code: string; title: string } | { code: string; title: string }[] | null }> | null
@@ -433,6 +435,7 @@ export async function getInvoicesPage(
       client_id: r.client_id,
       client_name: client?.name ?? '—',
       grand_total: r.grand_total,
+      paid_amount: Number(r.paid_amount ?? 0),
       payment_status: (r.payment_status || 'unpaid') as InvoicePaymentStatus,
       created_at: r.created_at,
       hsn_code,

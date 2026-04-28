@@ -471,6 +471,12 @@ export function InvoicesClient({
                               <div className="text-base font-extrabold text-[#1E1B4B]">
                                 {formatCurrency(row.grand_total)}
                               </div>
+                              <div className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                Received
+                              </div>
+                              <div className="text-sm font-bold text-emerald-800">
+                                {formatCurrency(row.paid_amount ?? 0)}
+                              </div>
                             </div>
                           </div>
 
@@ -529,7 +535,7 @@ export function InvoicesClient({
 
                 {/* Desktop: table (md and up) */}
                 <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full min-w-[1000px]">
+                  <table className="w-full min-w-[1120px]">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-50">
                         <th
@@ -555,6 +561,9 @@ export function InvoicesClient({
                           onClick={() => handleSort('grand_total')}
                         >
                           Total Amount
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-[#1E1B4B]">
+                          Received Amount
                         </th>
                         <th
                           className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[#1E1B4B] cursor-pointer"
@@ -595,8 +604,11 @@ export function InvoicesClient({
                                 <span className="text-slate-400">—</span>
                               )}
                             </td>
-                            <td className="px-4 py-3 text-sm text-right font-semibold text-[#1E1B4B]">
+                            <td className="whitespace-nowrap px-4 py-3 text-sm text-right font-medium text-[#1E1B4B]">
                               {formatCurrency(row.grand_total)}
+                            </td>
+                            <td className="whitespace-nowrap px-4 py-3 text-sm text-right font-medium text-emerald-700">
+                              {formatCurrency(row.paid_amount ?? 0)}
                             </td>
                             <td className="px-4 py-3 text-sm">
                               <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${badge.className}`}>
