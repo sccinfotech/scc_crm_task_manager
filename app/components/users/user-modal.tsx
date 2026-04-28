@@ -43,7 +43,7 @@ export function UserModal({
 
     return (
         <div
-            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
+            className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-3 bg-slate-900/40 backdrop-blur-sm"
             role="dialog"
             aria-modal="true"
         >
@@ -53,8 +53,8 @@ export function UserModal({
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
-                <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 flex-shrink-0">
-                    <h2 className="text-xl font-semibold text-[#1E1B4B]">
+                <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2.5 sm:py-3 flex-shrink-0">
+                    <h2 className="text-lg font-semibold text-[#1E1B4B] sm:text-xl">
                         {mode === 'create' ? 'Create New User' : editTitle}
                     </h2>
                     <button
@@ -79,7 +79,7 @@ export function UserModal({
                 </div>
 
                 {/* Content */}
-                <div className="overflow-y-auto px-6 py-6 flex-1">
+                <div className="overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 flex-1">
                     <UserForm
                         mode={mode}
                         initialData={initialData}

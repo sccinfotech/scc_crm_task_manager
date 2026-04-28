@@ -717,10 +717,10 @@ function RequirementModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-3" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/50" />
       <div className="relative z-10 w-full max-w-3xl rounded-2xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 sm:px-6 sm:py-4">
+        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5 sm:px-5 sm:py-3">
           <div>
             <h2 className="text-lg font-semibold text-[#1E1B4B] sm:text-xl">
               {mode === "create" ? "Add Requirement" : "Edit Requirement"}
@@ -737,7 +737,7 @@ function RequirementModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="max-h-[calc(100dvh-140px)] overflow-y-auto px-4 py-4 space-y-6 sm:max-h-[calc(100vh-180px)] sm:px-6 sm:py-6">
+        <form onSubmit={handleSubmit} className="max-h-[calc(100dvh-140px)] overflow-y-auto px-3 py-3 space-y-4 sm:max-h-[calc(100vh-180px)] sm:px-4 sm:py-4">
           {error && (
             <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3">
               <p className="text-sm font-medium text-rose-700">{error}</p>

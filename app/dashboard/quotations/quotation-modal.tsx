@@ -70,7 +70,7 @@ export function QuotationModal({
   return (
     <>
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-3"
       role="dialog"
       aria-modal="true"
     >
@@ -79,8 +79,8 @@ export function QuotationModal({
         className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 flex-shrink-0">
-          <h2 className="text-xl font-semibold text-[#1E1B4B]">
+        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2.5 sm:py-3 flex-shrink-0">
+          <h2 className="text-lg font-semibold text-[#1E1B4B] sm:text-xl">
             {mode === 'create' ? 'Create Quotation' : 'Edit Quotation'}
           </h2>
           <button
@@ -94,7 +94,7 @@ export function QuotationModal({
             </svg>
           </button>
         </div>
-        <div className="overflow-y-auto px-6 py-6 flex-1">
+        <div className="overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 flex-1">
           {isLoading ? (
             <div className="animate-pulse space-y-4">
               <div className="h-12 rounded-xl bg-gray-200" />

@@ -45,6 +45,8 @@ export function ClientForm({
         status: formData.get('status') as ClientStatus,
         remark: formData.get('remark') as string,
         lead_id: formData.get('lead_id') as string,
+        gst_number: (formData.get('gst_number') as string) || undefined,
+        billing_state_code: (formData.get('billing_state_code') as string) || undefined,
       }
 
       const result = await onSubmit(clientData)
@@ -65,7 +67,7 @@ export function ClientForm({
   const statusOptions = STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label }))
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form action={formAction} className="space-y-4">
       {state?.error && (
         <div className="rounded-xl bg-rose-50 border border-rose-100 p-4 animate-fade-in">
           <div className="flex gap-3">
@@ -83,10 +85,10 @@ export function ClientForm({
       )}
 
       {/* Info Group */}
-      <div className="bg-slate-50/50 rounded-2xl p-5 border border-slate-100 space-y-5">
+      <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100 space-y-3">
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Client Information</h3>
 
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2">
           {/* Name */}
           <div className="md:col-span-1">
             <label htmlFor="name" className={labelClasses}>
@@ -121,7 +123,7 @@ export function ClientForm({
           </div>
         </div>
 
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2">
           {/* Phone */}
           <div>
             <label htmlFor="phone" className={labelClasses}>
@@ -157,13 +159,46 @@ export function ClientForm({
             />
           </div>
         </div>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          {/* Billing State */}
+          <div>
+            <label htmlFor="billing_state_code" className={labelClasses}>
+              Billing State Code <span className="text-slate-400 font-normal">(e.g. GJ)</span>
+            </label>
+            <input
+              type="text"
+              id="billing_state_code"
+              name="billing_state_code"
+              defaultValue={(initialData as { billing_state_code?: string } | undefined)?.billing_state_code || ''}
+              className={inputClasses}
+              placeholder="GJ"
+              maxLength={2}
+            />
+          </div>
+
+          {/* GST Number */}
+          <div>
+            <label htmlFor="gst_number" className={labelClasses}>
+              GST Number <span className="text-slate-400 font-normal">(optional)</span>
+            </label>
+            <input
+              type="text"
+              id="gst_number"
+              name="gst_number"
+              defaultValue={(initialData as { gst_number?: string } | undefined)?.gst_number || ''}
+              className={inputClasses}
+              placeholder="22AAAAA0000A1Z5"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Status Group */}
-      <div className="bg-slate-50/50 rounded-2xl p-5 border border-slate-100 space-y-5">
+      <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100 space-y-3">
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Status</h3>
 
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2">
           {/* Status */}
           <div>
             <label htmlFor="status" className={labelClasses}>

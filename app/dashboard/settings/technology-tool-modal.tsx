@@ -49,14 +49,14 @@ export function TechnologyToolModal({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-3" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
       <div
         className="relative z-10 w-full max-w-lg rounded-2xl bg-white shadow-2xl ring-1 ring-black/5"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <h2 className="text-xl font-semibold text-[#1E1B4B]">
+        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2.5 sm:py-3">
+          <h2 className="text-lg font-semibold text-[#1E1B4B] sm:text-xl">
             {mode === 'create' ? 'Add Technology Tool' : 'Edit Technology Tool'}
           </h2>
           <button
@@ -70,14 +70,14 @@ export function TechnologyToolModal({
           </button>
         </div>
 
-        <div className="px-6 py-6">
+        <div className="px-3 py-3 sm:px-4 sm:py-4">
           {state?.error && (
-            <div className="rounded-lg bg-red-50 border border-red-200 p-4 mb-4">
+            <div className="rounded-lg bg-red-50 border border-red-200 p-3 mb-3">
               <p className="text-sm font-medium text-red-800">{state.error}</p>
             </div>
           )}
 
-          <form action={formAction} className="space-y-5">
+          <form action={formAction} className="space-y-4">
             <div>
               <label htmlFor="name" className="block text-sm font-semibold text-[#1E1B4B] mb-2">
                 Tool Name <span className="text-rose-500">*</span>

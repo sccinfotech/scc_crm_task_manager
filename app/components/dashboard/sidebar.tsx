@@ -29,8 +29,9 @@ const menuItems = [
   { name: 'Quotations', href: '/dashboard/quotations', icon: QuotationsIcon, moduleId: MODULE_PERMISSION_IDS.quotations },
   { name: 'Projects', href: '/dashboard/projects', icon: ProjectsIcon, moduleId: MODULE_PERMISSION_IDS.projects },
   { name: 'Home Products', href: '/dashboard/products', icon: HomeProductsIcon, moduleId: MODULE_PERMISSION_IDS.products },
-  { name: 'Users', href: '/dashboard/users', icon: UsersIcon, moduleId: MODULE_PERMISSION_IDS.users },
+  { name: 'Invoices', href: '/dashboard/invoices', icon: QuotationsIcon, moduleId: MODULE_PERMISSION_IDS.invoices },
   { name: 'Payments', href: '/dashboard/payments', icon: PaymentIcon, adminOnly: true },
+  { name: 'Users', href: '/dashboard/users', icon: UsersIcon, moduleId: MODULE_PERMISSION_IDS.users },
   { name: 'Accounting', href: '/dashboard/accounting', icon: AccountingIcon, moduleId: MODULE_PERMISSION_IDS.accounting },
   { name: 'Logs', href: '/dashboard/logs', icon: LogsIcon, moduleId: MODULE_PERMISSION_IDS.logs },
   {

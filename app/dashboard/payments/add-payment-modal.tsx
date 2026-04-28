@@ -100,16 +100,16 @@ export function AddPaymentModal({ isOpen, onClose, project, onSuccess }: AddPaym
   const accountOptions = accounts.map((a) => ({ value: a.id, label: a.name }))
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-3" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
       <div className="relative z-10 w-full max-w-lg rounded-2xl bg-white shadow-2xl ring-1 ring-black/5" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <h2 className="text-xl font-semibold text-[#1E1B4B]">Add Payment — {project.name}</h2>
+        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2.5 sm:py-3">
+          <h2 className="text-lg font-semibold text-[#1E1B4B] sm:text-xl">Add Payment — {project.name}</h2>
           <button type="button" onClick={onClose} className="rounded-xl p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600" aria-label="Close">
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="px-6 py-6 space-y-4">
+        <form onSubmit={handleSubmit} className="px-3 py-3 sm:px-4 sm:py-4 space-y-3">
           {error && <p className="text-sm text-red-600">{error}</p>}
           <p className="text-xs text-slate-500">Pending balance: {formatCurrency(project.pending_amount)}</p>
           <div>

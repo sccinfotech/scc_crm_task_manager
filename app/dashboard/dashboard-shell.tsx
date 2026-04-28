@@ -87,6 +87,7 @@ export function DashboardShell({
         pathname === '/dashboard/projects' ||
         pathname === '/dashboard/products' ||
         pathname === '/dashboard/quotations' ||
+        pathname === '/dashboard/invoices' ||
         pathname === '/dashboard/accounting' ||
         pathname === '/dashboard/payments' ||
         pathname === '/dashboard/logs' ||
@@ -97,6 +98,7 @@ export function DashboardShell({
         pathname?.startsWith('/dashboard/projects/') ||
         pathname?.startsWith('/dashboard/products/') ||
         pathname?.startsWith('/dashboard/quotations/') || // quotation detail page has custom header
+        pathname?.startsWith('/dashboard/invoices/') ||
         pathname?.startsWith('/dashboard/accounting') ||
         pathname?.startsWith('/dashboard/payments') || // payment list + detail
         pathname?.startsWith('/dashboard/settings/'); // settings subpages
@@ -108,6 +110,7 @@ export function DashboardShell({
         if (pathname?.includes('projects')) return 'Projects';
         if (pathname?.includes('products')) return 'Products';
         if (pathname?.includes('quotations')) return 'Quotations';
+        if (pathname?.includes('invoices')) return 'Invoices';
         if (pathname?.includes('accounting')) return 'Accounting';
         if (pathname?.includes('payments')) return 'Payments';
         if (pathname?.includes('logs')) return 'Logs';

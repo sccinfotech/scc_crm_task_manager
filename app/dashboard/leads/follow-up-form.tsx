@@ -33,7 +33,7 @@ export function FollowUpForm({
   )
 
   return (
-    <form action={formAction} className="space-y-5">
+    <form action={formAction} className="space-y-4">
       {state?.error && (
         <div className="rounded-lg bg-red-50 border border-red-200 p-4">
           <p className="text-sm font-medium text-red-800">{state.error}</p>

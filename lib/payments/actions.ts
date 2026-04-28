@@ -7,6 +7,10 @@ import { decryptAmount } from '@/lib/amount-encryption'
 import { getProjectRequirements } from '@/lib/projects/requirements-actions'
 import type { ProjectRequirement, RequirementSummary } from '@/lib/projects/requirements-actions'
 import {
+  allocateAccountingEntryToProjectInvoices,
+  removeAllocationsForAccountingEntry,
+} from '@/lib/invoices/payment-allocation'
+import {
   createEntry,
   updateEntry,
   deleteEntry,
@@ -312,9 +316,19 @@ export async function createProjectPayment(
 
   if (result.error) return { data: null, error: result.error }
 
+  if (result.data?.id) {
+    const allocRes = await allocateAccountingEntryToProjectInvoices({
+      projectId,
+      accountingEntryId: result.data.id,
+      amount,
+    })
+    if (allocRes.error) return { data: null, error: allocRes.error }
+  }
+
   revalidatePath('/dashboard/payments')
   revalidatePath(`/dashboard/payments/${projectId}`)
   revalidatePath('/dashboard/accounting')
+  revalidatePath('/dashboard/invoices')
   return { data: result.data, error: null }
 }
 
@@ -358,9 +372,17 @@ export async function updateProjectPayment(
 
   if (result.error) return { data: null, error: result.error }
 
+  const allocRes = await allocateAccountingEntryToProjectInvoices({
+    projectId,
+    accountingEntryId: entryId,
+    amount,
+  })
+  if (allocRes.error) return { data: null, error: allocRes.error }
+
   revalidatePath('/dashboard/payments')
   revalidatePath(`/dashboard/payments/${projectId}`)
   revalidatePath('/dashboard/accounting')
+  revalidatePath('/dashboard/invoices')
   return { data: result.data, error: null }
 }
 
@@ -372,12 +394,16 @@ export async function deleteProjectPayment(
   if (!user) return { error: 'You must be logged in' }
   if (!isAdmin(user)) return { error: 'Only admins can delete payments' }
 
+  const removeRes = await removeAllocationsForAccountingEntry({ accountingEntryId: entryId })
+  if (removeRes.error) return { error: removeRes.error }
+
   const result = await deleteEntry(entryId)
   if (result.error) return { error: result.error }
 
   revalidatePath('/dashboard/payments')
   revalidatePath(`/dashboard/payments/${projectId}`)
   revalidatePath('/dashboard/accounting')
+  revalidatePath('/dashboard/invoices')
   return { error: null }
 }
 

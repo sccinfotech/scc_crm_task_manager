@@ -39,7 +39,7 @@ export function FollowUpModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-3"
       role="dialog"
       aria-modal="true"
     >
@@ -52,7 +52,7 @@ export function FollowUpModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 sm:px-6 sm:py-4">
+        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2.5 sm:px-5 sm:py-3">
           <h2 className="text-lg font-semibold text-[#1E1B4B] sm:text-xl">
             {mode === 'create' ? 'Add Follow-Up' : 'Edit Follow-Up'}
           </h2>
@@ -78,7 +78,7 @@ export function FollowUpModal({
         </div>
 
         {/* Content */}
-        <div className="max-h-[calc(100dvh-140px)] overflow-y-auto px-4 py-4 sm:max-h-[calc(100vh-200px)] sm:px-6 sm:py-6">
+        <div className="max-h-[calc(100dvh-140px)] overflow-y-auto px-3 py-3 sm:max-h-[calc(100vh-200px)] sm:px-4 sm:py-4">
           <FollowUpForm
             initialData={initialData}
             onSubmit={onSubmit}
