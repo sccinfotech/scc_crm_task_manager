@@ -150,6 +150,11 @@ export function getWorkSessionCutoffDisplay(): { cutoffLabel: string; timezone: 
   }
 }
 
+/** Stored on auto-ended sessions (time event `note` + `work_done_notes`) so work history shows a clear reason. */
+export function buildWorkSessionAutoEndNote(cutoffLabel: string, timezone: string): string {
+  return `Session auto-ended — daily cutoff at ${cutoffLabel} (${timezone}).`
+}
+
 export async function autoEndWorkSessionsAtCutoff(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
@@ -206,7 +211,7 @@ export async function autoEndWorkSessionsAtCutoff(
     projectNameById.set(project.id, project.name ?? null)
   })
 
-  const autoEndNote = `Auto-ended at ${cutoffLabel} (${timezone}) by company cutoff policy.`
+  const autoEndNote = buildWorkSessionAutoEndNote(cutoffLabel, timezone)
   const timeEventsToInsert = eligible.map((row) => ({
     project_id: row.project_id,
     user_id: row.user_id,
