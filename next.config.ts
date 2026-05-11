@@ -10,11 +10,10 @@ const nextConfig: NextConfig = {
   // Allow local network access during development
   // Add your local network IP addresses here
   allowedDevOrigins: [
-    '192.168.1.3', // Your current local network IP
-    '192.168.1.22', // Add your IP address
-    // Add more IPs if needed, e.g.:
-    // '192.168.1.3',
-    // '10.0.0.2',
+    '192.168.1.3',
+    '192.168.1.9',
+    '192.168.1.22',
+    // Add more LAN IPs here if `next dev` prints a different Network address.
   ],
 
   // Caching headers for static assets (improves CDN/browser caching)
