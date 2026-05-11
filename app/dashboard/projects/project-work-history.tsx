@@ -10,7 +10,7 @@ import {
 import { EmptyState } from '@/app/components/empty-state'
 import { StaffAvatar } from '@/app/components/ui/staff-avatar'
 
-/** Work history is sourced from project_team_member_time_events (start/hold/resume/end + note on end). */
+/** Work history: active segments only (start→hold, resume→…→end); sourced from project_team_member_time_events. */
 export const WORK_HISTORY_DATA_SOURCE = 'project_team_member_time_events'
 
 /**

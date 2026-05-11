@@ -24,11 +24,9 @@ export type WorkHistoryDay = {
 }
 
 /**
- * Builds day-wise work history for a user from time events, with one entry per
- * complete session (Start → … → End). Hold/Resume boundaries are not shown as
- * separate entries; only full sessions from first start/resume to end appear.
- * Sessions are grouped by the date the session ended.
- * Use this for the Work history tab display.
+ * Builds day-wise work history with one row per complete session wall-clock
+ * (first start/resume → end), so pause (hold→resume) time is included in the span.
+ * Prefer {@link computeWorkHistoryByDay} for Work history / analytics (active time only).
  */
 export function computeWorkHistorySessionsByDay(
   userId: string,
@@ -81,9 +79,10 @@ export function computeWorkHistorySessionsByDay(
 }
 
 /**
- * Builds day-wise work history for a user from time events (segment-based).
- * Each day has segments (start–hold, resume–hold, resume–end clipped to that day).
- * Use computeWorkHistorySessionsByDay for UI display (one entry per Start→End session).
+ * Builds day-wise work history (segment-based active time only).
+ * Segments: start→hold, resume→hold, …, resume→end (pause / hold→resume excluded).
+ * Each day clips segments to local day bounds; notes attach on the segment’s end day.
+ * Used for Work history and project analytics totals.
  */
 export function computeWorkHistoryByDay(
   userId: string,

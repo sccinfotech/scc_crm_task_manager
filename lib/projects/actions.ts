@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser, hasPermission } from '@/lib/auth/utils'
 import { MODULE_PERMISSION_IDS } from '@/lib/permissions'
 import { createActivityLogEntry } from '@/lib/activity-log/logger'
-import { computeMemberWorkSeconds, computeWorkHistorySessionsByDay } from '@/lib/projects/work-utils'
+import { computeMemberWorkSeconds, computeWorkHistoryByDay } from '@/lib/projects/work-utils'
 import { autoEndWorkSessionsAtCutoff, getWorkSessionCutoffDisplay } from '@/lib/projects/work-cutoff'
 import { prepareSearchTerm } from '@/lib/supabase/utils'
 import type { WorkHistoryDay, WorkHistorySegment } from '@/lib/projects/work-utils'
@@ -1684,6 +1684,7 @@ export type ProjectAnalyticsResult =
 
 /**
  * Returns work history (by day, with segments and notes) for a project.
+ * Totals and segment durations are active work time only (start→hold, resume→hold, …, resume→end; hold→resume excluded).
  * Data source: project_team_member_time_events (event_type: start, hold, resume, end; note on end).
  * Staff: always current user.
  * Admin/Manager: returns all users' work history grouped by date.
@@ -1754,7 +1755,7 @@ export async function getProjectWorkHistory(
 
     const dayMap = new Map<string, ProjectWorkHistoryTeamDay>()
     for (const userId of userIds) {
-      const userDays = computeWorkHistorySessionsByDay(userId, events)
+      const userDays = computeWorkHistoryByDay(userId, events)
       if (userDays.length === 0) continue
 
       const userInfo = userMap.get(userId)
@@ -1804,12 +1805,13 @@ export async function getProjectWorkHistory(
     }
   }
 
-  const days = computeWorkHistorySessionsByDay(userId, events)
+  const days = computeWorkHistoryByDay(userId, events)
   return { data: { mode: 'single', days }, error: null }
 }
 
 /**
- * Project analytics for Admin/Manager: total time spent and staff-wise totals,
+ * Project analytics for Admin/Manager: total active work time and staff-wise totals
+ * (same segment rules as work history; hold→resume not counted),
  * with optional inclusive date-range filtering by day key (YYYY-MM-DD).
  */
 export async function getProjectAnalytics(
@@ -1937,7 +1939,7 @@ export async function getProjectAnalytics(
 
   const staffTotals: ProjectAnalyticsStaffTime[] = []
   for (const [userId, meta] of userMetaById.entries()) {
-    const dayHistory = computeWorkHistorySessionsByDay(userId, events)
+    const dayHistory = computeWorkHistoryByDay(userId, events)
     const totalSeconds = dayHistory.reduce((sum, day) => (
       shouldIncludeDay(day.date) ? sum + day.totalSeconds : sum
     ), 0)
